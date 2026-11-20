@@ -11,6 +11,16 @@ See [PLAN.md](PLAN.md) for the full plan.
 Open `index.html` in a browser. There's no build step and nothing to install. Pushes to `main`
 are published to GitHub Pages by `.github/workflows/pages.yml`.
 
+## Share it as one file
+
+```sh
+node tools/bundle.mjs              # writes dist/flink-sql-patterns.html
+```
+
+The bundle inlines the stylesheet and every script, and embeds the fonts, so it's a single HTML
+file that works offline. Building it fetches the fonts from Google Fonts once; add `--no-fonts` to
+keep the font link instead (the page then falls back to system fonts when offline).
+
 ## How it fits together
 
 | Path | What it is |
@@ -22,6 +32,7 @@ are published to GitHub Pages by `.github/workflows/pages.yml`.
 | `js/player.js` | Builds a pattern section, and the playback controls |
 | `verification/` | The SQL behind every job graph, and the plans Flink produced for it |
 | `tools/shoot.mjs` | Screenshots the page in headless Chrome, and reports console errors |
+| `tools/bundle.mjs` | Bundles the site into one standalone HTML file |
 
 ## Checking the job graphs against Flink
 
