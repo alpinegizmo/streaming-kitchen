@@ -50,7 +50,7 @@ CREATE TABLE delivery_orders (
 ) WITH ('connector' = 'kafka', 'topic' = 'delivery_orders');
 
 -- Connection and format options are left out.`,
-    matrix: { state: 'None', watermarks: 'Passed through' },
+    matrix: { state: 'None', watermarks: 'Not used', watermarksOut: 'Passed through' },
     facts: {
       state: 'None. Each order is handled on its own, and nothing is remembered.',
       watermarks: 'Not used. The source generates them, because <code>orders</code> declares a watermark, and the Calc passes them along. Nothing waits for them.',
@@ -151,7 +151,7 @@ CREATE TABLE open_orders (
 ) WITH ('connector' = 'upsert-kafka', 'topic' = 'open_orders');
 
 -- Connection and format options are left out.`,
-    matrix: { state: 'The last row per key, in ChangelogNormalize', watermarks: 'Passed through' },
+    matrix: { state: 'The last row per key, in ChangelogNormalize', watermarks: 'Not used', watermarksOut: 'Passed through' },
     facts: {
       state: 'ChangelogNormalize keeps the last row of every order that currently passes the filter. A key is cleared when its order is cancelled or deleted.',
       watermarks: 'Not used. <code>order_status</code> declares no watermark, and nothing in this job depends on time.',

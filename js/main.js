@@ -28,12 +28,14 @@
         U.el('span', { class: 'm-pattern' }, p.nav || p.title),
         p.variants.length > 1 ? U.el('span', { class: 'm-variant' }, v.label) : null)),
       cell('State', v.matrix.state),
-      cell('Watermarks', v.matrix.watermarks),
+      cell('Watermarks used for', v.matrix.watermarks),
+      // Operators that make a new watermark, instead of forwarding the one they got, stand out.
+      U.el('td', { 'data-label': 'Output watermark', class: v.matrix.watermarksOut.startsWith('Passed through') ? '' : 'm-new-wm' }, v.matrix.watermarksOut),
       cell('Output', U.el('span', { class: `badge mode-${sinkEdge.mode}` }, modeText[sinkEdge.mode])),
       cell('Added by the planner', planner.length ? planner.join(', ') : '–'));
   }));
   document.querySelector('#summary .matrix-wrap').append(U.el('table', {},
-    U.el('thead', {}, U.el('tr', {}, ...['Pattern', 'State', 'Watermarks', 'Output', 'Added by the planner'].map((h) => U.el('th', { scope: 'col' }, h)))),
+    U.el('thead', {}, U.el('tr', {}, ...['Pattern', 'State', 'Watermarks used for', 'Output watermark', 'Output', 'Added by the planner'].map((h) => U.el('th', { scope: 'col' }, h)))),
     U.el('tbody', {}, ...matrixRows)));
 
   // Deep links: #windows-hop opens the Hop tab of the windows section. Any link into the page

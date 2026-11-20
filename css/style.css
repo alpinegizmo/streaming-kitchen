@@ -406,14 +406,16 @@ pre.plan { font-size: 12.5px; padding: 14px 18px; white-space: pre; }
 }
 .matrix tbody tr { border-bottom: 1px solid var(--rule); }
 .matrix tbody tr.group-start { border-top: 2px solid var(--rule); }
-.matrix tbody th { font-weight: 500; width: 17%; }
+.matrix tbody th { font-weight: 500; width: 14%; }
 .matrix tbody th a { color: var(--ink); text-decoration: none; display: block; }
 .matrix tbody th a:hover .m-pattern, .matrix tbody th a:focus-visible .m-pattern { text-decoration: underline; }
 .matrix .m-variant { display: block; color: var(--ink-2); font-weight: 400; }
 .matrix tbody tr:not(.group-start) .m-pattern { display: none; }
-.matrix td:nth-child(2) { width: 30%; }
-.matrix td:nth-child(3) { width: 24%; }
+.matrix td:nth-child(2) { width: 24%; }
+.matrix td:nth-child(3) { width: 18%; }
+.matrix td:nth-child(4) { width: 20%; }
 .matrix td { color: var(--ink-2); }
+.matrix td.m-new-wm { color: var(--ink); font-weight: 600; }
 .matrix .badge { white-space: nowrap; }
 
 /* Phones: each variant becomes a small labelled block. */
@@ -425,7 +427,7 @@ pre.plan { font-size: 12.5px; padding: 14px 18px; white-space: pre; }
   .matrix tbody th { padding: 0 0 6px; }
   .matrix .m-variant { display: inline; }
   .matrix .m-variant::before { content: ': '; }
-  .matrix td { display: grid; grid-template-columns: 7.5em 1fr; gap: 10px; padding: 3px 0; }
+  .matrix td { display: grid; grid-template-columns: 8.5em 1fr; gap: 10px; padding: 3px 0; }
   .matrix td::before { content: attr(data-label); color: var(--ink-3); font-size: 0.85rem; }
   .matrix td .badge { justify-self: start; }
 }

@@ -162,7 +162,7 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
       const rows = ev.rows.map((x) => `store ${x.store_id}, ${result(x)}`).join('; ');
       return `The watermark reaches ${ev.time}, so the ${list(wins)} window is complete. WindowAggregate emits a final row for each store (${rows}), frees their state, and then forwards the watermark.`;
     },
-    matrix: { state: 'An accumulator per key and window, freed when the window fires', watermarks: 'Triggers results and frees state' },
+    matrix: { state: 'An accumulator per key and window, freed when the window fires', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
     facts: {
       state: 'One accumulator per store and window (an order count and a running sum), and a timer at the end of each window. A window\'s state is freed as soon as it fires.',
       ...sharedFacts,
@@ -234,7 +234,7 @@ open.</p>`,
         return parts.join(' ');
       }).join(' ');
     },
-    matrix: { state: 'An accumulator per key and slice, freed when no open window needs it', watermarks: 'Triggers results and frees state' },
+    matrix: { state: 'An accumulator per key and slice, freed when no open window needs it', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
     facts: {
       state: 'One accumulator per store and 5-minute slice, and a timer at the next window\'s end. Each order is stored once, though it belongs to three windows. A slice is freed when the last window that needs it has fired.',
       ...sharedFacts,
@@ -294,7 +294,7 @@ it.</p>
         return parts.join(' ');
       }).join(' ');
     },
-    matrix: { state: 'An accumulator per key and slice, freed when the hour is complete', watermarks: 'Triggers results and frees state' },
+    matrix: { state: 'An accumulator per key and slice, freed when the hour is complete', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
     facts: {
       state: 'One accumulator per store and 15-minute slice, and a timer for the next step. As each step fires, its slice is merged into the window\'s first slice, which holds the running total. It\'s all freed when the hour is complete.',
       ...sharedFacts,
@@ -342,7 +342,7 @@ orders arrive.</p>
       const done = ev.rows.map((x) => `store ${x.store_id}'s ${x.window_start}–${x.window_end} session (${result(x)})`);
       return `The watermark reaches ${ev.time}, past the end of ${list(done)}. Ten quiet minutes have passed, so ${ev.rows.length > 1 ? 'they are' : 'it is'} complete. WindowAggregate emits ${ev.rows.length > 1 ? 'them' : 'it'}, and frees the state.`;
     },
-    matrix: { state: 'A session per key, merged as rows arrive, freed when it fires', watermarks: 'Triggers results and frees state' },
+    matrix: { state: 'A session per key, merged as rows arrive, freed when it fires', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the sessions it fires' },
     facts: {
       state: 'One accumulator per store and open session, and a timer at the session\'s end. When sessions merge, so does their state. A session\'s state is freed when it fires.',
       watermarks: 'A session fires when the watermark passes its end: its last order plus the gap. An order is late, and dropped, if its own time plus the gap is already behind the watermark. One that misses its session but isn\'t that late starts a new session.',

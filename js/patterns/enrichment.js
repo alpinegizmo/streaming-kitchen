@@ -55,7 +55,7 @@ CREATE TABLE delivery_times (
 ) WITH ('connector' = 'kafka', 'topic' = 'delivery_times');
 
 -- Connection and format options are left out.`,
-    matrix: { state: 'None in Flink: the connector caches lookups', watermarks: 'Not used' },
+    matrix: { state: 'None in Flink: the connector caches lookups', watermarks: 'Not used', watermarksOut: 'Passed through' },
     facts: {
       state: 'None in Flink. The connector\'s cache, of recent lookups, lives in memory, and isn\'t checkpointed.',
       watermarks: 'Not used. The lookup happens in processing time: each order sees whatever the service answers when it\'s processed.',
@@ -213,7 +213,7 @@ FROM orders AS o
 JOIN pizza_costs FOR SYSTEM_TIME AS OF o.event_time AS c
   ON o.pizza_id = c.pizza_id;`,
     ddl: ordersDdl,
-    matrix: { state: 'Waiting orders, and the versions of each cost', watermarks: 'Holds results until both inputs catch up' },
+    matrix: { state: 'Waiting orders, and the versions of each cost', watermarks: 'Holds results until both inputs catch up', watermarksOut: 'The minimum of both inputs' },
     facts: {
       state: 'Orders wait in state until the watermark reaches them. For each pizza, its cost versions, and one timer. When the timer fires, versions older than the latest one at or before the watermark are removed.',
       watermarks: 'They drive the join. An order is joined once the watermark, the minimum of both inputs, passes its time, so that every cost change up to then has arrived. If pizza_costs goes quiet, the join stalls.',
@@ -318,7 +318,7 @@ JOIN LATERAL SNAPSHOT(
        on_time => DESCRIPTOR(valid_from)) AS c
   ON o.pizza_id = c.pizza_id;`,
     ddl: ordersDdl,
-    matrix: { state: 'The current costs; while loading, buffered orders and pending changes', watermarks: 'Ends the load phase, and decides when each cost change takes effect' },
+    matrix: { state: 'The current costs; while loading, buffered orders and pending changes', watermarks: 'Ends the load phase, and decides when each cost change takes effect', watermarksOut: 'The orders watermark only, held back until loading ends. The costs watermark is never forwarded' },
     facts: {
       state: 'The current cost rows, per pizza, and cost changes waiting for the watermark. Orders are buffered only during the load phase. ChangelogNormalize also keeps the last row of every pizza.',
       watermarks: 'The costs watermark decides when the load phase ends, and when each cost change becomes visible. Orders don\'t wait for watermarks in the join phase, and the order watermark is forwarded.',

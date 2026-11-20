@@ -119,7 +119,7 @@ CREATE TABLE store_totals (
       cfg: { topic: 'store_totals', key: 'store_id', showKey: true, columns: [{ f: 'orders', num: true }, { f: 'sales', ...money }] },
     },
     narrateSink: (ev) => `The sink writes ${result(ev.row)}, keyed by store ${ev.key}. After compaction it replaces any earlier value for store ${ev.key}.`,
-    matrix: { state: 'An accumulator per key, kept until state TTL', watermarks: 'Not used' },
+    matrix: { state: 'An accumulator per key, kept until state TTL', watermarks: 'Not used', watermarksOut: 'Passed through, but the results have no time attribute to use it with' },
     facts: {
       state: 'One accumulator per store: an order count and a running sum. Nothing ever removes it, so set a state TTL if the set of keys keeps growing.',
       watermarks: 'Not used. A non-windowed aggregate never decides that a group is complete, so nothing waits for time.',
@@ -189,7 +189,7 @@ CREATE TABLE store_totals_changelog (
     narrateSink: (ev) => (ev.type === 'delete'
       ? `The sink writes the retraction as a Debezium delete (op d), with the old result as its before image.`
       : `The sink writes ${result(ev.row)} as a Debezium create (op c), with the new result as its after image.`),
-    matrix: { state: 'An accumulator per key, kept until state TTL', watermarks: 'Not used' },
+    matrix: { state: 'An accumulator per key, kept until state TTL', watermarks: 'Not used', watermarksOut: 'Passed through, but the results have no time attribute to use it with' },
     facts: {
       state: 'One accumulator per store: an order count and a running sum, kept until a state TTL expires it.',
       watermarks: 'Not used. A non-windowed aggregate never decides that a group is complete.',
@@ -246,7 +246,7 @@ CREATE TABLE status_counts (
 ) WITH ('connector' = 'upsert-kafka', 'topic' = 'status_counts');
 
 -- Connection and format options are left out.`,
-    matrix: { state: 'The last row per key, and an accumulator per key', watermarks: 'Not used' },
+    matrix: { state: 'The last row per key, and an accumulator per key', watermarks: 'Not used', watermarksOut: 'Passed through, but the results have no time attribute to use it with' },
     facts: {
       state: 'ChangelogNormalize keeps the last row of every order, so it can retract it. GroupAggregate keeps a count per status, and drops a status when its count reaches zero.',
       watermarks: 'Not used. <code>order_status</code> declares no watermark, and nothing waits for time.',

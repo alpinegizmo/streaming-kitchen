@@ -94,7 +94,7 @@ WHERE row_num = 1;`;
     intro: 'The ordering app retries when it times out, so some orders arrive more than once, each copy with its own event time. Press Play, or step through with the arrow keys.',
     sql: sql('unique_orders', 'proc_time'),
     ddl: ddl('unique_orders'),
-    matrix: { state: 'A flag per key that has been seen, kept until state TTL', watermarks: 'Not used' },
+    matrix: { state: 'A flag per key that has been seen, kept until state TTL', watermarks: 'Not used', watermarksOut: 'Passed through' },
     facts: {
       state: 'One flag per order_id: seen or not. It grows with every new order and is never cleared, so set a state TTL a little longer than retries can take.',
       watermarks: 'Not used. The first copy to arrive wins, whatever its event time.',
@@ -150,7 +150,7 @@ letting duplicates through.</p>
     intro: 'The same copies arrive in the same order. This time, Flink keeps the copy with the earliest event time. Press Play, or step through with the arrow keys.',
     sql: sql('earliest_orders', 'event_time'),
     ddl: ddl('earliest_orders'),
-    matrix: { state: 'Per key: the earliest row until the watermark passes it, then a flag', watermarks: 'Triggers results' },
+    matrix: { state: 'Per key: the earliest row until the watermark passes it, then a flag', watermarks: 'Triggers results', watermarksOut: 'Passed through, after the rows it releases' },
     facts: {
       state: 'For each order_id, the earliest copy so far, with a timer at its event time, until the watermark reaches it. After that, a flag that says the order was emitted, which a state TTL can expire.',
       watermarks: 'They decide when a copy is final. An order is emitted when the watermark passes its earliest event time, and copies older than the watermark are late, and dropped.',
