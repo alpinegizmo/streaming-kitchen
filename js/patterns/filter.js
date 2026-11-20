@@ -128,7 +128,7 @@ time just forward them. Here, nothing downstream uses them, and Kafka doesn't st
     id: 'upsert',
     label: 'Upsert source',
     question: 'Which orders are still open, and not cancelled?',
-    blurb: 'Now the source is <code>order_status</code>, an <code>upsert-kafka</code> table that keeps the latest status of each order. Filtering it takes state.',
+    blurb: 'Now the source is <code>order_status</code>, an <code>upsert-kafka</code> table that keeps the latest status of each order. Filtering it requires state.',
     intro: 'order_status is keyed by order_id. Each record is the latest status for its order, and a null value (a tombstone) means the order was removed. Press Play, or step through with the arrow keys.',
     sql: `
 INSERT INTO open_orders
@@ -153,7 +153,7 @@ CREATE TABLE open_orders (
 -- Connection and format options are left out.`,
     matrix: { state: 'The last row per key, in ChangelogNormalize', watermarks: 'Not used', watermarksOut: 'Passed through' },
     facts: {
-      state: 'ChangelogNormalize keeps the last row of every order that currently passes the filter. A key is cleared when its order is cancelled or deleted.',
+      state: 'ChangelogNormalize keeps the last row of every order that currently satisfies the filter. State is cleared when an order is cancelled or deleted.',
       watermarks: 'Not used. <code>order_status</code> declares no watermark, and nothing in this job depends on time.',
       output: 'Upsert, keyed by <code>order_id</code>. The sink needs a primary key, so it\'s <code>upsert-kafka</code>.',
     },

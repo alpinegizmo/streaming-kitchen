@@ -211,7 +211,7 @@ which an append-only sink can't take.</p>`,
     id: 'dedup',
     nav: 'Deduplication',
     title: 'Deduplication',
-    summary: '<p>Keep one row per key and drop the duplicates. Which row counts as the first depends on the time you order by: arrival order is immediate, event time has to wait for the watermark.</p>',
+    summary: '<p>Keep one row per key and drop the duplicates. Which row counts as the first depends on the time attribute you order by: with processing time, the result depends on arrival order, but event time has to wait for the watermark.</p>',
     variants: [procTime, eventTime],
   });
 })();
