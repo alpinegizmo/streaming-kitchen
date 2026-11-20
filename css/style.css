@@ -406,6 +406,8 @@ pre.plan { font-size: 12.5px; padding: 14px 18px; white-space: pre; }
 }
 .matrix tbody tr { border-bottom: 1px solid var(--rule); }
 .matrix tbody tr.group-start { border-top: 2px solid var(--rule); }
+.matrix tbody tr.shade { background: var(--panel); }
+.matrix tr > :first-child { padding-left: 12px; }
 .matrix tbody th { font-weight: 500; width: 14%; }
 .matrix tbody th a { color: var(--ink); text-decoration: none; display: block; }
 .matrix tbody th a:hover .m-pattern, .matrix tbody th a:focus-visible .m-pattern { text-decoration: underline; }
@@ -422,7 +424,8 @@ pre.plan { font-size: 12.5px; padding: 14px 18px; white-space: pre; }
 @media (max-width: 760px) {
   .matrix thead { display: none; }
   .matrix table, .matrix tbody, .matrix tr, .matrix th, .matrix td { display: block; width: auto !important; }
-  .matrix tbody tr { padding: 12px 0; }
+  .matrix tbody tr { padding: 12px; }
+  .matrix tr > :first-child { padding-left: 0; }
   .matrix tbody tr:not(.group-start) .m-pattern { display: inline; }
   .matrix tbody th { padding: 0 0 6px; }
   .matrix .m-variant { display: inline; }

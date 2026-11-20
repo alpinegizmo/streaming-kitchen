@@ -18,12 +18,13 @@
 
   // The summary table: one row per variant, built from the same specs as the animations.
   const modeText = { append: 'append-only', upsert: 'upsert', retract: 'retract' };
-  const matrixRows = window.PATTERNS.flatMap((p) => p.variants.map((v, i) => {
+  const matrixRows = window.PATTERNS.flatMap((p, pi) => p.variants.map((v, i) => {
     const sinkEdge = v.graph.edges.find((e) => v.graph.nodes.find((n) => n.id === e.to).kind === 'sink');
     const planner = v.graph.nodes.filter((n) => n.planner).map((n) => n.title);
     const href = p.variants.length > 1 ? `#${p.id}-${v.id}` : `#${p.id}`;
     const cell = (label, ...kids) => U.el('td', { 'data-label': label }, ...kids);
-    return U.el('tr', { class: i === 0 ? 'group-start' : '' },
+    // Every other pattern is shaded, so each pattern's rows read as one band.
+    return U.el('tr', { class: [i === 0 && 'group-start', pi % 2 && 'shade'].filter(Boolean).join(' ') },
       U.el('th', { scope: 'row' }, U.el('a', { href },
         U.el('span', { class: 'm-pattern' }, p.nav || p.title),
         p.variants.length > 1 ? U.el('span', { class: 'm-variant' }, v.label) : null)),
