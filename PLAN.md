@@ -50,18 +50,24 @@ must be confirmed with `EXPLAIN CHANGELOG_MODE` before they're drawn (see §6).
   *Verified on 2.3 (`verification/filter.plan.txt`, and `DeduplicateFunctionHelper.processLastRowOnChangelogWithFilter`).*
 
 ### 3.2 Deduplication
-**a) Processing time.** Count each order once, despite producer retries.
+Verified on 2.3 (`verification/dedup.sql`). Both are planned as `Rank(AppendFastStrategy)`, which the
+execution plan shows as `Deduplicate(keep=[FirstRow], ..., outputInsertOnly=[true])`. Both variants use
+the same input, so the results can be compared.
+
+**a) Processing time.** Count each order once, even when the app sends it twice.
 - `ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY proc_time ASC) = 1`
-- Graph: Source `APPEND` → Exchange(hash order_id) → Deduplicate (keep first, proctime) `APPEND` → Sink (kafka)
-- State: one "seen" flag per `order_id`. It grows with cardinality, so the takeaway is **state TTL**.
+- Graph: Source `APPEND` → hash(order_id) → Deduplicate (keep first, by arrival) `APPEND` → Sink (kafka)
+- State: one "seen" flag per `order_id` (`ProcTimeDeduplicateKeepFirstRowFunction`). Takeaway: **state TTL**.
 - Watermarks: not used.
 
-**b) Event time.** Keep the earliest version of each order by event time.
+**b) Event time.** Keep the earliest attempt of each order, by event time.
 - `... ORDER BY event_time ASC) = 1`
-- Graph: Source → Exchange → RowTime Deduplicate `RETRACT`/`UPSERT` **(verify)** → upsert-kafka sink
-- State: the full stored row per key, because a row with an earlier event time can arrive later and replace it.
-- Watermarks: the operator doesn't wait for them. Event time decides *which* row wins, not *when* to
-  emit. That's why the output is updating.
+- Graph: Source → hash(order_id) → Deduplicate (keep first, by event time) `APPEND` → Sink (kafka).
+  *Not* updating, as the plan first assumed.
+- Semantics (`RowTimeDeduplicateKeepFirstRowFunction`): a row older than the watermark is late, and
+  dropped; the earliest row so far waits with a timer at its event time (ties keep the first to arrive);
+  the watermark emits it and marks the key as emitted; later rows for the key are ignored.
+- Keeping the last row (`DESC`) gives an updating stream (checked).
 
 ### 3.3 Non-windowed aggregation
 Three variants, all verified on 2.3 (`verification/aggregation.sql`, `upsert-materializer.sql`), with
@@ -96,13 +102,16 @@ NOTHING`, each of which plans the sink with `upsertMaterialize=[true]` and makes
 | **Cumulate** 1 h / 15 min | Sales so far this hour, every 15 minutes | Early, growing results that are still append-only. Slices are shared |
 | **Session** 10 min gap, `PARTITION BY store_id` | How long was each store's lunch rush? | Windows **merge** when a new event bridges a gap. The end of a window isn't known until the watermark passes last event + gap |
 
-- Graph: Source → WindowAggregate (two-phase) → Sink (kafka). Flink 2.3 plans tumble as Source → Calc →
-  LocalWindowAggregate → Exchange(hash store_id) → GlobalWindowAggregate → Calc → Sink, all `[I]`. Local and
-  Global are drawn as one node, and the two projection-only Calcs are left out. *Verified for tumble
-  (`verification/tumble.plan.txt`); hop, cumulate and session still to check.*
-- Firing and lateness follow `TimeWindowUtil.isWindowFired`: a window fires when the watermark reaches
-  `window_end − 1 ms`. A record whose window has already fired is dropped as late.
-- State panel: one accumulator per `(store, slice/window)` plus a timer at the window's end.
+- Graph: Source → WindowAggregate → Sink (kafka), all `[I]` (`verification/windows.sql`). Tumble, hop and
+  cumulate are planned as Calc → LocalWindowAggregate → hash(store_id) → GlobalWindowAggregate → Calc,
+  drawn as one operator; session as a single WindowAggregate (no two-phase).
+- Semantics from Flink 2.3's slice processors and assigners: a window fires when the watermark reaches
+  `window_end − 1 ms`; a record goes into one slice and sets a timer at the first unfired window end; hop
+  merges the slices a window spans, schedules the next window only if this one wasn't empty, and frees
+  its first slice; cumulate merges each step's slice into the shared first slice and frees it at the
+  hour; sessions merge overlapping windows and fire at last event + gap.
+- State panels show slices (or sessions) and the pending timers. Hop and cumulate use store 7 only, to
+  keep the output readable.
 
 ### 3.5 Event correlation (interval join)
 - **Question:** Which orders are late right now? (no delivery within 45 minutes)

@@ -1,0 +1,41 @@
+# Flink 2.3.0, EXPLAIN CHANGELOG_MODE, optimized physical plans
+
+## Statement 1
+
+Sink(table=[default_catalog.default_database.store_sales], fields=[window_start, window_end, store_id, orders, sales], changelogMode=[NONE])
++- Calc(select=[window_start, window_end, store_id, orders, sales], changelogMode=[I])
+   +- GlobalWindowAggregate(groupBy=[store_id], window=[TUMBLE(slice_end=[$slice_end], size=[5 min])], select=[store_id, COUNT(count1$0) AS orders, SUM(sum$1) AS sales, start('w$) AS window_start, end('w$) AS window_end], changelogMode=[I])
+      +- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+         +- LocalWindowAggregate(groupBy=[store_id], window=[TUMBLE(time_col=[event_time], size=[5 min])], select=[store_id, COUNT(*) AS count1$0, SUM(total) AS sum$1, slice_end('w$) AS $slice_end], changelogMode=[I])
+            +- Calc(select=[store_id, total, event_time], changelogMode=[I])
+               +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+
+## Statement 2
+
+Sink(table=[default_catalog.default_database.store_sales], fields=[window_start, window_end, store_id, orders, sales], changelogMode=[NONE])
++- Calc(select=[window_start, window_end, store_id, orders, sales], changelogMode=[I])
+   +- GlobalWindowAggregate(groupBy=[store_id], window=[HOP(slice_end=[$slice_end], size=[15 min], slide=[5 min])], select=[store_id, COUNT(count1$0) AS orders, SUM(sum$1) AS sales, start('w$) AS window_start, end('w$) AS window_end], changelogMode=[I])
+      +- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+         +- LocalWindowAggregate(groupBy=[store_id], window=[HOP(time_col=[event_time], size=[15 min], slide=[5 min])], select=[store_id, COUNT(*) AS count1$0, SUM(total) AS sum$1, slice_end('w$) AS $slice_end], changelogMode=[I])
+            +- Calc(select=[store_id, total, event_time], changelogMode=[I])
+               +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+
+## Statement 3
+
+Sink(table=[default_catalog.default_database.store_sales], fields=[window_start, window_end, store_id, orders, sales], changelogMode=[NONE])
++- Calc(select=[window_start, window_end, store_id, orders, sales], changelogMode=[I])
+   +- GlobalWindowAggregate(groupBy=[store_id], window=[CUMULATE(slice_end=[$slice_end], max_size=[1 h], step=[15 min])], select=[store_id, COUNT(count1$0) AS orders, SUM(sum$1) AS sales, start('w$) AS window_start, end('w$) AS window_end], changelogMode=[I])
+      +- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+         +- LocalWindowAggregate(groupBy=[store_id], window=[CUMULATE(time_col=[event_time], max_size=[1 h], step=[15 min])], select=[store_id, COUNT(*) AS count1$0, SUM(total) AS sum$1, slice_end('w$) AS $slice_end], changelogMode=[I])
+            +- Calc(select=[store_id, total, event_time], changelogMode=[I])
+               +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+
+## Statement 4
+
+Sink(table=[default_catalog.default_database.store_sales], fields=[window_start, window_end, store_id, orders, sales], changelogMode=[NONE])
++- Calc(select=[window_start, window_end, store_id, orders, sales], changelogMode=[I])
+   +- WindowAggregate(groupBy=[store_id], window=[SESSION(time_col=[event_time], gap=[10 min], partition keys=[store_id])], select=[store_id, COUNT(*) AS orders, SUM(total) AS sales, start('w$) AS window_start, end('w$) AS window_end], changelogMode=[I])
+      +- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+         +- Calc(select=[store_id, total, event_time], changelogMode=[I])
+            +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+

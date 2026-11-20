@@ -46,12 +46,13 @@ const Graph = (() => {
     const rows = Math.max(1, ...views.map((v) => v.rows.length));
     const colW = cols.map((h, j) => CHAR * Math.max(h.length, ...views.flatMap((v) => v.rows.map((r) => String(r.cells[j]).length))));
     const titleW = Math.max(...views.map((v) => v.title.length)) * 6.4;
-    const width = Math.max(180, 24 + colW.reduce((a, b) => a + b, 0) + COL_GAP * (cols.length - 1), titleW + 24);
-    return { rows, colW, width };
+    const footW = Math.max(0, ...views.map((v) => (v.footer || '').length)) * 10.5 * 0.6;
+    const width = Math.max(180, 24 + colW.reduce((a, b) => a + b, 0) + COL_GAP * (cols.length - 1), titleW + 24, footW + 24);
+    return { rows, colW, width, footer: views.some((v) => v.footer) };
   }
 
   function panelHeight(spec) {
-    return G.panelHead + COL_HEAD + spec.rows * G.rowH + 8;
+    return G.panelHead + COL_HEAD + spec.rows * G.rowH + (spec.footer ? G.rowH + 4 : 0) + 8;
   }
 
   // Every operator gets the same width, wide enough for the longest label.
@@ -92,7 +93,8 @@ const Graph = (() => {
         const spec = specs[n.id];
         const h = panelHeight(spec);
         panels[n.id] = orient === 'h'
-          ? { x: x + G.nodeW / 2 - spec.width / 2, y: y + G.nodeH + 14, w: spec.width, h, colW: spec.colW }
+          // A panel much wider than its operator reaches under the edge labels, so it drops below them.
+          ? { x: x + G.nodeW / 2 - spec.width / 2, y: y + G.nodeH + ((spec.width - G.nodeW) / 2 > 46 ? 48 : 14), w: spec.width, h, colW: spec.colW }
           : { x: x + G.nodeW + G.side, y: y + sideTop(n), w: spec.width, h, colW: spec.colW };
       }
       if (orient === 'v') side[n.id] = { x: x + G.nodeW + G.side, wmY: y + (n.planner ? 20 : 0) };
@@ -248,6 +250,10 @@ const Graph = (() => {
           if (hot) g.append(U.svg('rect', { class: 'state-hot', x: 4, y: y - 1, width: p.w - 8, height: G.rowH, rx: 4 }));
           r.cells.forEach((c, j) => g.append(U.svg('text', { class: 'state-row', x: colX[j], y: y + 12, text: String(c) })));
         });
+        if (view.footer) {
+          g.append(U.svg('line', { class: 'state-rule', x1: 12, x2: p.w - 12, y1: p.h - G.rowH - 9, y2: p.h - G.rowH - 9 }));
+          g.append(U.svg('text', { class: 'state-foot', x: 12, y: p.h - 12, text: view.footer }));
+        }
         stateLayer.append(g);
       }
 

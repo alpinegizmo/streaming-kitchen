@@ -67,7 +67,8 @@
               <span class="node-chip">stateless</span>
               <span class="node-chip stateful">stateful</span> keeps keyed state, shown underneath it.
               <span class="node-chip planner">added by the planner</span> isn't in your SQL, but the
-              planner needs it to produce correct results. Calcs that only drop columns are left out.
+              planner needs it to produce correct results. Calcs that only drop columns, or set up a
+              time attribute, are left out.
             </dd>
           </div>
         </dl>
@@ -89,6 +90,7 @@
   <script src="js/graph.js"></script>
   <script src="js/player.js"></script>
   <script src="js/patterns/filter.js"></script>
+  <script src="js/patterns/dedup.js"></script>
   <script src="js/patterns/aggregation.js"></script>
   <script src="js/patterns/windows.js"></script>
   <script src="js/main.js"></script>
