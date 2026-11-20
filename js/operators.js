@@ -46,17 +46,20 @@ const Ops = (() => {
   // upsert-kafka source. It declares its changelog as [UA, D]: every value is an
   // upsert for its key, and a tombstone (null value) is a delete that carries only the key.
   const upsertKafkaSource = {
-    init: () => ({}),
+    init: () => ({ maxTs: null, lastWm: null }),
     input(st, r, cfg) {
+      if (r.wm) return kafkaSource.input(st, r, cfg);
       if (r.value == null) {
         const row = { [cfg.key]: r.key };
         return { out: [rec('-D', row)], ev: { type: 'tombstone', key: r.key, row } };
       }
       const row = { [cfg.key]: r.key, ...r.value };
+      if (cfg.timeField) st.maxTs = Math.max(st.maxTs ?? 0, U.toSec(row[cfg.timeField]));
       return { out: [rec('+U', row)], ev: { type: 'read', key: r.key, row } };
     },
     view: () => null,
     say(ev, cfg) {
+      if (ev.type === 'wm') return kafkaSource.say(ev, cfg);
       if (ev.type === 'tombstone') return `A tombstone for key ${ev.key}. The source emits a delete that carries only the key.`;
       return `The source reads key ${ev.key} from ${cfg.topic}. It can't tell whether the key is new, so it emits an upsert.`;
     },
@@ -120,7 +123,7 @@ const Ops = (() => {
       return {
         title: cfg.stateTitle || `Last row per ${cfg.key}`,
         cols: fields,
-        rows: Object.entries(st.rows).map(([key, row]) => ({ key, cells: fields.map((f) => row[f]) })),
+        rows: Object.entries(st.rows).map(([key, row]) => ({ key, cells: fields.map((f) => (cfg.stateFormat?.[f] ? cfg.stateFormat[f](row[f]) : row[f])) })),
       };
     },
     say(ev, cfg) {
@@ -468,6 +471,279 @@ const Ops = (() => {
     },
   };
 
+  // ---------- Joins ----------
+
+  // The combined watermark of a two-input operator: the minimum of both inputs, and nothing
+  // until both have sent one.
+  const combined = (wms) => (wms.left != null && wms.right != null ? (U.toSec(wms.left) < U.toSec(wms.right) ? wms.left : wms.right) : null);
+  const later = (a, b) => b == null || (a != null && U.toSec(a) > U.toSec(b));
+
+  // Interval join (IntervalJoin, RowTimeIntervalJoin in Flink 2.3), as a LEFT OUTER join:
+  // right.time - left.time must lie in [lower, upper]. Both sides are buffered by key. A left
+  // row is buffered while the combined watermark W is below its time + upper, a right row while
+  // W is below its time - lower. When W passes those bounds the rows are removed, and a left row
+  // that never matched is emitted null-padded. With the default min-cleanup-interval of 0, that
+  // happens as soon as W > time + upper. The output watermark is held back by the larger bound.
+  //   cfg: { left, key, leftTime, rightTime, lower, upper (seconds), joinRow(l, r), padRow(l),
+  //          leftName, rightName }
+  const intervalJoin = {
+    init: () => ({ left: [], right: [], wms: { left: null, right: null }, W: null, outWm: null }),
+    record(st, item, cfg, ctx) {
+      const row = item.row;
+      const k = row[cfg.key];
+      const W = st.W == null ? null : U.toSec(st.W);
+      if (ctx.from === cfg.left) {
+        const t = U.toSec(row[cfg.leftTime]);
+        const matches = st.right.filter((r) => r.row[cfg.key] === k && r.t - t >= cfg.lower && r.t - t <= cfg.upper);
+        const out = matches.map((r) => rec('+I', cfg.joinRow(row, r.row)));
+        if (W == null || W < t + cfg.upper) {
+          st.left.push({ row, t, joined: matches.length > 0 });
+          return { out, absorb: !out.length, touched: `L${k}`, ev: { type: 'left', row, matches: matches.map((m) => m.row), buffered: true } };
+        }
+        if (!matches.length) out.push(rec('+I', cfg.padRow(row)));
+        return { out, ev: { type: 'left', row, matches: matches.map((m) => m.row), buffered: false } };
+      }
+      const t = U.toSec(row[cfg.rightTime]);
+      const matches = st.left.filter((l) => l.row[cfg.key] === k && t - l.t >= cfg.lower && t - l.t <= cfg.upper);
+      matches.forEach((l) => { l.joined = true; });
+      const out = matches.map((l) => rec('+I', cfg.joinRow(l.row, row)));
+      const buffered = W == null || W < t - cfg.lower;
+      if (buffered) st.right.push({ row, t });
+      return { out, absorb: buffered && !out.length, touched: `R${k}`, ev: { type: 'right', row, matches: matches.map((m) => m.row), buffered } };
+    },
+    watermark(st, item, cfg, ctx) {
+      const side = ctx.from === cfg.left ? 'left' : 'right';
+      st.wms[side] = item.time;
+      const W = combined(st.wms);
+      if (!W || !later(W, st.W)) return { out: [], nodeWm: st.W, ev: { type: 'hold', side, time: item.time, W: st.W, wms: { ...st.wms } } };
+      st.W = W;
+      const w = U.toSec(W);
+      const expired = st.left.filter((l) => l.t + cfg.upper < w);
+      const padded = expired.filter((l) => !l.joined);
+      st.left = st.left.filter((l) => !expired.includes(l));
+      const freedRight = st.right.filter((r) => r.t - cfg.lower < w);
+      st.right = st.right.filter((r) => !freedRight.includes(r));
+      const out = padded.map((l) => rec('+I', cfg.padRow(l.row)));
+      const outWm = U.fromSec(w - Math.max(cfg.upper, -cfg.lower));
+      if (later(outWm, st.outWm)) { st.outWm = outWm; out.push(wm(outWm)); }
+      return {
+        out, nodeWm: W,
+        ev: { type: 'advance', side, time: item.time, W, outWm, padded: padded.map((l) => l.row), expired: expired.map((l) => l.row), freedRight: freedRight.map((r) => r.row) },
+      };
+    },
+    view(st, cfg) {
+      return {
+        title: 'Buffered rows, by key',
+        cols: ['side', cfg.key, 'time', 'matched'],
+        rows: [
+          ...st.left.map((l) => ({ key: `L${l.row[cfg.key]}`, cells: [cfg.leftName, l.row[cfg.key], l.row[cfg.leftTime], l.joined ? 'yes' : 'no'] })),
+          ...st.right.map((r) => ({ key: `R${r.row[cfg.key]}`, cells: [cfg.rightName, r.row[cfg.key], r.row[cfg.rightTime], ''] })),
+        ],
+        footer: `watermarks in: ${cfg.leftTopic} ${st.wms.left || 'none'}, ${cfg.rightTopic} ${st.wms.right || 'none'}`,
+      };
+    },
+    say(ev) {
+      if (ev.type === 'hold') return 'The watermark is recorded, but the other input is behind, so the combined watermark doesn\'t move.';
+      if (ev.type === 'advance') return `The combined watermark moves to ${ev.W}.`;
+      return ev.matches.length ? 'The row matches a buffered row on the other side, and the joined row is emitted.' : 'No match yet, so the row is buffered.';
+    },
+  };
+
+  // Lookup join (LookupJoin): for each row, the connector looks up the other table, through its
+  // cache. Flink keeps no state of its own, and the cache isn't checkpointed. Inner join: a row
+  // with no match is dropped.
+  //   cfg: { lookupKey(row) -> string, cacheCols, cacheCells(key, value), table: { key: value },
+  //          ext (id of the external node), joinRow(row, value) }
+  const lookupJoin = {
+    init: () => ({ cache: {} }),
+    record(st, item, cfg) {
+      const k = cfg.lookupKey(item.row);
+      const hit = k in st.cache;
+      if (!hit) st.cache[k] = cfg.table[k] ?? null;
+      const value = st.cache[k];
+      const out = value == null ? [] : [rec('+I', cfg.joinRow(item.row, value))];
+      return { out, touched: k, also: hit ? null : cfg.ext, ev: { type: hit ? 'hit' : 'miss', key: k, row: item.row, value } };
+    },
+    watermark: (st, item) => ({ out: [wm(item.time)], ev: { type: 'wm', time: item.time } }),
+    view(st, cfg) {
+      return {
+        title: 'Lookup cache (in the connector, not Flink state)',
+        cols: cfg.cacheCols,
+        rows: Object.entries(st.cache).map(([k, v]) => ({ key: k, cells: cfg.cacheCells(k, v) })),
+      };
+    },
+    say(ev) {
+      if (ev.type === 'hit') return 'The answer is in the cache, so no request is made.';
+      return 'Not in the cache: the connector asks the external system, and caches the answer.';
+    },
+  };
+
+  // Event-time temporal join (TemporalJoin, TemporalRowTimeJoinOperator in Flink 2.3). Left rows
+  // wait in state. When the combined watermark W advances, every left row with time <= W is
+  // joined with the right side's latest version at or before its time, then versions older than
+  // the latest one at or before W are removed. Inner join: no version, no output.
+  //   cfg: { left, key, leftTime, rightTime, joinRow(l, version), leftId, valueField }
+  const temporalJoin = {
+    init: () => ({ left: [], versions: {}, wms: { left: null, right: null }, W: null, seq: 0 }),
+    record(st, item, cfg, ctx) {
+      const row = item.row;
+      const k = row[cfg.key];
+      if (ctx.from === cfg.left) {
+        st.left.push({ row, seq: ++st.seq });
+        return { out: [], absorb: true, touched: `L${row[cfg.leftId]}`, ev: { type: 'buffer', row } };
+      }
+      const t = row[cfg.rightTime];
+      const vs = (st.versions[k] ||= []).filter((v) => v.row[cfg.rightTime] !== t);
+      vs.push({ row });
+      vs.sort((a, b) => U.toSec(a.row[cfg.rightTime]) - U.toSec(b.row[cfg.rightTime]));
+      st.versions[k] = vs;
+      return { out: [], absorb: true, touched: `V${k}|${t}`, ev: { type: 'version', row } };
+    },
+    watermark(st, item, cfg, ctx) {
+      const side = ctx.from === cfg.left ? 'left' : 'right';
+      st.wms[side] = item.time;
+      const W = combined(st.wms);
+      if (!W || !later(W, st.W)) return { out: [], nodeWm: st.W, ev: { type: 'hold', side, time: item.time, W: st.W, wms: { ...st.wms } } };
+      st.W = W;
+      const w = U.toSec(W);
+      const due = st.left.filter((l) => U.toSec(l.row[cfg.leftTime]) <= w).sort((a, b) => a.seq - b.seq);
+      st.left = st.left.filter((l) => !due.includes(l));
+      const results = due.map((l) => {
+        const t = U.toSec(l.row[cfg.leftTime]);
+        const version = (st.versions[l.row[cfg.key]] || []).filter((v) => U.toSec(v.row[cfg.rightTime]) <= t).pop();
+        return { left: l.row, version: version?.row || null };
+      });
+      const removed = [];
+      for (const [k, vs] of Object.entries(st.versions)) {
+        const keepFrom = vs.reduce((idx, v, i) => (U.toSec(v.row[cfg.rightTime]) <= w ? i : idx), 0);
+        removed.push(...vs.slice(0, keepFrom).map((v) => v.row));
+        st.versions[k] = vs.slice(keepFrom);
+      }
+      const out = results.filter((r) => r.version).map((r) => rec('+I', cfg.joinRow(r.left, r.version)));
+      out.push(wm(W));
+      return { out, nodeWm: W, ev: { type: 'advance', side, time: item.time, W, results, removed, waiting: st.left.map((l) => l.row) } };
+    },
+    view(st, cfg) {
+      const rows = [
+        ...st.left.map((l) => ({ key: `L${l.row[cfg.leftId]}`, cells: [cfg.leftName, l.row[cfg.key], l.row[cfg.leftTime], `#${l.row[cfg.leftId]}`] })),
+        ...Object.entries(st.versions).flatMap(([k, vs]) => vs.map((v) => ({
+          key: `V${k}|${v.row[cfg.rightTime]}`, cells: [cfg.rightName, k, v.row[cfg.rightTime], U.money(v.row[cfg.valueField])],
+        }))),
+      ];
+      return {
+        title: 'Waiting orders, and versions',
+        cols: ['kind', cfg.key, 'time', 'value'],
+        rows,
+        footer: `watermarks in: ${cfg.leftTopic} ${st.wms.left || 'none'}, ${cfg.rightTopic} ${st.wms.right || 'none'}`,
+      };
+    },
+    say(ev) {
+      if (ev.type === 'buffer') return 'The order waits in state until the watermark reaches its time.';
+      if (ev.type === 'version') return 'A new version is added to the versioned table.';
+      if (ev.type === 'hold') return 'The other input is behind, so the combined watermark doesn\'t move.';
+      return `The combined watermark moves to ${ev.W}, and every order at or before it is joined.`;
+    },
+  };
+
+  // LATERAL SNAPSHOT join (LateralSnapshotJoinOperator, Flink 2.4). Two phases:
+  //   LOAD: build-side changes are applied to the build table; probe rows are buffered; probe
+  //         watermarks are held back. LOAD ends when the build watermark reaches
+  //         loadCompletedTime (by default, when the query was compiled).
+  //   JOIN: buffered probe rows are joined first (once a probe watermark is available), then
+  //         every probe row is joined on arrival against the current build table; probe
+  //         watermarks are forwarded.
+  // In both phases a build change is buffered by its row time, and applied once the build
+  // watermark reaches it. Build watermarks are never forwarded. Inner join: no match, no output.
+  //   cfg: { left, key, buildTime, loadCompletedTime, joinRow(probe, build), probeId, probeTime,
+  //          valueField }
+  const lateralSnapshotJoin = {
+    init: () => ({ phase: 'LOAD', table: {}, changes: [], probes: [], wmProbe: null, wmBuild: null, forwarded: null, seq: 0 }),
+    record(st, item, cfg, ctx) {
+      const row = item.row;
+      const k = row[cfg.key];
+      if (ctx.from !== cfg.left) {
+        st.changes.push({ kind: item.kind, row, seq: ++st.seq });
+        return { out: [], absorb: true, touched: `C${st.seq}`, ev: { type: 'buffer-change', kind: item.kind, row, phase: st.phase } };
+      }
+      if (st.phase === 'LOAD' || st.probes.length) {
+        st.probes.push(row);
+        return { out: [], absorb: true, touched: `P${row[cfg.probeId]}`, ev: { type: 'buffer-probe', row, phase: st.phase } };
+      }
+      const matches = st.table[k] || [];
+      return {
+        out: matches.map((b) => rec('+I', cfg.joinRow(row, b))), touched: `T${k}`,
+        ev: { type: matches.length ? 'join' : 'no-match', row, build: matches[0] || null, pending: st.changes.filter((c) => c.row[cfg.key] === k).map((c) => c.row) },
+      };
+    },
+    watermark(st, item, cfg, ctx) {
+      const t = (r) => U.toSec(r[cfg.buildTime]);
+      const drain = () => {
+        const out = [];
+        for (const p of st.probes) for (const b of st.table[p[cfg.key]] || []) out.push(rec('+I', cfg.joinRow(p, b)));
+        const drained = st.probes;
+        st.probes = [];
+        return { out, drained };
+      };
+      if (ctx.from !== cfg.left) {
+        st.wmBuild = item.time;
+        const w = U.toSec(item.time);
+        const due = st.changes.filter((c) => t(c.row) <= w).sort((a, b) => t(a.row) - t(b.row) || a.seq - b.seq);
+        st.changes = st.changes.filter((c) => !due.includes(c));
+        for (const c of due) {
+          const k = c.row[cfg.key];
+          const rows = st.table[k] || [];
+          if (c.kind === '+I' || c.kind === '+U') rows.push(c.row);
+          else { const i = rows.findIndex((r) => same(r, c.row)); if (i >= 0) rows.splice(i, 1); }
+          if (rows.length) st.table[k] = rows; else delete st.table[k];
+        }
+        const applied = due.map((c) => ({ kind: c.kind, row: c.row }));
+        if (st.phase === 'LOAD' && w >= U.toSec(cfg.loadCompletedTime)) {
+          st.phase = 'JOIN';
+          if (st.wmProbe != null) {
+            const { out, drained } = drain();
+            st.forwarded = st.wmProbe;
+            out.push(wm(st.wmProbe));
+            return { out, nodeWm: st.wmProbe, ev: { type: 'flip', time: item.time, applied, drained } };
+          }
+          return { out: [], nodeWm: null, ev: { type: 'flip', time: item.time, applied, drained: [] } };
+        }
+        return { out: [], nodeWm: null, ev: { type: 'build-wm', time: item.time, applied, phase: st.phase } };
+      }
+      st.wmProbe = item.time;
+      if (st.phase === 'LOAD') return { out: [], nodeWm: null, ev: { type: 'hold', time: item.time } };
+      const { out, drained } = drain();
+      st.forwarded = item.time;
+      out.push(wm(item.time));
+      return { out, nodeWm: item.time, ev: { type: 'probe-wm', time: item.time, drained } };
+    },
+    view(st, cfg) {
+      return {
+        title: `Build table, pending changes, buffered ${cfg.probeName}s`,
+        cols: ['kind', cfg.key, 'value', 'time'],
+        rows: [
+          ...Object.entries(st.table).flatMap(([k, rows]) => rows.map((r) => ({ key: `T${k}`, cells: ['current', k, U.money(r[cfg.valueField]), r[cfg.buildTime]] }))),
+          ...st.changes.map((c) => ({ key: `C${c.seq}`, cells: [`pending ${c.kind.replace('-', '−')}`, c.row[cfg.key], U.money(c.row[cfg.valueField]), c.row[cfg.buildTime]] })),
+          ...st.probes.map((p) => ({ key: `P${p[cfg.probeId]}`, cells: [cfg.probeName, p[cfg.key], `#${p[cfg.probeId]}`, p[cfg.probeTime]] })),
+        ],
+        footer: st.phase === 'LOAD' ? `phase: LOAD, until the costs watermark reaches ${cfg.loadCompletedTime}` : 'phase: JOIN',
+      };
+    },
+    say(ev) {
+      switch (ev.type) {
+        case 'buffer-change': return 'The change is buffered until the build-side watermark reaches its row time.';
+        case 'buffer-probe': return 'The probe row is buffered until the load phase ends.';
+        case 'join': return 'The probe row is joined at once with the current build-side row.';
+        case 'no-match': return 'No current build-side row for this key, so nothing is emitted.';
+        case 'flip': return 'The build-side watermark reaches the load-completed time: the operator switches to the join phase.';
+        case 'hold': return 'Probe-side watermarks are held back during the load phase.';
+        default: return 'The watermark is processed.';
+      }
+    },
+  };
+
+  // An external system, such as the service behind a lookup join. It isn't part of the stream.
+  const external = { init: () => null, view: () => null };
+
   // Kafka sink with a changelog format (debezium-json). +I and +U are written as creates
   // (op c, with an after image), -U and -D as deletes (op d, with a before image), as in
   // DebeziumJsonSerializationSchema. A consumer that applies them in order rebuilds the table.
@@ -536,6 +812,7 @@ const Ops = (() => {
   return {
     kafkaSource, upsertKafkaSource, calc, changelogNormalize, windowAggregate, sessionWindowAggregate,
     groupAggregate, procTimeDedup, rowTimeDedup,
+    intervalJoin, lookupJoin, temporalJoin, lateralSnapshotJoin, external,
     kafkaSink, upsertKafkaSink, changelogKafkaSink,
   };
 })();

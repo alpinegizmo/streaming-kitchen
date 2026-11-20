@@ -15,20 +15,24 @@ const Graph = (() => {
   let G = DIMS.h;
 
   // Longest-path layering: sources in layer 0, everything else one past its deepest input.
+  const isStream = (e) => e.mode !== 'lookup';
+
   function layers(graph) {
     const depth = {};
     const visit = (id) => {
       if (depth[id] != null) return depth[id];
-      const ins = graph.edges.filter((e) => e.to === id);
+      const ins = graph.edges.filter((e) => e.to === id && isStream(e));
       depth[id] = ins.length ? 1 + Math.max(...ins.map((e) => visit(e.from))) : 0;
       return depth[id];
     };
-    graph.nodes.forEach((n) => visit(n.id));
+    const streamNodes = graph.nodes.filter((n) => n.kind !== 'external');
+    streamNodes.forEach((n) => visit(n.id));
     const rows = {};
     const used = {};
-    graph.nodes.forEach((n) => {
-      const ins = graph.edges.filter((e) => e.to === n.id).map((e) => rows[e.from]);
-      const want = ins.length ? ins.reduce((a, b) => a + b, 0) / ins.length : (used[depth[n.id]] ?? -1) + 1;
+    streamNodes.forEach((n) => {
+      const ins = graph.edges.filter((e) => e.to === n.id && isStream(e)).map((e) => rows[e.from]);
+      // An operator with several inputs lines up with its first input; the others curve in.
+      const want = ins.length ? Math.min(...ins) : (used[depth[n.id]] ?? -1) + 1;
       rows[n.id] = want;
       used[depth[n.id]] = Math.max(used[depth[n.id]] ?? -1, want);
     });
@@ -67,42 +71,69 @@ const Graph = (() => {
     const { depth, rows } = layers(graph);
     // Long pipelines get shorter edges, so they still fit a laptop screen.
     if (Math.max(...Object.values(depth)) >= 3) G.gapH = 156;
-    const tallest = Math.max(0, ...graph.nodes.map((n) => (n.stateful ? panelHeight(specs[n.id]) : 0)));
-    const widest = Math.max(0, ...graph.nodes.map((n) => (n.stateful ? specs[n.id].width : 0)));
+    const hasPanel = (n) => n.stateful || n.panel;
+    const multiInput = (n) => graph.edges.filter((e) => e.to === n.id && isStream(e)).length > 1;
+    const tallest = Math.max(0, ...graph.nodes.map((n) => (hasPanel(n) ? panelHeight(specs[n.id]) : 0)));
+    const widest = Math.max(0, ...graph.nodes.map((n) => (hasPanel(n) ? specs[n.id].width : 0)));
+    // An external system (the lookup join's service) sits beside the operator that calls it:
+    // above it in the horizontal layout, at the top of its side column in the vertical one.
+    const externals = graph.nodes.filter((n) => n.kind === 'external');
+    // Lookup edges always run from the calling operator to the external system.
+    const calledBy = Object.fromEntries(graph.edges.filter((e) => e.mode === 'lookup').map((e) => [e.from, e.to]));
     const pos = {};
     const panels = {};
     const side = {};
     // Vertical: how far down the side column each operator's state panel starts.
-    const sideTop = (n) => (n.planner ? 20 : 0) + (wmNodes.has(n.id) ? 24 : 0);
+    const sideTop = (n) => (n.planner ? 20 : 0) + (wmNodes.has(n.id) ? 24 : 0) + (calledBy[n.id] ? G.nodeH + 16 : 0);
     const gapV = orient === 'v'
-      ? Math.max(G.gapV ?? 0, ...graph.nodes.map((n) => (n.stateful ? sideTop(n) + panelHeight(specs[n.id]) - G.nodeH + 76 : 0)))
+      ? Math.max(G.gapV ?? 0, ...graph.nodes.map((n) => (hasPanel(n) ? sideTop(n) + panelHeight(specs[n.id]) - G.nodeH + 76 : 0)))
       : 0;
-    for (const n of graph.nodes) {
+    const top = orient === 'h' && externals.length ? G.top + G.nodeH + 56 : G.top;
+    for (const n of graph.nodes.filter((x) => x.kind !== 'external')) {
       const d = depth[n.id];
       const r = rows[n.id];
       let x, y;
       if (orient === 'h') {
         x = G.pad + d * (G.nodeW + G.gapH);
-        y = G.top + r * (G.nodeH + tallest + 90);
+        y = top + r * (G.nodeH + tallest + 90);
       } else {
         x = G.pad + r * (G.nodeW + widest + 40);
         y = G.top + d * (G.nodeH + gapV);
       }
       pos[n.id] = { x, y, w: G.nodeW, h: G.nodeH, cx: x + G.nodeW / 2, cy: y + G.nodeH / 2 };
-      if (n.stateful) {
+      if (hasPanel(n)) {
         const spec = specs[n.id];
         const h = panelHeight(spec);
         panels[n.id] = orient === 'h'
           // A panel much wider than its operator reaches under the edge labels, so it drops below them.
-          ? { x: x + G.nodeW / 2 - spec.width / 2, y: y + G.nodeH + ((spec.width - G.nodeW) / 2 > 46 ? 48 : 14), w: spec.width, h, colW: spec.colW }
+          ? {
+            // Centred under the operator, unless other inputs curve in from below: then it hangs
+            // to the right, clear of them. A panel that reaches under edge labels drops below them.
+            x: multiInput(n) ? x : x + G.nodeW / 2 - spec.width / 2,
+            y: y + G.nodeH + ((multiInput(n) ? spec.width - G.nodeW : (spec.width - G.nodeW) / 2) > 46 ? 48 : 14),
+            w: spec.width, h, colW: spec.colW,
+          }
           : { x: x + G.nodeW + G.side, y: y + sideTop(n), w: spec.width, h, colW: spec.colW };
       }
       if (orient === 'v') side[n.id] = { x: x + G.nodeW + G.side, wmY: y + (n.planner ? 20 : 0) };
+    }
+    for (const [caller, id] of Object.entries(calledBy)) {
+      const c = pos[caller];
+      const x = orient === 'h' ? c.x : c.x + G.nodeW + G.side;
+      const y = orient === 'h' ? c.y - G.nodeH - 56 : c.y;
+      pos[id] = { x, y, w: G.nodeW, h: G.nodeH, cx: x + G.nodeW / 2, cy: y + G.nodeH / 2 };
     }
     const edges = graph.edges.map((e) => {
       const a = pos[e.from];
       const b = pos[e.to];
       let d, mid;
+      if (e.mode === 'lookup') {
+        // A request/response line between the operator and the service it calls.
+        const [op, ext] = [a, b];
+        d = orient === 'h' ? `M${op.cx},${op.y} L${ext.cx},${ext.y + ext.h}` : `M${op.x + op.w},${op.cy} L${ext.x},${ext.cy}`;
+        mid = orient === 'h' ? { x: op.cx, y: (op.y + ext.y + ext.h) / 2 } : { x: (op.x + op.w + ext.x) / 2, y: op.cy };
+        return { ...e, d, mid, badgeY: mid.y };
+      }
       if (orient === 'h') {
         const x1 = a.x + a.w, y1 = a.cy, x2 = b.x - 6, y2 = b.cy;
         d = y1 === y2 ? `M${x1},${y1} L${x2},${y2}` : `M${x1},${y1} C${x1 + 90},${y1} ${x2 - 90},${y2} ${x2},${y2}`;
@@ -169,12 +200,34 @@ const Graph = (() => {
     // Static layer: edges, badges and nodes.
     const edgeLayer = U.svg('g', { class: 'edges' });
     const paths = L.edges.map((e) => {
+      if (e.mode === 'lookup') {
+        const path = U.svg('path', { d: e.d, class: 'edge mode-lookup' });
+        edgeLayer.append(path);
+        if (e.label) {
+          edgeLayer.append(U.svg('text', {
+            class: 'edge-lookup-label', x: orient === 'h' ? e.mid.x + 10 : e.mid.x, y: orient === 'h' ? e.mid.y + 4 : e.mid.y - 8,
+            'text-anchor': orient === 'h' ? 'start' : 'middle', text: e.label,
+          }));
+        }
+        return path;
+      }
       const path = U.svg('path', { d: e.d, class: `edge mode-${e.mode}`, 'marker-end': `url(#arrow-${e.mode}-${variant.uid})` });
       edgeLayer.append(path);
       const modeText = { append: 'append-only', upsert: 'upsert', retract: 'retract' }[e.mode];
       const bw = U.monoWidth(modeText, 11) + 18;
-      const bx = orient === 'h' ? e.mid.x : L.pos[e.from].x + G.nodeW + G.side + bw / 2;
-      const by = orient === 'h' ? e.mid.y + 22 : e.badgeY;
+      let bx = orient === 'h' ? e.mid.x : L.pos[e.from].x + G.nodeW + G.side + bw / 2;
+      let by = orient === 'h' ? e.mid.y + 22 : e.badgeY;
+      const intoJoin = graph.edges.filter((x) => x.to === e.to && isStream(x)).length > 1;
+      if (orient === 'h' && intoJoin && L.pos[e.from].cy === L.pos[e.to].cy) {
+        // Keep the straight input's badge clear of the other input curving in near the operator.
+        bx = path.getPointAtLength(path.getTotalLength() * 0.32).x;
+      } else if (orient === 'h' && L.pos[e.from].cy !== L.pos[e.to].cy) {
+        // On a curved edge, the badge sits near the source, away from the operator's panel.
+        const len = path.getTotalLength();
+        const pt = path.getPointAtLength(Math.min(len * 0.22, 70));
+        bx = pt.x + bw / 2 + 6;
+        by = pt.y + (L.pos[e.from].cy > L.pos[e.to].cy ? 22 : -46);
+      }
       const badge = U.svg('g', { class: `edge-badge mode-${e.mode}`, transform: `translate(${bx},${by})` },
         U.svg('rect', { x: -bw / 2, y: -10, width: bw, height: 20, rx: 10 }),
         U.svg('text', { x: 0, y: 4, 'text-anchor': 'middle', text: modeText }),
@@ -228,12 +281,12 @@ const Graph = (() => {
       U.clear(stateLayer); U.clear(wmLayer); U.clear(pillLayer);
 
       for (const n of graph.nodes) {
-        nodeEls[n.id].classList.toggle('active', info.active === n.id);
+        nodeEls[n.id].classList.toggle('active', info.active === n.id || info.also === n.id);
       }
 
       // State panels.
       for (const n of graph.nodes) {
-        if (!n.stateful) continue;
+        if (!n.stateful && !n.panel) continue;
         const p = L.panels[n.id];
         const view = Ops[n.op].view(snap.ops[n.id], n.cfg || {});
         const g = U.svg('g', { class: 'state-panel', transform: `translate(${p.x},${p.y})` },

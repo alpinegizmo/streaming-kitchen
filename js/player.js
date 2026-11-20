@@ -61,7 +61,7 @@ const Player = (() => {
 
     // Size each state panel for its fullest moment.
     const specs = {};
-    for (const n of variant.graph.nodes.filter((x) => x.stateful)) {
+    for (const n of variant.graph.nodes.filter((x) => x.stateful || x.panel)) {
       specs[n.id] = Graph.panelSpec([trace.initial, ...steps.map((s) => s.snap)].map((s) => Ops[n.op].view(s.ops[n.id], n.cfg || {})));
     }
 
@@ -113,7 +113,7 @@ const Player = (() => {
         U.el('summary', {}, 'Details'),
         U.el('div', { class: 'more-body', html: details || '' }),
         variant.explain ? U.el('div', { class: 'more-plan' },
-          U.el('p', {}, 'The optimized plan from ', U.el('code', {}, 'EXPLAIN CHANGELOG_MODE'), ' on Flink 2.3:'),
+          U.el('p', {}, 'The optimized plan from ', U.el('code', {}, 'EXPLAIN CHANGELOG_MODE'), ` on Flink ${variant.flinkVersion || '2.3'}:`),
           U.el('pre', { class: 'code plan' }, variant.explain.trim())) : null));
 
     // ---------- Rendering ----------
@@ -146,7 +146,7 @@ const Player = (() => {
       const step = k > 0 ? steps[k - 1] : null;
       const snap = snapAt(k);
       view.render(snap, {
-        active: step?.node, touched: step?.touched,
+        active: step?.node, also: step?.also, touched: step?.touched,
         fresh: opts.animate && k > 0 ? freshUids(snapAt(k - 1), snap) : null,
       });
       caption.textContent = step ? step.caption : variant.intro;
@@ -160,9 +160,10 @@ const Player = (() => {
 
     function drawTopics(k, step, snap) {
       U.clear(topics);
+      const firstSource = variant.graph.nodes.find((n) => n.kind === 'source').id;
       for (const src of variant.graph.nodes.filter((n) => n.kind === 'source')) {
         const cfg = src.cfg;
-        const records = variant.inputs.filter((r) => !r.wm && (r.at || src.id) === src.id);
+        const records = variant.inputs.filter((r) => !r.wm && (r.at || firstSource) === src.id);
         const consumed = snap.consumed[src.id];
         const justRead = step && step.node === src.id && step.via == null && !step.item.wm;
         topics.append(topicTable({

@@ -114,35 +114,41 @@ NOTHING`, each of which plans the sink with `upsertMaterialize=[true]` and makes
   keep the output readable.
 
 ### 3.5 Event correlation (interval join)
-- **Question:** Which orders are late right now? (no delivery within 45 minutes)
+- **Question:** Which orders haven't been delivered within 45 minutes?
 - SQL from the deck: `orders LEFT JOIN deliveries ON … AND d.event_time BETWEEN o.event_time AND o.event_time + INTERVAL '45' MINUTE WHERE d.order_id IS NULL`
-- Graph: two Sources → Exchange(hash order_id) ×2 → IntervalJoin `APPEND` → Calc → Sink (kafka)
-- State: a buffer for each side, keyed by `order_id` and indexed by time.
-- Watermarks: when the watermark passes `order time + 45 min`, the order's buffer is cleared, and an
-  unmatched order is emitted null-padded. Because of that, outer-join output is still append-only.
-  The join's output watermark is held back by the interval.
+- Graph (verified on 2.3, `verification/interval-join.sql`): two Sources → hash(order_id) → IntervalJoin
+  (LeftOuterJoin) `APPEND` → Calc (`d.order_id IS NULL`) → Sink (kafka). All `[I]`.
+- Semantics from `TimeIntervalJoin`/`RowTimeIntervalJoin`: combined watermark W = min of both inputs; an
+  order is buffered while W < time + 45 min, a delivery while W < its time; with the 2.3 default
+  `min-cleanup-interval` of 0, an unmatched order is emitted null-padded as soon as W passes time + 45 min;
+  the output watermark is W − 45 min.
 
 ### 3.6 Enrichment
-**a) Lookup join.** How long is the drive to this address?
-- `JOIN routes FOR SYSTEM_TIME AS OF o.proc_time`
-- Graph: Source → LookupJoin (external maps API drawn beside it, with an LRU+TTL cache) `APPEND` → Sink
-- State: none in Flink. The cache isn't checkpointed. Watermarks: not used. Mention async lookup.
+**a) Lookup join.** How long is the drive to each delivery address?
+- Graph (verified with the JDBC connector, which implements lookup): Source → LookupJoin `APPEND` → Sink,
+  with the maps service drawn beside it. The page leaves the connector name out of the DDL.
+- State: none in Flink; the connector's cache (shown, labelled as not Flink state). Watermarks: not used.
 
-**b) Temporal join (event time).** What did that pizza cost to make when it was ordered?
-- `JOIN pizza_costs FOR SYSTEM_TIME AS OF o.event_time`
-- Graph: Source orders `APPEND` + Source pizza_costs `UPSERT` (→ ChangelogNormalize? **verify**) → Exchange(hash pizza_id) → TemporalJoin `APPEND` → Sink
-- State: orders buffered until the watermark reaches them, and versions of each pizza's cost, pruned
-  as the watermark advances.
-- Watermarks: results are held until the **minimum** watermark of both inputs passes the order's time.
-  Show the stall when the costs topic goes quiet (the idle-source trap from the deck).
+**b) Temporal join (event time).** What did each pizza cost to make, when it was ordered?
+- Graph (verified on 2.3): orders `APPEND` + pizza_costs `UPSERT` → hash(pizza_id) → TemporalJoin `APPEND`
+  → Sink. **No ChangelogNormalize.**
+- Semantics from `TemporalRowTimeJoinOperator`: orders wait until W passes their time, then join the
+  latest version at or before it; older versions are removed. Shows the stall when one side lags.
 
-**c) LATERAL SNAPSHOT join (FLIP-579).** Join with the *current* cost, right away.
-- `LEFT JOIN LATERAL SNAPSHOT(TABLE pizza_costs) AS c ON …`
-- Graph: two Sources → LateralSnapshotJoin `APPEND` → Sink
-- State: the latest cost per pizza, plus orders held during the **LOAD** phase.
-- Watermarks: not used for triggering. Animate the two phases: LOAD (orders wait until costs have
-  caught up), then JOIN (immediate). Caption: not deterministic.
-- **(verify against FLIP-579 and the released 2.4 docs: operator name, syntax, how updating right sides are handled)**
+**c) LATERAL SNAPSHOT join (FLIP-579, Flink 2.4).** Join with the current cost, right away.
+- Not released yet (2.4 is in progress, on the `release-2.4` branch). Verified against the
+  **2.4-SNAPSHOT** jars (`verification/lateral-snapshot.sql`, `FLINK_VERSION=2.4-SNAPSHOT`).
+- Syntax accepted by 2.4: `JOIN LATERAL SNAPSHOT(input => TABLE pizza_costs, on_time => DESCRIPTOR(valid_from))`;
+  `on_time` is required in streaming mode (the FLIP and the deck's backup slide omit it).
+- Graph: orders `APPEND` + pizza_costs `UPSERT` → **ChangelogNormalize** `RETRACT` → LateralSnapshotJoin
+  (`loadCompletedCondition=[compile_time]`) `APPEND` → Sink.
+- Semantics from the 2.4 `LateralSnapshotJoinOperator` and docs: LOAD buffers orders and holds their
+  watermarks until the costs watermark reaches the compile time; JOIN joins on arrival; build changes are
+  buffered by `on_time` and applied once the costs watermark reaches them, in both phases.
+- **Open question:** with an upsert build side, ChangelogNormalize's `−U` carries the old row's
+  `valid_from`, so it can become due before the matching `+U`, leaving the key briefly empty. The
+  operator's tests only cover pairs that share a row time. The example data avoids the case; worth
+  checking with the FLIP author.
 
 ### 3.7 Complex event processing
 - **Question:** Which kitchens are falling behind? (three tickets in a row, each slower than the last)
@@ -211,8 +217,9 @@ Each milestone ends with a browser check (screenshots, light and dark, narrow wi
 
 ## 6. Verification of Flink semantics
 
-- Run every query on the target Flink version with `verification/run-explain.sh` (a local Flink
-  distribution and the Kafka SQL connector; no cluster or Kafka broker needed) with
+- Run every query on the target Flink version with `verification/run-explain.sh` (a small Maven
+  harness in `verification/harness/`; any released version, or a snapshot such as `2.4-SNAPSHOT`; no
+  cluster or Kafka broker needed) with
   `EXPLAIN CHANGELOG_MODE`. Check operator names, edge changelog modes, and whether
   ChangelogNormalize and SinkUpsertMaterializer are present. Save the output in `verification/`, and
   draw graphs only from it. Every **(verify)** item above is resolved this way.

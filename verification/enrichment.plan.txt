@@ -1,0 +1,21 @@
+# Flink 2.3.0, EXPLAIN CHANGELOG_MODE, optimized physical plans
+
+## Statement 1
+
+Sink(table=[default_catalog.default_database.delivery_times], fields=[order_id, delivery_address, drive_minutes], changelogMode=[NONE])
++- Calc(select=[order_id, delivery_address, drive_minutes], changelogMode=[I])
+   +- LookupJoin(table=[default_catalog.default_database.routes], joinType=[InnerJoin], lookup=[store_id=store_id, address=delivery_address], select=[order_id, store_id, delivery_address, store_id0, address, drive_minutes], changelogMode=[I])
+      +- Calc(select=[order_id, store_id, delivery_address], changelogMode=[I])
+         +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+
+## Statement 2
+
+Sink(table=[default_catalog.default_database.order_costs], fields=[order_id, pizza_id, total, food_cost], changelogMode=[NONE])
++- Calc(select=[order_id, pizza_id, total, food_cost], changelogMode=[I])
+   +- TemporalJoin(joinType=[InnerJoin], where=[AND(=(pizza_id, pizza_id0), __TEMPORAL_JOIN_CONDITION(event_time, valid_from, __TEMPORAL_JOIN_CONDITION_PRIMARY_KEY(pizza_id0), __TEMPORAL_JOIN_LEFT_KEY(pizza_id), __TEMPORAL_JOIN_RIGHT_KEY(pizza_id0)))], select=[order_id, pizza_id, total, event_time, pizza_id0, food_cost, valid_from], changelogMode=[I])
+      :- Exchange(distribution=[hash[pizza_id]], changelogMode=[I])
+      :  +- Calc(select=[order_id, pizza_id, total, Reinterpret(event_time) AS event_time], changelogMode=[I])
+      :     +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+      +- Exchange(distribution=[hash[pizza_id]], changelogMode=[I,UA,D])
+         +- TableSourceScan(table=[[default_catalog, default_database, pizza_costs, watermark=[-(valid_from, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[pizza_id, food_cost, valid_from], changelogMode=[UA,D])
+

@@ -27,14 +27,17 @@ are published to GitHub Pages by `.github/workflows/pages.yml`.
 Each job graph, and the stream type on each edge, is copied from what Flink's planner produces:
 
 ```sh
-verification/run-explain.sh          # every verification/*.sql file
-verification/run-explain.sh filter   # just one
+verification/run-explain.sh                     # every verification/*.sql file, on Flink 2.3.0
+verification/run-explain.sh filter              # just one
+FLINK_VERSION=2.4-SNAPSHOT verification/run-explain.sh lateral-snapshot
 ```
 
-The script downloads Flink (2.3.0 by default; set `FLINK_VERSION` to change it) and the Kafka
-SQL connector into `verification/.cache`, runs `EXPLAIN CHANGELOG_MODE` on each statement, and
-writes the optimized plans to `verification/<name>.plan.txt`. No cluster or Kafka broker is
-needed. Keep the SQL in `verification/` identical to the SQL shown on the page.
+The script runs each statement through `TableEnvironment` in `verification/harness/`, a small Maven
+project, against the Flink jars for `FLINK_VERSION` (2.3.0 by default). Snapshot versions come from
+the Apache snapshot repository, which is how features that aren't released yet are checked. It writes
+the optimized plans from `EXPLAIN CHANGELOG_MODE` to `verification/<name>.plan.txt`, and fails if a
+statement doesn't plan. You need Java 17 or later and Maven; no cluster or Kafka broker is needed.
+Keep the SQL in `verification/` identical to the SQL shown on the page.
 
 ## Screenshots
 

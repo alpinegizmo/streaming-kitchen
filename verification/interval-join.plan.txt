@@ -1,0 +1,14 @@
+# Flink 2.3.0, EXPLAIN CHANGELOG_MODE, optimized physical plans
+
+## Statement 1
+
+Sink(table=[default_catalog.default_database.late_orders], fields=[order_id, store_id, ordered_at], changelogMode=[NONE])
++- Calc(select=[order_id, store_id, event_time AS ordered_at], where=[IS NULL(order_id0)], changelogMode=[I])
+   +- IntervalJoin(joinType=[LeftOuterJoin], windowBounds=[isRowTime=true, leftLowerBound=-2700000, leftUpperBound=0, leftTimeIndex=2, rightTimeIndex=1], where=[AND(=(order_id, order_id0), >=(event_time0, event_time), <=(event_time0, +(event_time, 2700000:INTERVAL MINUTE)))], select=[order_id, store_id, event_time, order_id0, event_time0], changelogMode=[I])
+      :- Exchange(distribution=[hash[order_id]], changelogMode=[I])
+      :  +- Calc(select=[order_id, store_id, Reinterpret(event_time) AS event_time], changelogMode=[I])
+      :     +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+      +- Exchange(distribution=[hash[order_id]], changelogMode=[I])
+         +- Calc(select=[order_id, event_time], changelogMode=[I])
+            +- TableSourceScan(table=[[default_catalog, default_database, deliveries, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, driver_id, event_time], changelogMode=[I])
+

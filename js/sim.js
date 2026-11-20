@@ -15,7 +15,8 @@ const Sim = (() => {
   function run(variant) {
     const { nodes, edges } = variant.graph;
     const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
-    const outEdges = (id) => edges.map((e, i) => ({ ...e, i })).filter((e) => e.from === id);
+    // Lookup edges connect an operator to an external system; records never travel on them.
+    const outEdges = (id) => edges.map((e, i) => ({ ...e, i })).filter((e) => e.from === id && e.mode !== 'lookup');
 
     const st = {
       ops: Object.fromEntries(nodes.map((n) => [n.id, Ops[n.op].init(n.cfg || {})])),
@@ -50,11 +51,17 @@ const Sim = (() => {
       st.parked[via].shift();
       const op = Ops[node.op];
       const cfg = node.cfg || {};
-      const res = item.t === 'wm' ? op.watermark(st.ops[node.id], item, cfg) : op.record(st.ops[node.id], item, cfg);
-      if (item.t === 'wm') st.wm[node.id] = item.time;
+      // Two-input operators need to know which input an item came from.
+      const ctx = { from: edges[via].from };
+      const res = item.t === 'wm' ? op.watermark(st.ops[node.id], item, cfg, ctx) : op.record(st.ops[node.id], item, cfg, ctx);
+      // An operator with several inputs reports its combined watermark (or null, if it has none yet).
+      if (item.t === 'wm') {
+        const w = res.nodeWm !== undefined ? res.nodeWm : item.time;
+        if (w) st.wm[node.id] = w;
+      }
       const out = emit(node, res.out);
       steps.push({
-        node: node.id, via, item, out, ev: res.ev, touched: res.touched, absorb: !!res.absorb,
+        node: node.id, via, item, out, ev: res.ev, touched: res.touched, absorb: !!res.absorb, also: res.also,
         drop: node.kind !== 'sink' && out.length === 0 && !res.absorb,
         caption: caption(node, res.ev, item),
         snap: snapshot(),

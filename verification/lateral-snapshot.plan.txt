@@ -1,0 +1,15 @@
+# Flink 2.4-SNAPSHOT, EXPLAIN CHANGELOG_MODE, optimized physical plans
+
+## Statement 1
+
+Sink(table=[default_catalog.default_database.order_costs], fields=[order_id, pizza_id, total, food_cost], changelogMode=[NONE])
++- Calc(select=[order_id, pizza_id, total, food_cost], changelogMode=[I])
+   +- LateralSnapshotJoin(joinType=[InnerJoin], where=[=(pizza_id, pizza_id0)], select=[order_id, pizza_id, total, pizza_id0, food_cost, valid_from], loadCompletedCondition=[compile_time], loadCompletedTime=[1795139775965], changelogMode=[I])
+      :- Exchange(distribution=[hash[pizza_id]], changelogMode=[I])
+      :  +- Calc(select=[order_id, pizza_id, total], changelogMode=[I])
+      :     +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+      +- Exchange(distribution=[hash[pizza_id]], changelogMode=[I,UB,UA,D])
+         +- ChangelogNormalize(key=[pizza_id], changelogMode=[I,UB,UA,D])
+            +- Exchange(distribution=[hash[pizza_id]], changelogMode=[UA,D])
+               +- TableSourceScan(table=[[default_catalog, default_database, pizza_costs, watermark=[-(valid_from, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[pizza_id, food_cost, valid_from], changelogMode=[UA,D])
+

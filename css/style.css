@@ -319,6 +319,9 @@ pre.plan { font-size: 12.5px; padding: 14px 18px; white-space: pre; }
 .edge.mode-append { stroke: var(--blue); }
 .edge.mode-upsert { stroke: var(--violet); }
 .edge.mode-retract { stroke: var(--orange); }
+.edge.mode-lookup { stroke: var(--ink-3); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.edge-lookup-label { font: italic 400 11px var(--font-body); fill: var(--ink-3); }
+.node-external .node-box { fill: var(--panel-2); stroke-dasharray: 2 3; }
 .arrow.mode-append path { fill: var(--blue); }
 .arrow.mode-upsert path { fill: var(--violet); }
 .arrow.mode-retract path { fill: var(--orange); }
