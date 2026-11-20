@@ -741,6 +741,90 @@ const Ops = (() => {
     },
   };
 
+  // MATCH_RECOGNIZE with an event-time ORDER BY (Match, run by CepOperator). Mirrors
+  // CepOperator.processElement / onEventTime in Flink 2.3:
+  //   - a row at or before the operator's watermark is late, and dropped
+  //   - otherwise it's buffered, per key and timestamp, with a timer at its timestamp
+  //   - when the watermark passes buffered rows, they're fed to the NFA in timestamp order
+  // The NFA here handles PATTERN (A B C) with strict contiguity, an always-true A, and
+  // AFTER MATCH SKIP PAST LAST ROW: every row starts a new partial match as A, each partial
+  // match either takes the row as its next variable or is discarded, and a completed match
+  // prunes every partial match that started at or before its last row (all of them).
+  //   cfg: { key, timeField, valueField, next(prev, row) -> bool, measures(a, b, c) -> row }
+  const match = {
+    init: () => ({ keys: {}, wm: null, seq: 0 }),
+    record(st, item, cfg) {
+      const row = item.row;
+      const k = row[cfg.key];
+      const ts = U.toSec(row[cfg.timeField]);
+      if (st.wm != null && ts <= U.toSec(st.wm)) return { out: [], ev: { type: 'late', key: k, row, wm: st.wm } };
+      const s = (st.keys[k] ||= { buffer: [], partials: [] });
+      s.buffer.push({ row, ts, seq: ++st.seq });
+      s.buffer.sort((a, b) => a.ts - b.ts || a.seq - b.seq);
+      return { out: [], absorb: true, touched: k, ev: { type: 'buffer', key: k, row, n: st.seq, ahead: s.buffer.filter((b) => b.ts > ts).map((b) => b.row) } };
+    },
+    watermark(st, item, cfg) {
+      st.wm = item.time;
+      const now = U.toSec(item.time);
+      // Timers fire in timestamp order, so the key with the earliest due row goes first.
+      const due = Object.entries(st.keys)
+        .filter(([, s]) => s.buffer.length && s.buffer[0].ts <= now)
+        .sort(([, a], [, b]) => a.buffer[0].ts - b.buffer[0].ts);
+      const out = [];
+      const keys = due.map(([k, s]) => {
+        const steps = [];
+        const ready = s.buffer.filter((b) => b.ts <= now);
+        s.buffer = s.buffer.filter((b) => b.ts > now);
+        for (const { row, seq } of ready) {
+          let found = null;
+          const next = [];
+          const dropped = [];
+          for (const p of s.partials) {
+            if (!cfg.next(p[p.length - 1], row)) { dropped.push(p); continue; }
+            if (p.length === 2) found = [...p, row];
+            else next.push([...p, row]);
+          }
+          next.push([row]);
+          if (found) {
+            out.push(rec('+I', cfg.measures(...found)));
+            s.partials = [];
+          } else {
+            s.partials = next;
+          }
+          steps.push({ row, seq, match: found, dropped, partials: U.clone(s.partials) });
+        }
+        return { key: k, steps, waiting: s.buffer.map((b) => ({ row: b.row, seq: b.seq })) };
+      });
+      out.push(wm(item.time));
+      return { out, ev: { type: keys.length ? 'fire' : 'wm', time: item.time, keys, matches: out.length - 1 } };
+    },
+    view(st, cfg) {
+      const v = (r) => r[cfg.valueField];
+      return {
+        title: `Per ${cfg.key}`,
+        cols: [cfg.key, 'buffered', 'partial matches'],
+        rows: Object.entries(st.keys).map(([k, s]) => ({
+          key: k,
+          cells: [
+            k,
+            s.buffer.map((b) => `${v(b.row)}@${b.row[cfg.timeField].slice(0, 5)}`).join(', ') || '–',
+            s.partials.map((p) => [...p.map(v), '?', '?'].slice(0, 3).join('→')).join(', ') || '–',
+          ],
+        })),
+        footer: st.wm ? `late: at or before ${st.wm}` : 'no watermark yet',
+      };
+    },
+    say(ev) {
+      switch (ev.type) {
+        case 'late': return `The row is at or before the watermark, so it's late, and dropped.`;
+        case 'buffer': return `The row waits in state until the watermark passes it.`;
+        case 'fire': return `The watermark passes buffered rows, which are fed to the pattern in event-time order.`;
+        case 'wm': return `The watermark hasn't passed any buffered row. It's forwarded.`;
+      }
+      return '';
+    },
+  };
+
   // An external system, such as the service behind a lookup join. It isn't part of the stream.
   const external = { init: () => null, view: () => null };
 
@@ -812,7 +896,7 @@ const Ops = (() => {
   return {
     kafkaSource, upsertKafkaSource, calc, changelogNormalize, windowAggregate, sessionWindowAggregate,
     groupAggregate, procTimeDedup, rowTimeDedup,
-    intervalJoin, lookupJoin, temporalJoin, lateralSnapshotJoin, external,
+    intervalJoin, lookupJoin, temporalJoin, lateralSnapshotJoin, match, external,
     kafkaSink, upsertKafkaSink, changelogKafkaSink,
   };
 })();

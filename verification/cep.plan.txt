@@ -1,0 +1,9 @@
+# Flink 2.3.0, EXPLAIN CHANGELOG_MODE, optimized physical plans
+
+## Statement 1
+
+Sink(table=[default_catalog.default_database.slow_kitchens], fields=[store_id, first_minutes, last_minutes, detected_at], changelogMode=[NONE])
++- Match(partitionBy=[store_id], orderBy=[event_time ASC], measures=[FINAL(A.prep_minutes) AS first_minutes, FINAL(C.prep_minutes) AS last_minutes, FINAL(MATCH_ROWTIME()) AS detected_at], rowsPerMatch=[ONE ROW PER MATCH], after=[SKIP PAST LAST ROW], pattern=[((_UTF-16LE'A', _UTF-16LE'B'), _UTF-16LE'C')], define=[{B=>(PREV(B.$2, 0), LAST(A.$2, 0)), C=>(PREV(C.$2, 0), LAST(B.$2, 0))}], changelogMode=[I])
+   +- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+      +- TableSourceScan(table=[[default_catalog, default_database, kitchen_tickets, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, prep_minutes, event_time], changelogMode=[I])
+

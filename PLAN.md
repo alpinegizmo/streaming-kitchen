@@ -152,12 +152,19 @@ NOTHING`, each of which plans the sink with `upsertMaterialize=[true]` and makes
 
 ### 3.7 Complex event processing
 - **Question:** Which kitchens are falling behind? (three tickets in a row, each slower than the last)
-- `MATCH_RECOGNIZE` from the deck (`PARTITION BY store_id ORDER BY event_time … PATTERN (A B C)`)
-- Graph: Source `APPEND` → Exchange(hash store_id) → Match `APPEND` → Sink
-- State: events buffered until the watermark (so they can be **sorted by event time**), plus partial
-  matches (NFA + shared buffer).
-- Watermarks: events are processed in order only after the watermark passes them. Late events are
-  dropped. Mention `WITHIN` timeouts.
+- `MATCH_RECOGNIZE` from the deck (`PARTITION BY store_id ORDER BY event_time … PATTERN (A B C)`,
+  `AFTER MATCH SKIP PAST LAST ROW`), written to an append-only `slow_kitchens` topic.
+- Graph (verified on 2.3, `verification/cep.plan.txt`): Source `APPEND` → Exchange(hash store_id) →
+  Match `APPEND` → Sink. No ChangelogNormalize or materializer.
+- State (CepOperator): rows buffered per key and timestamp until the watermark passes them, plus the
+  NFA's partial matches. With strict contiguity a key has at most two partial matches.
+- Watermarks: a row with a timestamp at or before the operator's watermark is late, and dropped (SQL
+  has no side output). Buffered rows are fed to the NFA in timestamp order once the watermark passes
+  them, so a match is emitted only when the watermark passes its last row. `WITHIN` is mentioned in
+  the Details block as the bound for patterns with gaps or quantifiers.
+- Data: store 7 from the deck (14, 9, 13, 18, 10) with 13 arriving after 18, interleaved with store
+  9; one match (9 → 13 → 18 at 12:35), and a late store 9 ticket that would have completed
+  11 → 12 → 15.
 
 ## 4. Architecture
 
