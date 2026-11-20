@@ -1,0 +1,11 @@
+# Flink 2.3.0, EXPLAIN CHANGELOG_MODE, optimized physical plans
+
+## Statement 1
+
+Sink(table=[default_catalog.default_database.store_totals], fields=[store_id, orders, sales], upsertMaterialize=[true], conflictStrategy=[DEDUPLICATE], changelogMode=[NONE])
++- Calc(select=[store_id, orders, sales], changelogMode=[I,UB,UA])
+   +- GroupAggregate(groupBy=[store_id, channel], select=[store_id, channel, COUNT(*) AS orders, SUM(total) AS sales], changelogMode=[I,UB,UA])
+      +- Exchange(distribution=[hash[store_id, channel]], changelogMode=[I])
+         +- Calc(select=[store_id, channel, total], changelogMode=[I])
+            +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+

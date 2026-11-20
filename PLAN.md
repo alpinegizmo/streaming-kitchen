@@ -64,19 +64,29 @@ must be confirmed with `EXPLAIN CHANGELOG_MODE` before they're drawn (see §6).
   emit. That's why the output is updating.
 
 ### 3.3 Non-windowed aggregation
-**a) Running total.** Running sales per store.
-- `SELECT store_id, SUM(total) FROM orders GROUP BY store_id`
-- Graph: Source `APPEND` → Exchange(hash store_id) → GroupAggregate `UPSERT` → upsert-kafka sink (PK store_id).
-  No materializer, because the upsert key matches the sink's PK. **(verify)** Toggle: with a retract-capable
-  sink, the same edge becomes `RETRACT` (`-U`/`+U` pairs, as in the deck's "Append-only vs updating" slide).
-- State: accumulator per store (sum + count, so it can retract). It's unbounded, so TTL matters.
-- Watermarks: not used.
+Three variants, all verified on 2.3 (`verification/aggregation.sql`, `upsert-materializer.sql`), with
+emit rules from `GroupAggHelper.processElement` and the debezium-json format from
+`DebeziumJsonSerializationSchema`.
 
-**b) Aggregating an updating stream.** How many orders are in each status right now?
+**a) Upsert sink.** How much has each store sold so far?
+- `SELECT store_id, COUNT(*), SUM(total) FROM orders GROUP BY store_id` into `upsert-kafka` (PK store_id)
+- Graph: Source `APPEND` → hash(store_id) → GroupAggregate `UPSERT` (`+I +U`) → Sink. No `−U`, no `−D`,
+  no materializer. (A projection-only Calc after the source is left out.)
+- State: accumulator per store, kept forever without a TTL. Watermarks: not used.
+
+**b) Retract sink.** Same query into a `kafka` sink with `debezium-json`. GroupAggregate now emits
+`RETRACT` (`+I −U +U`); the format writes `−U` as `op: d` with a before image, `+U` as `op: c`. A plain
+`json` sink is rejected ("doesn't support consuming update changes").
+
+**c) Updating input.** How many orders are in each status right now?
 - `SELECT status, COUNT(*) FROM order_status GROUP BY status`
-- Graph: Source `UPSERT` → **ChangelogNormalize** `RETRACT` → Exchange(hash status) → GroupAggregate → upsert sink
-- Shows that an order moving from "baking" to "out for delivery" has to *decrement* one count and
-  increment another, so the aggregate needs `-U`. That's why ChangelogNormalize is there.
+- Graph: Source `UPSERT` (`+U −D`) → hash(order_id) → **ChangelogNormalize** `RETRACT` (`+I −U +U −D`) →
+  hash(status) → GroupAggregate (`COUNT_RETRACT`) `UPSERT` (`+I +U −D`) → upsert sink.
+- A debezium-json source would make ChangelogNormalize unnecessary (checked).
+
+**SinkUpsertMaterializer** doesn't arise naturally here, so (a) has an aside: in 2.3 a query whose upsert
+key differs from the sink's PK is rejected unless it has `ON CONFLICT DO DEDUPLICATE | DO ERROR | DO
+NOTHING`, each of which plans the sink with `upsertMaterialize=[true]` and makes the aggregate emit `−U`.
 
 ### 3.4 Windows (all: Window TVF + GROUP BY, append-only output, watermark triggers emission and frees state)
 | Window | Question | Teaching point |

@@ -33,7 +33,7 @@ const Player = (() => {
       U.el('div', { class: 'table-scroll' }, U.el('table', {}, U.el('thead', {}, head), body)));
   }
 
-  function compactedTable({ title, cols, key, table, hotKey }) {
+  function compactedTable({ title, note, cols, key, table, hotKey }) {
     const head = U.el('tr', {}, U.el('th', { scope: 'col' }, key),
       ...cols.filter((c) => c.f !== key).map((c) => U.el('th', { scope: 'col', class: c.num ? 'num' : null }, c.h || c.f)));
     const body = U.el('tbody');
@@ -45,7 +45,7 @@ const Player = (() => {
     });
     if (!entries.length) body.append(U.el('tr', { class: 'empty' }, U.el('td', { colspan: cols.length }, 'empty')));
     return U.el('figure', { class: 'topic topic-table' },
-      U.el('figcaption', {}, U.el('span', { class: 'topic-name' }, title), U.el('span', { class: 'topic-note' }, 'latest value per key, as after compaction')),
+      U.el('figcaption', {}, U.el('span', { class: 'topic-name' }, title), U.el('span', { class: 'topic-note' }, note || 'latest value per key, as after compaction')),
       U.el('div', { class: 'table-scroll' }, U.el('table', {}, U.el('thead', {}, head), body)));
   }
 
@@ -181,7 +181,8 @@ const Player = (() => {
         }));
         if (st.table) {
           topics.append(compactedTable({
-            title: cfg.topic, cols: cfg.columns, key: cfg.key, table: st.table,
+            title: cfg.tableTitle || cfg.topic, note: cfg.tableNote,
+            cols: cfg.tableColumns || cfg.columns, key: cfg.key, table: st.table,
             hotKey: atSink ? step.ev.key : null,
           }));
         }

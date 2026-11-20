@@ -1,0 +1,29 @@
+# Flink 2.3.0, EXPLAIN CHANGELOG_MODE, optimized physical plans
+
+## Statement 1
+
+Sink(table=[default_catalog.default_database.store_totals], fields=[store_id, orders, sales], changelogMode=[NONE])
++- GroupAggregate(groupBy=[store_id], select=[store_id, COUNT(*) AS orders, SUM(total) AS sales], changelogMode=[I,UA])
+   +- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+      +- Calc(select=[store_id, total], changelogMode=[I])
+         +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+
+## Statement 2
+
+Sink(table=[default_catalog.default_database.store_totals_changelog], fields=[store_id, orders, sales], changelogMode=[NONE])
++- GroupAggregate(groupBy=[store_id], select=[store_id, COUNT(*) AS orders, SUM(total) AS sales], changelogMode=[I,UB,UA])
+   +- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+      +- Calc(select=[store_id, total], changelogMode=[I])
+         +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+
+## Statement 3
+
+Sink(table=[default_catalog.default_database.status_counts], fields=[status, orders], changelogMode=[NONE])
++- GroupAggregate(groupBy=[status], select=[status, COUNT_RETRACT(*) AS orders], changelogMode=[I,UA,D])
+   +- Exchange(distribution=[hash[status]], changelogMode=[I,UB,UA,D])
+      +- Calc(select=[status], changelogMode=[I,UB,UA,D])
+         +- ChangelogNormalize(key=[order_id], changelogMode=[I,UB,UA,D])
+            +- Exchange(distribution=[hash[order_id]], changelogMode=[UA,D])
+               +- Calc(select=[order_id, status], changelogMode=[UA,D])
+                  +- TableSourceScan(table=[[default_catalog, default_database, order_status]], fields=[order_id, store_id, status], changelogMode=[UA,D])
+

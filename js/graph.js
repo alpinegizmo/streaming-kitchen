@@ -64,6 +64,8 @@ const Graph = (() => {
     G = { ...DIMS[orient] };
     G.nodeW = nodeWidth(graph);
     const { depth, rows } = layers(graph);
+    // Long pipelines get shorter edges, so they still fit a laptop screen.
+    if (Math.max(...Object.values(depth)) >= 3) G.gapH = 156;
     const tallest = Math.max(0, ...graph.nodes.map((n) => (n.stateful ? panelHeight(specs[n.id]) : 0)));
     const widest = Math.max(0, ...graph.nodes.map((n) => (n.stateful ? specs[n.id].width : 0)));
     const pos = {};

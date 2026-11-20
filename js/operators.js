@@ -199,6 +199,87 @@ const Ops = (() => {
     },
   };
 
+  // Non-windowed GROUP BY (GroupAggregate). One accumulator per key, kept forever unless
+  // state TTL is set. Mirrors GroupAggHelper.processElement in Flink 2.3:
+  //   - the first row for a key emits +I
+  //   - a change emits +U, preceded by -U (the old result) only if downstream needs it
+  //   - an unchanged result emits nothing (when state TTL is off)
+  //   - when the record count drops to zero, -D (the old result), and the key is cleared
+  //   cfg: { key, keyLabel, aggs: [{ name, fn: 'count' | 'sum', field }], generateUpdateBefore }
+  const groupAggregate = {
+    init: () => ({ acc: {} }),
+    record(st, item, cfg) {
+      const k = item.row[cfg.key];
+      const accumulate = item.kind === '+I' || item.kind === '+U';
+      let a = st.acc[k];
+      const first = !a;
+      if (first && !accumulate) return { out: [], absorb: true, ev: { type: 'retract-missing', key: k } };
+      if (first) a = { n: 0, vals: Object.fromEntries(cfg.aggs.map((g) => [g.name, 0])) };
+      const value = (vals) => ({ [cfg.key]: k, ...vals });
+      const prev = value({ ...a.vals });
+      const sign = accumulate ? 1 : -1;
+      a.n += sign;
+      for (const g of cfg.aggs) {
+        const delta = g.fn === 'count' ? 1 : item.row[g.field];
+        a.vals[g.name] = Math.round((a.vals[g.name] + sign * delta) * 100) / 100;
+      }
+      const next = value({ ...a.vals });
+      const ev = { key: k, accumulate, prev, next, in: item.row };
+      if (a.n === 0) {
+        delete st.acc[k];
+        return { out: first ? [] : [rec('-D', prev)], absorb: true, ev: { ...ev, type: 'delete' } };
+      }
+      st.acc[k] = a;
+      if (first) return { out: [rec('+I', next)], absorb: true, touched: k, ev: { ...ev, type: 'first' } };
+      if (same(prev, next)) return { out: [], absorb: true, touched: k, ev: { ...ev, type: 'unchanged' } };
+      const out = cfg.generateUpdateBefore ? [rec('-U', prev), rec('+U', next)] : [rec('+U', next)];
+      return { out, absorb: true, touched: k, ev: { ...ev, type: 'update' } };
+    },
+    watermark: (st, item) => ({ out: [wm(item.time)], ev: { type: 'wm', time: item.time } }),
+    view(st, cfg) {
+      return {
+        title: `Accumulator per ${cfg.keyLabel || cfg.key}`,
+        cols: [cfg.keyLabel || cfg.key, ...cfg.aggs.map((g) => g.name)],
+        rows: Object.entries(st.acc).map(([k, a]) => ({
+          key: k, cells: [k, ...cfg.aggs.map((g) => (g.fn === 'sum' ? U.money(a.vals[g.name]) : a.vals[g.name]))],
+        })),
+      };
+    },
+    say(ev) {
+      switch (ev.type) {
+        case 'first': return `First row for key ${ev.key}. GroupAggregate creates an accumulator and emits an insert.`;
+        case 'update': return `The accumulator for key ${ev.key} changes, so GroupAggregate emits the new result.`;
+        case 'unchanged': return `The result for key ${ev.key} didn't change, so nothing is emitted.`;
+        case 'delete': return `Key ${ev.key} has no rows left, so GroupAggregate emits a delete and clears its state.`;
+        case 'retract-missing': return `A retraction for key ${ev.key}, which has no state. It's ignored.`;
+      }
+      return '';
+    },
+  };
+
+  // Kafka sink with a changelog format (debezium-json). +I and +U are written as creates
+  // (op c, with an after image), -U and -D as deletes (op d, with a before image), as in
+  // DebeziumJsonSerializationSchema. A consumer that applies them in order rebuilds the table.
+  const changelogKafkaSink = {
+    init: () => ({ log: [], table: {} }),
+    record(st, item, cfg) {
+      const row = cfg.fields ? pick(item.row, cfg.fields) : item.row;
+      const key = row[cfg.key];
+      const create = item.kind === '+I' || item.kind === '+U';
+      st.log.push({ offset: st.log.length, value: { op: create ? 'c' : 'd', image: create ? 'after' : 'before', ...row } });
+      if (create) st.table[key] = row;
+      else delete st.table[key];
+      return { out: [], ev: { type: create ? 'create' : 'delete', kind: item.kind, key, row } };
+    },
+    watermark: (st, item) => ({ out: [], ev: { type: 'wm', time: item.time } }),
+    view: () => null,
+    say(ev, cfg) {
+      if (ev.type === 'wm') return `Watermarks aren't written to Kafka.`;
+      if (ev.type === 'delete') return `The sink writes the ${ev.kind} to ${cfg.topic} as a Debezium delete (op d), with the old row as its before image.`;
+      return `The sink writes the ${ev.kind} to ${cfg.topic} as a Debezium create (op c), with the row as its after image.`;
+    },
+  };
+
   // Kafka sink with an append-only format. The planner rejects anything but inserts.
   const kafkaSink = {
     init: () => ({ log: [] }),
@@ -241,5 +322,8 @@ const Ops = (() => {
     },
   };
 
-  return { kafkaSource, upsertKafkaSource, calc, changelogNormalize, windowAggregate, kafkaSink, upsertKafkaSink };
+  return {
+    kafkaSource, upsertKafkaSource, calc, changelogNormalize, windowAggregate, groupAggregate,
+    kafkaSink, upsertKafkaSink, changelogKafkaSink,
+  };
 })();
