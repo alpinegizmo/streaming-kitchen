@@ -1,0 +1,45 @@
+# Flink 2.3.0, EXPLAIN CHANGELOG_MODE, optimized physical plans
+
+## Statement 1
+
+Sink(table=[default_catalog.default_database.store_leaderboard], fields=[store_id, city, manager, orders, sales], changelogMode=[NONE])
++- Calc(select=[store_id0 AS store_id, city, manager, orders, sales], changelogMode=[I,UA,D])
+   +- Join(joinType=[InnerJoin], where=[=(store_id, store_id0)], select=[store_id, orders, sales, store_id0, city, manager], leftInputSpec=[JoinKeyContainsUniqueKey], rightInputSpec=[JoinKeyContainsUniqueKey], changelogMode=[I,UA,D])
+      :- Exchange(distribution=[hash[store_id]], changelogMode=[I,UA])
+      :  +- GroupAggregate(groupBy=[store_id], select=[store_id, COUNT(*) AS orders, SUM(total) AS sales], changelogMode=[I,UA])
+      :     +- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+      :        +- Calc(select=[store_id, total], changelogMode=[I])
+      :           +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+      +- Exchange(distribution=[hash[store_id]], changelogMode=[I,UA,D])
+         +- TableSourceScan(table=[[default_catalog, default_database, stores]], fields=[store_id, city, manager], changelogMode=[UA,D])
+
+## Statement 2
+
+Sink(table=[default_catalog.default_database.leaderboard_blackhole], fields=[store_id, city, manager, orders, sales], changelogMode=[NONE])
++- GroupAggregate(groupBy=[store_id, city, manager], select=[store_id, city, manager, COUNT_RETRACT(*) AS orders, SUM_RETRACT(total) AS sales], changelogMode=[I,UA,D])
+   +- Exchange(distribution=[hash[store_id, city, manager]], changelogMode=[I,UB,UA,D])
+      +- Calc(select=[store_id0 AS store_id, city, manager, total], changelogMode=[I,UB,UA,D])
+         +- Join(joinType=[InnerJoin], where=[=(store_id, store_id0)], select=[store_id, total, store_id0, city, manager], leftInputSpec=[NoUniqueKey], rightInputSpec=[JoinKeyContainsUniqueKey], changelogMode=[I,UB,UA,D])
+            :- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+            :  +- Calc(select=[store_id, total], changelogMode=[I])
+            :     +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+            +- Exchange(distribution=[hash[store_id]], changelogMode=[I,UB,UA,D])
+               +- ChangelogNormalize(key=[store_id], changelogMode=[I,UB,UA,D])
+                  +- Exchange(distribution=[hash[store_id]], changelogMode=[UA,D])
+                     +- TableSourceScan(table=[[default_catalog, default_database, stores]], fields=[store_id, city, manager], changelogMode=[UA,D])
+
+## Statement 3
+
+Sink(table=[default_catalog.default_database.store_leaderboard], fields=[store_id, city, manager, orders, sales], upsertMaterialize=[true], conflictStrategy=[DEDUPLICATE], changelogMode=[NONE])
++- GroupAggregate(groupBy=[store_id, city, manager], select=[store_id, city, manager, COUNT_RETRACT(*) AS orders, SUM_RETRACT(total) AS sales], changelogMode=[I,UB,UA,D])
+   +- Exchange(distribution=[hash[store_id, city, manager]], changelogMode=[I,UB,UA,D])
+      +- Calc(select=[store_id0 AS store_id, city, manager, total], changelogMode=[I,UB,UA,D])
+         +- Join(joinType=[InnerJoin], where=[=(store_id, store_id0)], select=[store_id, total, store_id0, city, manager], leftInputSpec=[NoUniqueKey], rightInputSpec=[JoinKeyContainsUniqueKey], changelogMode=[I,UB,UA,D])
+            :- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+            :  +- Calc(select=[store_id, total], changelogMode=[I])
+            :     +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+            +- Exchange(distribution=[hash[store_id]], changelogMode=[I,UB,UA,D])
+               +- ChangelogNormalize(key=[store_id], changelogMode=[I,UB,UA,D])
+                  +- Exchange(distribution=[hash[store_id]], changelogMode=[UA,D])
+                     +- TableSourceScan(table=[[default_catalog, default_database, stores]], fields=[store_id, city, manager], changelogMode=[UA,D])
+

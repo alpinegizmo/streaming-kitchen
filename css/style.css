@@ -143,12 +143,12 @@ kbd { border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4p
 
 .layout { max-width: 1440px; margin: 0 auto; padding: 0 24px; display: grid; grid-template-columns: 1fr; }
 main { min-width: 0; }
-@media (min-width: 1440px) {
-  .layout { grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
+/* The table of contents only appears when there's room for it beside a full-width stage. */
+@media (min-width: 1680px) {
+  .layout { max-width: 1688px; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
 }
-
 .toc { display: none; }
-@media (min-width: 1440px) {
+@media (min-width: 1680px) {
   .toc { display: block; position: sticky; top: 0; align-self: start; padding: 40px 0; }
   .toc ol { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--rule); }
   .toc a {

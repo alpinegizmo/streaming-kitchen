@@ -29,6 +29,7 @@ compact that log, which is what makes upsert vs. retract click for most people.
 | `pizza_costs` | upsert-kafka / CDC, PK `pizza_id`, versioned | `valid_from` + watermark | temporal and lateral snapshot joins |
 | `routes` | HTTP lookup connector (not Kafka) | `(store_id, address)` | lookup join |
 | `kitchen_tickets` | Kafka, append-only | `store_id`, `prep_minutes`, `event_time` | MATCH_RECOGNIZE |
+| `stores` | upsert-kafka, PK `store_id` | `city`, `manager`; no watermark | regular join |
 
 The `orders` DDL comes straight from the deck (`order_id, store_id, pizza_id, channel, total,
 delivery_address, event_time`).
@@ -165,6 +166,28 @@ NOTHING`, each of which plans the sink with `upsertMaterialize=[true]` and makes
 - Data: store 7 from the deck (14, 9, 13, 18, 10) with 13 arriving after 18, interleaved with store
   9; one match (9 → 13 → 18 at 12:35), and a late store 9 ticket that would have completed
   11 → 12 → 15.
+
+### 3.8 Regular join (added after the first plan; shown between Windows and Event correlation)
+- **Question:** How much has each store sold, and who manages it right now? (a live leaderboard)
+- Per-store totals (GroupAggregate) joined with `stores` (upsert-kafka) on `store_id`, written to an
+  upsert `store_leaderboard` topic.
+- Graph (verified on 2.3, `verification/regular-join.plan.txt`): orders `APPEND` → GroupAggregate
+  `UPSERT [I,UA]` → Join ← stores `UPSERT [UA,D]`; Join `UPSERT [I,UA,D]` → upsert sink. Both join
+  inputs are `JoinKeyContainsUniqueKey`, so there's **no ChangelogNormalize** on `stores`, no −U
+  anywhere, and no SinkUpsertMaterializer.
+- State: one row per `store_id` on each side of the join, bounded by the number of stores.
+- Watermarks: not used. `stores` has none, so the join never emits one.
+- A second tab, **Join, then aggregate (avoid)**, animates the contrasting query on the same inputs
+  (verified as statement 3 of `regular-join.plan.txt`): the join keeps every order (`NoUniqueKey`),
+  the planner adds ChangelogNormalize (−U/+U for the join) and, because the upsert key
+  (store, city, manager) differs from the sink's key, Flink 2.3 requires `ON CONFLICT`;
+  `DO DEDUPLICATE` adds a SinkUpsertMaterializer (the legacy one). One manager change retracts and
+  re-joins every order of the store, and the materializer turns each −U that empties its list into
+  a delete, so the topic gets six records: three tombstones and two never-true totals.
+- Layout changes this needed: graphs of six or more columns size each column to its labels; a
+  source sits just before (and on the row of) the operator it feeds; labels of a join input go
+  above the edge when the other input curves in from below; the table of contents appears only
+  from 1680px, so the stage stays ~1350px wide.
 
 ## 4. Architecture
 

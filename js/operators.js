@@ -423,13 +423,15 @@ const Ops = (() => {
   const groupAggregate = {
     init: () => ({ acc: {} }),
     record(st, item, cfg) {
-      const k = item.row[cfg.key];
+      // A composite GROUP BY (cfg.keys) is shown as one key: the fields joined by a space.
+      const k = cfg.keys ? cfg.keys.map((f) => item.row[f]).join(' ') : item.row[cfg.key];
       const accumulate = item.kind === '+I' || item.kind === '+U';
       let a = st.acc[k];
       const first = !a;
       if (first && !accumulate) return { out: [], absorb: true, ev: { type: 'retract-missing', key: k } };
-      if (first) a = { n: 0, vals: Object.fromEntries(cfg.aggs.map((g) => [g.name, 0])) };
-      const value = (vals) => ({ [cfg.key]: k, ...vals });
+      if (first) a = { n: 0, vals: Object.fromEntries(cfg.aggs.map((g) => [g.name, 0])), keyRow: cfg.keys ? pick(item.row, cfg.keys) : null };
+      const keyFields = cfg.keys ? pick(item.row, cfg.keys) : { [cfg.key]: k };
+      const value = (vals) => ({ ...keyFields, ...vals });
       const prev = value({ ...a.vals });
       const sign = accumulate ? 1 : -1;
       a.n += sign;
@@ -455,7 +457,7 @@ const Ops = (() => {
         title: `Accumulator per ${cfg.keyLabel || cfg.key}`,
         cols: [cfg.keyLabel || cfg.key, ...cfg.aggs.map((g) => g.name)],
         rows: Object.entries(st.acc).map(([k, a]) => ({
-          key: k, cells: [k, ...cfg.aggs.map((g) => (g.fn === 'sum' ? U.money(a.vals[g.name]) : a.vals[g.name]))],
+          key: k, cells: [cfg.keyCell && a.keyRow ? cfg.keyCell(a.keyRow) : k, ...cfg.aggs.map((g) => (g.fn === 'sum' ? U.money(a.vals[g.name]) : a.vals[g.name]))],
         })),
       };
     },
@@ -546,6 +548,67 @@ const Ops = (() => {
       if (ev.type === 'hold') return 'The watermark is recorded, but the other input is behind, so the combined watermark doesn\'t move.';
       if (ev.type === 'advance') return `The combined watermark moves to ${ev.W}.`;
       return ev.matches.length ? 'The row matches a buffered row on the other side, and the joined row is emitted.' : 'No match yet, so the row is buffered.';
+    },
+  };
+
+  // Regular inner join (Join, run by StreamingJoinOperator). Each side's state depends on the
+  // input spec the planner chose: JoinKeyContainsUniqueKey keeps one row per join key, and
+  // NoUniqueKey keeps every row (a multiset per join key). Mirrors
+  // StreamingJoinOperator.processElement for an inner join in Flink 2.3:
+  //   - +I / +U: add the row to this side (replacing the key's row, for a unique side); for each
+  //     row the other side has for the key, emit the joined row with the input's row kind
+  //   - -U / -D: remove the row from this side; for each row the other side has for the key,
+  //     emit the joined row with the input's row kind (an upsert-kafka tombstone carries only
+  //     the key)
+  //   - no row on the other side: nothing is emitted (inner join)
+  // Watermarks: the minimum of both inputs, and nothing until both have sent one.
+  //   cfg: { left, key, joinRow(l, r), leftName, rightName, leftCell(row), rightCell(row),
+  //          leftUnique, rightUnique (default true) }
+  const regularJoin = {
+    init: () => ({ left: {}, right: {}, wms: { left: null, right: null }, W: null }),
+    record(st, item, cfg, ctx) {
+      const side = ctx.from === cfg.left ? 'left' : 'right';
+      const otherSide = side === 'left' ? 'right' : 'left';
+      const unique = (cfg[`${side}Unique`] ?? true);
+      const k = item.row[cfg.key];
+      const accumulate = item.kind === '+I' || item.kind === '+U';
+      const rows = st[side][k] || [];
+      const prev = unique ? rows[0] || null : null;
+      let next;
+      if (accumulate) next = unique ? [item.row] : [...rows, item.row];
+      else {
+        const i = unique ? 0 : rows.findIndex((r) => same(r, item.row));
+        next = rows.filter((_, j) => j !== i);
+      }
+      if (next.length) st[side][k] = next; else delete st[side][k];
+      const others = st[otherSide][k] || [];
+      const out = others.map((o) => rec(item.kind, side === 'left' ? cfg.joinRow(item.row, o) : cfg.joinRow(o, item.row)));
+      return {
+        out, absorb: !out.length && accumulate, touched: accumulate ? `${side}${k}|${next.length - 1}` : null,
+        ev: { type: accumulate ? 'upsert' : 'delete', side, key: k, kind: item.kind, row: item.row, prev, other: others[0] || null, others, kept: next.length, joined: out.map((o) => o.row) },
+      };
+    },
+    watermark(st, item, cfg, ctx) {
+      const side = ctx.from === cfg.left ? 'left' : 'right';
+      st.wms[side] = item.time;
+      const W = combined(st.wms);
+      if (!W || !later(W, st.W)) return { out: [], nodeWm: st.W, ev: { type: 'hold', side, time: item.time, W: st.W } };
+      st.W = W;
+      return { out: [wm(W)], nodeWm: W, ev: { type: 'advance', side, time: item.time, W } };
+    },
+    view(st, cfg) {
+      return {
+        title: cfg.stateTitle || `One row per ${cfg.key} on each side`,
+        cols: ['side', cfg.keyLabel || cfg.key, 'row'],
+        rows: ['left', 'right'].flatMap((side) => Object.entries(st[side]).flatMap(([k, rows]) => rows.map((r, i) => ({
+          key: `${side}${k}|${i}`, cells: [cfg[`${side}Name`], k, cfg[`${side}Cell`](r)],
+        })))),
+      };
+    },
+    say(ev) {
+      if (ev.type === 'hold' || ev.type === 'advance') return 'The join records the watermark. Its own is the minimum of both inputs.';
+      if (ev.type === 'delete') return ev.other ? 'The row is removed from state, and the joined row is deleted downstream.' : 'The row is removed from state. Nothing was joined with it, so nothing is emitted.';
+      return ev.other ? 'The row replaces this side\'s row for its key, and is joined with the other side\'s row.' : 'The row is stored. The other side has no row for this key yet, so nothing is emitted.';
     },
   };
 
@@ -835,6 +898,58 @@ const Ops = (() => {
     },
   };
 
+  // SinkUpsertMaterializer (the legacy one, which Flink 2.3 uses for ON CONFLICT DO DEDUPLICATE).
+  // Added by the planner when the input's upsert key differs from the sink's primary key. For each
+  // primary key it keeps a list of rows, one per upsert key, and the last one is what the sink has.
+  // Mirrors SinkUpsertMaterializer.processElement:
+  //   - +I / +U: replace the row with the same upsert key, or append it; emit it as +I if the
+  //     list was empty, else +U
+  //   - -U / -D: remove the row with the same upsert key; if the list is now empty, emit -D;
+  //     if the removed row was the last one, emit the new last row as +U; otherwise nothing
+  //   cfg: { key, upsertKey(row) -> string, cell(row) }
+  const upsertMaterializer = {
+    init: () => ({ rows: {} }),
+    record(st, item, cfg) {
+      const k = item.row[cfg.key];
+      const list = st.rows[k] || [];
+      const uk = cfg.upsertKey(item.row);
+      const i = list.findIndex((r) => cfg.upsertKey(r) === uk);
+      if (item.kind === '+I' || item.kind === '+U') {
+        const kind = list.length ? '+U' : '+I';
+        const next = i < 0 ? [...list, item.row] : list.map((r, j) => (j === i ? item.row : r));
+        st.rows[k] = next;
+        return { out: [rec(kind, item.row)], touched: k, ev: { type: 'add', key: k, kind, row: item.row, size: next.length } };
+      }
+      if (i < 0) return { out: [], ev: { type: 'missing', key: k, row: item.row } };
+      const next = list.filter((_, j) => j !== i);
+      if (!next.length) {
+        delete st.rows[k];
+        return { out: [rec('-D', item.row)], ev: { type: 'emptied', key: k, kind: item.kind, row: item.row } };
+      }
+      st.rows[k] = next;
+      if (i === list.length - 1) return { out: [rec('+U', next[next.length - 1])], touched: k, ev: { type: 'fallback', key: k, row: next[next.length - 1] } };
+      return { out: [], touched: k, ev: { type: 'removed', key: k, row: item.row } };
+    },
+    watermark: (st, item) => ({ out: [wm(item.time)], ev: { type: 'wm', time: item.time } }),
+    view(st, cfg) {
+      return {
+        title: `Rows per ${cfg.keyLabel || cfg.key}, by upsert key`,
+        cols: [cfg.keyLabel || cfg.key, 'rows'],
+        rows: Object.entries(st.rows).map(([k, list]) => ({ key: k, cells: [k, list.map(cfg.cell).join('; ')] })),
+      };
+    },
+    say(ev) {
+      switch (ev.type) {
+        case 'add': return `The row is added to the list for key ${ev.key}, and emitted as ${ev.kind}.`;
+        case 'emptied': return `The retraction empties the list for key ${ev.key}, so the materializer emits a delete.`;
+        case 'fallback': return `The latest row for key ${ev.key} was retracted, so the one before it is emitted again.`;
+        case 'removed': return `An older row for key ${ev.key} is removed. The sink's row doesn't change.`;
+        case 'missing': return `A retraction for a row that isn't in the list. It's ignored.`;
+      }
+      return '';
+    },
+  };
+
   // An external system, such as the service behind a lookup join. It isn't part of the stream.
   const external = { init: () => null, view: () => null };
 
@@ -906,7 +1021,7 @@ const Ops = (() => {
   return {
     kafkaSource, upsertKafkaSource, calc, changelogNormalize, windowAggregate, sessionWindowAggregate,
     groupAggregate, procTimeDedup, rowTimeDedup,
-    intervalJoin, lookupJoin, temporalJoin, lateralSnapshotJoin, match, external,
+    regularJoin, intervalJoin, lookupJoin, temporalJoin, lateralSnapshotJoin, match, upsertMaterializer, external,
     kafkaSink, upsertKafkaSink, changelogKafkaSink,
   };
 })();

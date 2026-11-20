@@ -26,15 +26,35 @@ const Graph = (() => {
     };
     const streamNodes = graph.nodes.filter((n) => n.kind !== 'external');
     streamNodes.forEach((n) => visit(n.id));
+    // A source sits just before the operator it feeds, so a join's second input doesn't have to
+    // curve across the whole graph.
+    for (const n of streamNodes.filter((x) => !graph.edges.some((e) => e.to === x.id && isStream(e)))) {
+      const targets = graph.edges.filter((e) => e.from === n.id && isStream(e)).map((e) => depth[e.to]);
+      if (targets.length) depth[n.id] = Math.min(...targets) - 1;
+    }
     const rows = {};
-    const used = {};
-    streamNodes.forEach((n) => {
-      const ins = graph.edges.filter((e) => e.to === n.id && isStream(e)).map((e) => rows[e.from]);
-      // An operator with several inputs lines up with its first input; the others curve in.
-      const want = ins.length ? Math.min(...ins) : (used[depth[n.id]] ?? -1) + 1;
+    const taken = new Set();
+    const place = (n) => {
+      if (rows[n.id] != null) return;
+      const inputs = graph.edges.filter((e) => e.to === n.id && isStream(e)).map((e) => e.from);
+      inputs.forEach((id) => place(streamNodes.find((x) => x.id === id)));
+      // An operator with several inputs lines up with its highest input; the others curve in.
+      // A source takes the first free row. Two nodes never share a cell.
+      let want = inputs.length ? Math.min(...inputs.map((id) => rows[id])) : 0;
+      while (taken.has(`${depth[n.id]}:${want}`)) want += 1;
       rows[n.id] = want;
-      used[depth[n.id]] = Math.max(used[depth[n.id]] ?? -1, want);
-    });
+      taken.add(`${depth[n.id]}:${want}`);
+    };
+    streamNodes.forEach(place);
+    // A source moves onto the row of the operator it feeds, when that cell is free, so its edge
+    // runs straight.
+    for (const n of streamNodes.filter((x) => !graph.edges.some((e) => e.to === x.id && isStream(e)))) {
+      const out = graph.edges.find((e) => e.from === n.id && isStream(e));
+      if (!out || rows[out.to] === rows[n.id] || taken.has(`${depth[n.id]}:${rows[out.to]}`)) continue;
+      taken.delete(`${depth[n.id]}:${rows[n.id]}`);
+      rows[n.id] = rows[out.to];
+      taken.add(`${depth[n.id]}:${rows[n.id]}`);
+    }
     return { depth, rows };
   }
 
@@ -101,8 +121,18 @@ const Graph = (() => {
     G.nodeW = nodeWidth(graph);
     const fits = Object.fromEntries(Object.entries(specs).map(([id, spec]) => [id, fitPanel(spec, 400)]));
     const { depth, rows } = layers(graph);
-    // Long pipelines get shorter edges, so they still fit a laptop screen.
-    if (Math.max(...Object.values(depth)) >= 3) G.gapH = 156;
+    // Long pipelines get shorter edges, so they still fit a laptop screen. The longest ones also
+    // size each column to its own labels, instead of giving every operator the widest one's width.
+    const nLayers = Math.max(...Object.values(depth)) + 1;
+    if (nLayers >= 4) G.gapH = 156;
+    const long = nLayers >= 6;
+    if (long) G.gapH = 110;
+    const labelW = (n) => Math.ceil(Math.max(140, n.title.length * 8.2 + 28, ...(n.lines || []).map((t) => t.length * 6.9 + 24)));
+    const colW = [];
+    for (const n of graph.nodes.filter((x) => x.kind !== 'external')) {
+      colW[depth[n.id]] = Math.max(colW[depth[n.id]] || 0, long ? labelW(n) : G.nodeW);
+    }
+    const colX = colW.reduce((xs, w) => [...xs, xs[xs.length - 1] + w + G.gapH], [G.pad]);
     const hasPanel = (n) => n.stateful || n.panel;
     const multiInput = (n) => graph.edges.filter((e) => e.to === n.id && isStream(e)).length > 1;
     const tallest = Math.max(0, ...graph.nodes.map((n) => (hasPanel(n) ? panelHeight(fits[n.id]) : 0)));
@@ -114,16 +144,17 @@ const Graph = (() => {
     const panels = {};
     const top = externals.length ? G.top + G.nodeH + 56 : G.top;
     for (const n of graph.nodes.filter((x) => x.kind !== 'external')) {
-      const x = G.pad + depth[n.id] * (G.nodeW + G.gapH);
+      const x = colX[depth[n.id]];
+      const w = colW[depth[n.id]];
       const y = top + rows[n.id] * (G.nodeH + tallest + 90);
-      pos[n.id] = { x, y, w: G.nodeW, h: G.nodeH, cx: x + G.nodeW / 2, cy: y + G.nodeH / 2 };
+      pos[n.id] = { x, y, w, h: G.nodeH, cx: x + w / 2, cy: y + G.nodeH / 2 };
       if (hasPanel(n)) {
         const fit = fits[n.id];
         // Centred under the operator, unless other inputs curve in from below: then it hangs
         // to the right, clear of them. A panel that reaches under edge labels drops below them.
         panels[n.id] = {
-          x: multiInput(n) ? x : x + G.nodeW / 2 - fit.width / 2,
-          y: y + G.nodeH + ((multiInput(n) ? fit.width - G.nodeW : (fit.width - G.nodeW) / 2) > 46 ? 48 : 14),
+          x: multiInput(n) ? x : x + w / 2 - fit.width / 2,
+          y: y + G.nodeH + (long || (multiInput(n) ? fit.width - w : (fit.width - w) / 2) > 46 ? 48 : 14),
           w: fit.width, h: panelHeight(fit), fit,
         };
       }
@@ -148,7 +179,7 @@ const Graph = (() => {
     for (const p of Object.values(panels)) {
       width = Math.max(width, p.x + p.w); height = Math.max(height, p.y + p.h); left = Math.min(left, p.x - G.pad);
     }
-    return { pos, panels, edges, left, width: width + G.pad - left, height: height + 18 };
+    return { pos, panels, edges, left, width: width + G.pad - left, height: height + 18, long };
   }
 
   // Vertical layout, for phones: one column of full-width cards in an order where every
@@ -260,7 +291,7 @@ const Graph = (() => {
     const svg = U.svg('svg', {
       class: `jobgraph orient-${orient}`, viewBox: `${L.left} 0 ${L.width} ${L.height}`,
       role: 'img', 'aria-label': variant.graphLabel || 'Job graph',
-      style: `max-width:${L.width}px; min-width:${Math.round(L.width * (orient === 'h' ? 0.86 : 0.72))}px`,
+      style: `max-width:${L.width}px; min-width:${Math.round(L.width * (orient === 'v' ? 0.72 : L.long ? 0.76 : 0.8))}px`,
     });
     const defs = U.svg('defs', {},
       ...['append', 'upsert', 'retract'].map((m) => U.svg('marker', {
@@ -291,7 +322,10 @@ const Graph = (() => {
       const intoJoin = graph.edges.filter((x) => x.to === e.to && isStream(x)).length > 1;
       if (orient === 'h' && intoJoin && L.pos[e.from].cy === L.pos[e.to].cy) {
         // Keep the straight input's badge clear of the other input curving in near the operator.
-        bx = path.getPointAtLength(path.getTotalLength() * 0.32).x;
+        bx = Math.max(path.getPointAtLength(path.getTotalLength() * 0.32).x, L.pos[e.from].x + L.pos[e.from].w + bw / 2 + 6);
+        // The other input curves in from below, so the labels go above this edge, clear of it.
+        const below = graph.edges.some((x) => x.to === e.to && x !== e && isStream(x) && L.pos[x.from].cy > L.pos[e.to].cy);
+        if (below) by = e.mid.y - (e.exchange ? 60 : 44);
       } else if (orient === 'h' && L.pos[e.from].cy !== L.pos[e.to].cy) {
         // On a curved edge, the badge sits near the source, away from the operator's panel.
         const len = path.getTotalLength();
