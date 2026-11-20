@@ -163,6 +163,9 @@ main { min-width: 0; }
 
 .footer { max-width: 1440px; margin: 0 auto; padding: 40px 24px 64px; color: var(--ink-3); font-size: 0.9rem; }
 .footer p { max-width: var(--measure); }
+.footer .marks { margin-top: 12px; font-size: 0.82rem; }
+.footer a { color: inherit; }
+h1 .tm { font-size: 0.4em; vertical-align: super; line-height: 0; margin-left: 0.05em; }
 
 /* ---------- Primer ---------- */
 

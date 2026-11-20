@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Flink SQL Patterns</title>
-  <meta name="description" content="Animated examples of the basic stream processing patterns in Apache Flink SQL: job graphs, stream types, state and watermarks.">
+  <title>Stream Processing Patterns in Apache Flink® SQL</title>
+  <meta name="description" content="Animated examples of the basic stream processing patterns in Apache Flink® SQL, with Apache Kafka® sources and sinks: job graphs, stream types, state and watermarks.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
@@ -15,10 +15,10 @@
 
   <header class="hero">
     <div class="hero-inner">
-      <h1>Stream processing patterns in Flink&nbsp;SQL</h1>
+      <h1>Stream processing patterns in Apache&nbsp;Flink<sup class="tm">®</sup>&nbsp;SQL</h1>
       <p class="lede">Watch records, state and watermarks move through the job graph of each basic
-        Flink SQL pattern. The examples follow a chain of pizza shops, and the orders that stream in
-        from every store.</p>
+        Apache Flink® SQL pattern, from Apache Kafka® topic to topic. The examples follow a chain of
+        pizza shops, and the orders that stream in from every store.</p>
     </div>
     <div class="hero-stream" aria-hidden="true">
       <div class="hero-track"></div>
@@ -95,7 +95,14 @@
 
   <footer class="footer">
     <p>Job graphs and changelog modes are checked with <code>EXPLAIN CHANGELOG_MODE</code> on Apache
-      Flink 2.3.0, except LATERAL SNAPSHOT, which is checked on a 2.4 snapshot build. The animations simplify how Flink schedules work, but not what each operator does.</p>
+      Flink 2.3.0, except LATERAL SNAPSHOT, which is checked on a 2.4 snapshot build. The animations
+      simplify how Flink schedules work, but not what each operator does.</p>
+    <p class="marks">Apache®, Apache Flink®, Flink®, Apache Kafka® and Kafka® are either registered
+      trademarks or trademarks of <a href="https://www.apache.org/">The Apache Software Foundation</a>
+      in the United States and/or other countries. This site is not affiliated with The Apache
+      Software Foundation, and no endorsement by The Apache Software Foundation is implied by the use
+      of these marks. Learn more about <a href="https://flink.apache.org/">Apache Flink</a> and
+      <a href="https://kafka.apache.org/">Apache Kafka</a> on their project sites.</p>
   </footer>
 
   <script src="js/util.js"></script>
