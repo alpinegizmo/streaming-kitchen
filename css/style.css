@@ -165,6 +165,11 @@ main { min-width: 0; }
 .footer p { max-width: var(--measure); }
 .footer .marks { margin-top: 12px; font-size: 0.82rem; }
 .footer a { color: inherit; }
+/* With the table of contents showing, the footer lines up with the main column: same container
+   as .layout, indented by the sidebar and its gap. */
+@media (min-width: 1680px) {
+  .footer { max-width: 1688px; padding-left: calc(24px + 200px + 48px); }
+}
 h1 .tm { font-size: 0.4em; vertical-align: super; line-height: 0; margin-left: 0.05em; }
 
 /* ---------- Primer ---------- */
