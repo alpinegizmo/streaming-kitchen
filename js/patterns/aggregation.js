@@ -140,9 +140,9 @@ sink has to be able to take updates.</p>
 every new result simply replaces the old one. GroupAggregate never needs to send <code>−U</code>,
 and its output is <code>[I, UA]</code>: there's no <code>−D</code> either, because a count over an
 append-only stream never drops to zero.</p>
-<p>The state is one accumulator per store, and it never goes away on its own. That's fine for a few
-hundred stores, but group by something unbounded, like a customer or a session, and it grows
-forever. Set <code>table.exec.state.ttl</code>, or a <code>STATE_TTL</code> hint, to expire idle
+<p>The state is one accumulator per store. That's fine for a few
+hundred stores, but if you GROUP BY something unbounded, like customers or sessions, it grows
+forever. Set <code>table.exec.state.ttl</code>, or a <code>STATE_TTL</code> hint, to expire state for idle
 keys.</p>
 <p>Without mini-batch, the aggregation runs in one phase. Turn on
 <code>table.exec.mini-batch.enabled</code>, and the planner splits it into a local and a global

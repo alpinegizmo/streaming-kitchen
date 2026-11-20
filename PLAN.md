@@ -178,7 +178,7 @@ NOTHING`, each of which plans the sink with `upsertMaterialize=[true]` and makes
   anywhere, and no SinkUpsertMaterializer.
 - State: one row per `store_id` on each side of the join, bounded by the number of stores.
 - Watermarks: not used. `stores` has none, so the join never emits one.
-- A second tab, **Join, then aggregate (avoid)**, animates the contrasting query on the same inputs
+- A second tab, **Join, then aggregate (anti-pattern)**, animates the contrasting query on the same inputs
   (verified as statement 3 of `regular-join.plan.txt`): the join keeps every order (`NoUniqueKey`),
   the planner adds ChangelogNormalize (−U/+U for the join) and, because the upsert key
   (store, city, manager) differs from the sink's key, Flink 2.3 requires `ON CONFLICT`;

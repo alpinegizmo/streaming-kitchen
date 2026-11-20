@@ -215,7 +215,7 @@ leaderboard until its row is written again.</p>`,
   const groupCell = (r) => `${r.manager} ${r.orders} ${U.money(r.sales)}`;
   const joinFirst = {
     id: 'join-first',
-    label: 'Join, then aggregate (avoid)',
+    label: 'Join, then aggregate (anti-pattern)',
     question: 'The same leaderboard, written the other way round',
     blurb: 'This query gives the same final answer, but it joins every order with its store, and then aggregates. Watch the join\'s state, and what one manager change does to the leaderboard topic.',
     intro: 'The same inputs as before, up to store 7\'s new manager. Press Play, or step through with the arrow keys.',

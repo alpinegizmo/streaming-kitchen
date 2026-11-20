@@ -18,9 +18,9 @@
   <header class="hero">
     <div class="hero-inner">
       <h1>Stream processing patterns in Apache&nbsp;Flink<sup class="tm">®</sup>&nbsp;SQL</h1>
-      <p class="lede">Watch records, state and watermarks move through the job graph of each basic
-        Apache Flink® SQL pattern, from Apache Kafka® topic to topic. The examples follow a chain of
-        pizza shops, and the orders that stream in from every store.</p>
+      <p class="lede">Watch records, state, and watermarks flow through the job graph of each basic
+        Apache Flink® SQL pattern. The examples follow a chain of
+        pizza shops, and the orders that are streaming in.</p>
     </div>
     <div class="hero-stream" aria-hidden="true"></div>
   </header>
@@ -33,7 +33,7 @@
     <main id="main">
       <section class="primer" id="reading" aria-labelledby="reading-h">
         <h2 id="reading-h">How to read the diagrams</h2>
-        <p>Every pattern is a Flink job: a Kafka source on the left, a Kafka sink on the right, and the
+        <p>Every pattern is a Flink job: an Apache Kafka® source on the left, a Kafka sink on the right, and the
           operators the planner chose in between. Press <kbd>Play</kbd>, or step through one record at
           a time with <kbd>&larr;</kbd> and <kbd>&rarr;</kbd>.</p>
 
@@ -58,7 +58,7 @@
           <div>
             <dt>Watermarks</dt>
             <dd><span class="wm-chip">WM 12:00:04</span> travels with the data and says no record
-              at or before this time should follow. Operators that wait for time use it to know when to
+              at or before this time should follow. Operators that wait for time use watermarks to know when to
               act.</dd>
           </div>
           <div>
@@ -68,7 +68,7 @@
               <span class="node-chip stateful">stateful</span> keeps keyed state, shown underneath it.<br>
               <span class="node-chip planner">added by the planner</span> isn't in your SQL, but the
               planner needs it to produce correct results.
-              <span class="legend-note">Calcs that only drop columns, or set up a time attribute, are
+              <span class="legend-note">Calc nodes that only drop columns, or set up a time attribute, are
               left out. <code>hash(store_id)</code> under an edge means the records are repartitioned
               by that key, so every record for a key reaches the same parallel instance.</span>
             </dd>
