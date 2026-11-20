@@ -65,17 +65,22 @@ const Ops = (() => {
     },
   };
 
-  // Calc: projection and filter, stateless. Watermarks pass through unchanged.
+  // Calc: projection and filter, stateless. Watermarks pass through unchanged. It does note the
+  // current watermark, which is what CURRENT_WATERMARK() returns (null before the first one), and
+  // hands it to the WHERE clause.
   const calc = {
-    init: () => null,
+    init: () => ({ wm: null }),
     record(st, item, cfg) {
-      if (cfg.where && !cfg.where(item.row)) {
-        return { out: [], ev: { type: 'drop', row: item.row } };
+      if (cfg.where && !cfg.where(item.row, st.wm)) {
+        return { out: [], ev: { type: 'drop', row: item.row, wm: st.wm } };
       }
       const row = cfg.project ? cfg.project(item.row) : item.row;
-      return { out: [rec(item.kind, row)], ev: { type: 'pass', row, in: item.row } };
+      return { out: [rec(item.kind, row)], ev: { type: 'pass', row, in: item.row, wm: st.wm } };
     },
-    watermark: (st, item) => ({ out: [wm(item.time)], ev: { type: 'wm', time: item.time } }),
+    watermark(st, item) {
+      st.wm = item.time;
+      return { out: [wm(item.time)], ev: { type: 'wm', time: item.time } };
+    },
     view: () => null,
     say(ev) {
       if (ev.type === 'wm') return `The watermark passes through unchanged. A stateless operator has no use for it.`;
@@ -188,7 +193,7 @@ const Ops = (() => {
       let timer = sliceEnd;
       while (fired(st, timer)) timer += sliceSize;
       st.timers[`${k}|${timer}`] = { k, t: timer };
-      return { out: [], absorb: true, touched: key, ev: { type: created ? 'new-slice' : 'accumulate', row, slice, acc: { ...s }, timer: hm(timer) } };
+      return { out: [], absorb: true, touched: key, ev: { type: created ? 'new-slice' : 'accumulate', row, slice, acc: { ...s }, timer: hm(timer), wm: st.wm } };
     },
     watermark(st, item, cfg) {
       st.wm = item.time;

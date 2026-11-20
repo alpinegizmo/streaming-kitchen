@@ -20,7 +20,26 @@ public class Explain {
                 sql.append(line).append('\n');
             }
         }
-        for (String statement : sql.toString().split(";\\s*(\\n|$)")) {
+        // A statement set's INSERTs end in semicolons too, so its pieces are joined back up,
+        // from STATEMENT SET through END.
+        java.util.List<String> statements = new java.util.ArrayList<>();
+        StringBuilder set = null;
+        for (String piece : sql.toString().split(";\\s*(\\n|$)")) {
+            if (set == null && piece.toUpperCase().contains("STATEMENT SET")) {
+                set = new StringBuilder();
+            }
+            if (set == null) {
+                statements.add(piece);
+                continue;
+            }
+            set.append(piece).append(";\n");
+            if (piece.strip().toUpperCase().endsWith("END")) {
+                String joined = set.toString().strip();
+                statements.add(joined.substring(0, joined.length() - 1));
+                set = null;
+            }
+        }
+        for (String statement : statements) {
             if (statement.isBlank()) {
                 continue;
             }

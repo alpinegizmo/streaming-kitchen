@@ -10,7 +10,7 @@ const SQL = (() => {
     hour hours day row_number rows range between case when then else end cast
     system_time of table descriptor tumble hop cumulate session match_recognize measures
     define pattern within one per match after skip past last first asc desc true false
-    explain changelog_mode
+    explain changelog_mode execute statement set begin
   `.trim().split(/\s+/));
 
   const TYPES = new Set(['bigint', 'int', 'integer', 'string', 'varchar', 'decimal',

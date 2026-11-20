@@ -30,6 +30,7 @@ compact that log, which is what makes upsert vs. retract click for most people.
 | `routes` | HTTP lookup connector (not Kafka) | `(store_id, address)` | lookup join |
 | `kitchen_tickets` | Kafka, append-only | `store_id`, `prep_minutes`, `event_time` | MATCH_RECOGNIZE |
 | `stores` | upsert-kafka, PK `store_id` | `city`, `manager`; no watermark | regular join |
+| `late_orders` | Kafka, append-only | same columns as `orders` | dead letter queue |
 
 The `orders` DDL comes straight from the deck (`order_id, store_id, pizza_id, channel, total,
 delivery_address, event_time`).
@@ -188,6 +189,30 @@ NOTHING`, each of which plans the sink with `upsertMaterialize=[true]` and makes
   source sits just before (and on the row of) the operator it feeds; labels of a join input go
   above the edge when the other input curves in from below; the table of contents appears only
   from 1680px, so the stage stays ~1350px wide.
+
+### 3.9 Late events to a dead letter queue (added later; shown right after Windows)
+- **Question:** Which orders arrived too late to be counted?
+- The approach from the flink-intro talk: one `EXECUTE STATEMENT SET` with one definition of late,
+  `event_time <= CURRENT_WATERMARK(event_time)`. That INSERT writes `late_orders`; the main INSERT
+  runs a 1-minute TUMBLE over `(SELECT * FROM orders WHERE CURRENT_WATERMARK(event_time) IS NULL
+  OR event_time > CURRENT_WATERMARK(event_time))` into `store_sales`. (The talk's slide writes
+  `STATEMENT SET BEGIN` without `EXECUTE`, which open-source Flink 2.3 doesn't parse.)
+- Graph (verified on 2.3, `verification/late-events.plan.txt`): the execution plan has one
+  TableSourceScan (`reuse_id=[1]`) feeding both branches, and both filters are Calcs on that scan,
+  before any exchange, so they're chained to the source. The main filter is merged with the window
+  branch's projection Calc. All edges `APPEND`. The harness now joins a `BEGIN … END` block back
+  into one statement, and the plan file records the execution plan whenever it shows reuse.
+- Every order lands in exactly one topic, at any parallelism: both chained filters see the same
+  watermark for each row, the conditions are complements (NULL included), and the window never
+  drops a row that passed (its watermark can't be ahead of the filter's; LocalWindowAggregate
+  flushes before forwarding a watermark that fires a buffered slice).
+- Trade-off, shown by order 106: it's behind the watermark but its window is open, so a window on
+  its own would count it; here it goes to the DLQ. In return the definition doesn't depend on the
+  window type.
+- The Calc simulator tracks its watermark and passes it to `where`.
+- Layout: a fan-out (one operator, two stream outputs) gets the phone rail too, with the second
+  branch's labels in a gap above its target; on wide screens the second branch's badge sits left of
+  its curve and the straight branch's labels go above its edge.
 
 ## 4. Architecture
 

@@ -32,8 +32,12 @@ if errors:
 if not blocks:
     sys.exit("no plans found:\n" + text[-2000:])
 print("# Flink '"$FLINK_VERSION"', EXPLAIN CHANGELOG_MODE, optimized physical plans\n")
+# Sub-plan reuse (a statement set sharing one source) only shows in the execution plan.
+execs = re.findall(r"== Optimized Execution Plan ==\n(.*?)(?=\n== |\Z)", text, re.S)
 for i, b in enumerate(blocks, 1):
     print(f"## Statement {i}\n\n{b.strip()}\n")
+    if i <= len(execs) and "Reused(" in execs[i - 1]:
+        print(f"### Execution plan, with reuse\n\n{execs[i - 1].strip()}\n")
 ' > "$out.tmp" && mv "$out.tmp" "$out" || { rm -f "$out.tmp"; echo "FAILED: $name" >&2; exit 1; }
   echo "wrote ${out#$here/}"
 done

@@ -151,10 +151,11 @@ const Graph = (() => {
       if (hasPanel(n)) {
         const fit = fits[n.id];
         // Centred under the operator, unless other inputs curve in from below: then it hangs
-        // to the right, clear of them. A panel that reaches under edge labels drops below them.
+        // to the right, clear of them. A panel that reaches under the incoming edge's labels (about
+        // 45px either side of the gap's middle) drops below them.
         panels[n.id] = {
           x: multiInput(n) ? x : x + w / 2 - fit.width / 2,
-          y: y + G.nodeH + (long || (multiInput(n) ? fit.width - w : (fit.width - w) / 2) > 46 ? 48 : 14),
+          y: y + G.nodeH + (long || (multiInput(n) ? fit.width - w : (fit.width - w) / 2) > Math.min(46, G.gapH / 2 - 46) ? 48 : 14),
           w: fit.width, h: panelHeight(fit), fit,
         };
       }
@@ -201,7 +202,8 @@ const Graph = (() => {
     };
     graph.nodes.filter((n) => n.kind !== 'external' && !outs(n.id).length).forEach((n) => place(n.id));
 
-    const rail = graph.nodes.some((n) => ins(n.id).length > 1) ? G.rail : 0;
+    // A join's second input, or a source's second branch, comes down a rail on the right.
+    const rail = graph.nodes.some((n) => ins(n.id).length > 1 || outs(n.id).length > 1) ? G.rail : 0;
     const fitIn = (W) => Object.fromEntries(Object.entries(specs).map(([id, spec]) => [id, fitPanel(spec, W - 2 * G.pad - rail)]));
     let fits = fitIn(G.width);
     const W = Math.max(G.width, ...Object.values(fits).map((f) => f.width + 2 * G.pad + rail));
@@ -216,6 +218,9 @@ const Graph = (() => {
     const pos = {};
     const panels = {};
     const bottom = {};
+    // A second branch out of an operator can't put its labels under that operator, next to the
+    // first branch's. They go in a gap of their own, just above the operator the branch feeds.
+    const branchBadge = {};
     let y = 12 + above(byId[order[0]]);
     order.forEach((id, i) => {
       const n = byId[id];
@@ -224,6 +229,11 @@ const Graph = (() => {
         const out = outs(prev)[0];
         const railed = out && out.to !== id;
         y = bottom[prev] + 14 + (out ? labels(out) : 0) + (railed ? 18 : 0) + above(n) + 6;
+        const branch = ins(id).find((e) => outs(e.from).indexOf(e) > 0 && order[order.indexOf(e.from) + 1] !== id);
+        if (branch) {
+          branchBadge[graph.edges.indexOf(branch)] = y - above(n) - 6 + 10;
+          y += labels(branch) - 4;
+        }
       }
       const h = cardH(n);
       const w = calledBy[id] ? Math.round(colW * 0.56) : colW;
@@ -241,12 +251,12 @@ const Graph = (() => {
     });
 
     const r = 12;
-    const edges = graph.edges.map((e) => {
+    const edges = graph.edges.map((e, ei) => {
       const a = pos[e.from];
       const b = pos[e.to];
       if (e.mode === 'lookup') return { ...e, d: `M${a.x + a.w},${a.cy} L${b.x},${b.cy}`, mid: { x: (a.x + a.w + b.x) / 2, y: a.cy } };
       const y1 = bottom[e.from];
-      const badgeY = y1 + 24;
+      const badgeY = branchBadge[ei] ?? y1 + 24;
       if (order[order.indexOf(e.from) + 1] === e.to) {
         const x1 = a.cx, x2 = b.cx, y2 = b.y - 6;
         const d = x1 === x2 ? `M${x1},${y1} L${x2},${y2}` : `M${x1},${y1} C${x1},${y1 + 50} ${x2},${y2 - 50} ${x2},${y2}`;
@@ -326,6 +336,16 @@ const Graph = (() => {
         // The other input curves in from below, so the labels go above this edge, clear of it.
         const below = graph.edges.some((x) => x.to === e.to && x !== e && isStream(x) && L.pos[x.from].cy > L.pos[e.to].cy);
         if (below) by = e.mid.y - (e.exchange ? 60 : 44);
+      } else if (orient === 'h' && L.pos[e.from].cy === L.pos[e.to].cy
+        && graph.edges.some((x) => x.from === e.from && x !== e && isStream(x) && L.pos[x.to].cy > L.pos[e.from].cy)) {
+        // Another branch curves away below, so this edge's labels go above it, clear of the curve.
+        by = e.mid.y - (e.exchange ? 60 : 44);
+      } else if (orient === 'h' && L.pos[e.from].cy !== L.pos[e.to].cy && graph.edges.filter((x) => x.from === e.from && isStream(x)).length > 1) {
+        // A second branch out of an operator: its badge sits left of the curve, halfway down,
+        // clear of the first branch's labels and of the operator panels to the right.
+        const pt = path.getPointAtLength(path.getTotalLength() * 0.5);
+        bx = pt.x - bw / 2 - 12;
+        by = pt.y - 10;
       } else if (orient === 'h' && L.pos[e.from].cy !== L.pos[e.to].cy) {
         // On a curved edge, the badge sits near the source, away from the operator's panel.
         const len = path.getTotalLength();

@@ -188,10 +188,8 @@ state and fires the timers. The graph draws them as one operator. It also leaves
 only drop columns.</p>
 <p>Under the hood, the state is kept per <em>slice</em>. For a tumbling window, a slice is the whole
 window. Hopping and cumulating windows share slices between overlapping windows.</p>
-<p>If late orders matter, give the watermark a longer delay, at the cost of later results.
-<code>CURRENT_WATERMARK(event_time)</code> can flag rows that are behind the watermark, but that
-catches more than the window drops: a row behind the watermark still counts while its window is
-open.</p>`,
+<p>If late orders matter, give the watermark a longer delay, at the cost of later results, or
+send them to a topic of their own, as the next pattern does.</p>`,
   });
 
   // ---------- Hop ----------
