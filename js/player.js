@@ -59,11 +59,10 @@ const Player = (() => {
     const snapAt = (k) => (k === 0 ? trace.initial : steps[k - 1].snap);
     const nodeById = Object.fromEntries(variant.graph.nodes.map((n) => [n.id, n]));
 
-    // Reserve room in each state panel for its fullest moment.
-    const maxRows = {};
+    // Size each state panel for its fullest moment.
+    const specs = {};
     for (const n of variant.graph.nodes.filter((x) => x.stateful)) {
-      maxRows[n.id] = Math.max(1, ...[trace.initial, ...steps.map((s) => s.snap)]
-        .map((s) => Ops[n.op].view(s.ops[n.id], n.cfg || {}).rows.length));
+      specs[n.id] = Graph.panelSpec([trace.initial, ...steps.map((s) => s.snap)].map((s) => Ops[n.op].view(s.ops[n.id], n.cfg || {})));
     }
 
     // Operators that ever hold a watermark get a tag (and room for it in the vertical layout).
@@ -134,7 +133,7 @@ const Player = (() => {
       if (want === orient && view) return;
       orient = want;
       U.clear(graphWrap);
-      view = Graph.create(graphWrap, variant, { orient, maxRows, wmNodes });
+      view = Graph.create(graphWrap, variant, { orient, specs, wmNodes });
       draw(idx);
     }
 
@@ -217,7 +216,7 @@ const Player = (() => {
       if (flying) {
         const sink = nodeById[step.node].kind === 'sink';
         if (step.drop) view.fade(flying, ms * 0.8, 'dropped');
-        else view.fade(flying, ms * 0.35, sink ? 'absorbed' : 'handed-off');
+        else view.fade(flying, ms * 0.35, sink || step.absorb ? 'absorbed' : 'handed-off');
       }
       return true;
     }

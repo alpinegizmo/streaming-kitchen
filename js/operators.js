@@ -116,9 +116,11 @@ const Ops = (() => {
     },
     watermark: (st, item) => ({ out: [wm(item.time)], ev: { type: 'wm', time: item.time } }),
     view(st, cfg) {
+      const fields = cfg.stateFields || [cfg.key];
       return {
         title: cfg.stateTitle || `Last row per ${cfg.key}`,
-        rows: Object.entries(st.rows).map(([key, row]) => ({ key, text: cfg.cells ? cfg.cells(row) : JSON.stringify(row) })),
+        cols: fields,
+        rows: Object.entries(st.rows).map(([key, row]) => ({ key, cells: fields.map((f) => row[f]) })),
       };
     },
     say(ev, cfg) {
@@ -131,6 +133,67 @@ const Ops = (() => {
         case 'delete': return `A delete for key ${ev.key}. ChangelogNormalize emits it with the full row from state, then clears the key.`;
         case 'delete-missing': return `A delete for key ${ev.key}, which isn't in state. Nothing to retract.`;
         case 'wm': return `The watermark passes through.`;
+      }
+      return '';
+    },
+  };
+
+  // Window aggregation over a TUMBLE window TVF (LocalWindowAggregate + GlobalWindowAggregate,
+  // drawn as one operator). One accumulator per key and window, and a timer at the window's end.
+  // A window fires when the watermark reaches its end (strictly: end - 1 ms); its result is
+  // emitted as an insert and its state is freed. A record whose window has already fired is
+  // late, and dropped. Mirrors AbstractSliceSyncStateWindowAggProcessor and TimeWindowUtil.
+  //   cfg: { size (seconds), key, timeField, sumField }
+  const windowAggregate = {
+    init: () => ({ acc: {}, wm: null }),
+    record(st, item, cfg) {
+      const row = item.row;
+      const ts = U.toSec(row[cfg.timeField]);
+      const start = Math.floor(ts / cfg.size) * cfg.size;
+      const end = start + cfg.size;
+      const win = { start: U.fromSec(start).slice(0, 5), end: U.fromSec(end).slice(0, 5) };
+      if (st.wm != null && U.toSec(st.wm) >= end) {
+        return { out: [], ev: { type: 'late', row, win, wm: st.wm } };
+      }
+      const key = `${row[cfg.key]}|${start}`;
+      const created = !st.acc[key];
+      const a = st.acc[key] || (st.acc[key] = { k: row[cfg.key], start, end, count: 0, sum: 0 });
+      a.count += 1;
+      a.sum = Math.round((a.sum + row[cfg.sumField]) * 100) / 100;
+      return { out: [], absorb: true, touched: key, ev: { type: created ? 'new-window' : 'accumulate', row, win, acc: { ...a } } };
+    },
+    watermark(st, item, cfg) {
+      st.wm = item.time;
+      const now = U.toSec(item.time);
+      const fired = Object.entries(st.acc)
+        .filter(([, a]) => now >= a.end)
+        .sort(([, a], [, b]) => a.end - b.end || a.k - b.k);
+      const out = fired.map(([key, a]) => {
+        delete st.acc[key];
+        return rec('+I', {
+          window_start: U.fromSec(a.start).slice(0, 5), window_end: U.fromSec(a.end).slice(0, 5),
+          [cfg.key]: a.k, orders: a.count, sales: a.sum,
+        });
+      });
+      const windows = [...new Set(fired.map(([, a]) => `${U.fromSec(a.start).slice(0, 5)}–${U.fromSec(a.end).slice(0, 5)}`))];
+      return { out: [...out, wm(item.time)], ev: { type: fired.length ? 'fire' : 'wm', time: item.time, windows, rows: out.map((o) => o.row) } };
+    },
+    view(st, cfg) {
+      return {
+        title: `Accumulator per ${cfg.keyLabel || cfg.key} and window`,
+        cols: [cfg.keyLabel || cfg.key, 'window', 'orders', 'sales'],
+        rows: Object.entries(st.acc)
+          .sort(([, a], [, b]) => a.start - b.start || a.k - b.k)
+          .map(([key, a]) => ({ key, cells: [a.k, `${U.fromSec(a.start).slice(0, 5)}–${U.fromSec(a.end).slice(0, 5)}`, a.count, U.money(a.sum)] })),
+      };
+    },
+    say(ev) {
+      switch (ev.type) {
+        case 'new-window': return `The record opens a new accumulator for the ${ev.win.start}–${ev.win.end} window.`;
+        case 'accumulate': return `The record is added to the accumulator for the ${ev.win.start}–${ev.win.end} window.`;
+        case 'late': return `The record's window has already fired, so it's late, and dropped.`;
+        case 'fire': return `The watermark passes the end of a window, which fires: its results are emitted and its state is freed.`;
+        case 'wm': return `The watermark hasn't reached the end of any window, so nothing fires. It's forwarded.`;
       }
       return '';
     },
@@ -178,5 +241,5 @@ const Ops = (() => {
     },
   };
 
-  return { kafkaSource, upsertKafkaSource, calc, changelogNormalize, kafkaSink, upsertKafkaSink };
+  return { kafkaSource, upsertKafkaSource, calc, changelogNormalize, windowAggregate, kafkaSink, upsertKafkaSink };
 })();

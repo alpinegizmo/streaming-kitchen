@@ -258,7 +258,8 @@ pre.plan { font-size: 12.5px; padding: 14px 18px; white-space: pre; }
   border-radius: 14px; box-shadow: var(--shadow);
 }
 .stage:focus-visible { outline-offset: 3px; border-radius: 14px; }
-.graph-wrap { display: flex; justify-content: center; min-height: 120px; }
+.graph-wrap { display: flex; min-height: 120px; overflow-x: auto; }
+.graph-wrap > svg { flex-shrink: 0; margin: 0 auto; }
 
 .caption-row { display: flex; gap: 20px; align-items: flex-start; justify-content: space-between; margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--rule); }
 .caption { margin: 0; flex: 1; min-height: 3.2em; max-width: 72ch; font-size: 1rem; }
@@ -283,8 +284,8 @@ pre.plan { font-size: 12.5px; padding: 14px 18px; white-space: pre; }
 
 /* ---------- Kafka topics as tables ---------- */
 
-.topics { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-top: 16px; }
-.topic { margin: 0; min-width: 0; }
+.topics { display: flex; flex-wrap: wrap; gap: 18px 24px; margin-top: 16px; }
+.topic { margin: 0; flex: 1 1 auto; min-width: 0; max-width: 100%; }
 .topic figcaption { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; }
 .topic-name { font: 500 13.5px var(--font-mono); }
 .topic-note { font-size: 0.82rem; color: var(--ink-3); }
@@ -344,6 +345,7 @@ pre.plan { font-size: 12.5px; padding: 14px 18px; white-space: pre; }
 .state-box { fill: var(--panel); stroke: var(--rule); stroke-width: 1; }
 .state-title { font: 600 11.5px var(--font-body); fill: var(--ink-2); }
 .state-row { font: 400 11.5px var(--font-mono); fill: var(--ink); white-space: pre; }
+.state-col { font: 400 10.5px var(--font-mono); fill: var(--ink-3); }
 .state-empty { font: italic 400 11.5px var(--font-body); fill: var(--ink-3); }
 .state-hot { fill: var(--hot); }
 

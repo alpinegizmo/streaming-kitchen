@@ -54,8 +54,8 @@ const Sim = (() => {
       if (item.t === 'wm') st.wm[node.id] = item.time;
       const out = emit(node, res.out);
       steps.push({
-        node: node.id, via, item, out, ev: res.ev, touched: res.touched,
-        drop: node.kind !== 'sink' && out.length === 0,
+        node: node.id, via, item, out, ev: res.ev, touched: res.touched, absorb: !!res.absorb,
+        drop: node.kind !== 'sink' && out.length === 0 && !res.absorb,
         caption: caption(node, res.ev, item),
         snap: snapshot(),
       });

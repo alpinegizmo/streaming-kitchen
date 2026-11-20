@@ -168,7 +168,7 @@ CREATE TABLE open_orders (
           cfg: {
             key: 'order_id', condition: (r) => r.status !== 'cancelled',
             stateTitle: 'Last row per order_id',
-            cells: (r) => `${r.order_id}  store ${r.store_id}  ${r.status}`,
+            stateFields: ['order_id', 'store_id', 'status'],
           },
         },
         {

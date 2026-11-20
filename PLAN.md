@@ -10,7 +10,7 @@ each section answers one question the chain asks of its data.
 | --- | --- |
 | Use case | A question in plain English ("Sales per store, every 5 minutes"), then a 2–3 sentence summary |
 | SQL | A highlighted query. While the animation runs, the lines for the active operator light up |
-| Job graph | SVG: Kafka source → operators → Kafka sink, with **ChangelogNormalize** and **SinkUpsertMaterializer** only where the planner actually adds them |
+| Job graph | SVG: Kafka source → operators → Kafka sink, with **ChangelogNormalize** and **SinkUpsertMaterializer** only where the planner actually adds them. Calcs that only drop columns are left out, and two-phase aggregations are drawn as one operator; the full plan is in the Details block |
 | Stream type | A badge on every edge: `APPEND`, `UPSERT` or `RETRACT`. Records carry row kinds `+I` `-U` `+U` `-D` |
 | State | A live panel under each stateful operator showing its keyed state as it changes (and as it's freed), plus a static note on state shape, growth and TTL |
 | Watermarks | Yellow watermark markers that flow along the edges with the data. A "Role of watermarks" note says one of: *not used*, *passed through*, *triggers results and frees state*, *orders events*, *holds results until both inputs catch up* |
@@ -86,9 +86,12 @@ must be confirmed with `EXPLAIN CHANGELOG_MODE` before they're drawn (see §6).
 | **Cumulate** 1 h / 15 min | Sales so far this hour, every 15 minutes | Early, growing results that are still append-only. Slices are shared |
 | **Session** 10 min gap, `PARTITION BY store_id` | How long was each store's lunch rush? | Windows **merge** when a new event bridges a gap. The end of a window isn't known until the watermark passes last event + gap |
 
-- Graph: Source → WindowAggregate → Calc → Sink (kafka) **(verify)**. If the plan splits it into
-  LocalWindowAggregate → Exchange → GlobalWindowAggregate, draw that as a single WindowAggregate node
-  with a "two-phase" note.
+- Graph: Source → WindowAggregate (two-phase) → Sink (kafka). Flink 2.3 plans tumble as Source → Calc →
+  LocalWindowAggregate → Exchange(hash store_id) → GlobalWindowAggregate → Calc → Sink, all `[I]`. Local and
+  Global are drawn as one node, and the two projection-only Calcs are left out. *Verified for tumble
+  (`verification/tumble.plan.txt`); hop, cumulate and session still to check.*
+- Firing and lateness follow `TimeWindowUtil.isWindowFired`: a window fires when the watermark reaches
+  `window_end − 1 ms`. A record whose window has already fired is dropped as late.
 - State panel: one accumulator per `(store, slice/window)` plus a timer at the window's end.
 
 ### 3.5 Event correlation (interval join)
