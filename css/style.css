@@ -177,7 +177,7 @@ h1 .tm { font-size: 0.4em; vertical-align: super; line-height: 0; margin-left: 0
 .primer { padding: 48px 0 24px; border-bottom: 1px solid var(--rule); }
 .primer h2 { font-size: 1.5rem; margin-bottom: 12px; }
 .primer > p { max-width: var(--measure); color: var(--ink-2); }
-.legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 20px 32px; margin: 24px 0 0; }
+.legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 20px 32px; margin: 24px 0 0; }
 .legend dt { font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; margin-bottom: 6px; }
 .legend dd { margin: 0; color: var(--ink-2); font-size: 0.95rem; line-height: 1.9; }
 
