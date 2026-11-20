@@ -49,9 +49,9 @@
           <div>
             <dt>Row kinds</dt>
             <dd>
-              <span class="rk rk-I">+I</span> insert
-              <span class="rk rk-UB">&minus;U</span> retract the old version
-              <span class="rk rk-UA">+U</span> the new version
+              <span class="rk rk-I">+I</span> insert<br>
+              <span class="rk rk-UB">&minus;U</span> retract the old version<br>
+              <span class="rk rk-UA">+U</span> the new version<br>
               <span class="rk rk-D">&minus;D</span> delete
             </dd>
           </div>
@@ -64,13 +64,13 @@
           <div>
             <dt>Operators</dt>
             <dd>
-              <span class="node-chip">stateless</span>
-              <span class="node-chip stateful">stateful</span> keeps keyed state, shown underneath it.
+              <span class="node-chip">stateless</span> handles each record on its own, and keeps nothing.<br>
+              <span class="node-chip stateful">stateful</span> keeps keyed state, shown underneath it.<br>
               <span class="node-chip planner">added by the planner</span> isn't in your SQL, but the
-              planner needs it to produce correct results. Calcs that only drop columns, or set up a
-              time attribute, are left out. <code>hash(store_id)</code> under an edge means the
-              records are repartitioned by that key, so every record for a key reaches the same
-              parallel instance.
+              planner needs it to produce correct results.
+              <span class="legend-note">Calcs that only drop columns, or set up a time attribute, are
+              left out. <code>hash(store_id)</code> under an edge means the records are repartitioned
+              by that key, so every record for a key reaches the same parallel instance.</span>
             </dd>
           </div>
           <div>

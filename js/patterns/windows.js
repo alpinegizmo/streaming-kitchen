@@ -199,7 +199,7 @@ open.</p>`,
   const hop = variant({
     id: 'hop',
     label: 'Hop',
-    question: 'How much did store 7 sell in the last 15 minutes, updated every 5?',
+    question: 'How much did each store sell in the last 15 minutes, updated every 5?',
     blurb: 'A hopping window is 15 minutes long and starts every 5 minutes, so windows overlap and each order belongs to three of them. To keep one example readable, only store 7 sends orders here.',
     intro: 'Store 7 sends orders. Windows are 15 minutes long and start every 5 minutes. Flink keeps state per 5-minute slice, and builds each window from three slices. Press Play, or step through with the arrow keys.',
     tvf: ['HOP(', '  TABLE orders,', '  DESCRIPTOR(event_time),', "  INTERVAL '5' MINUTES,", "  INTERVAL '15' MINUTES)"],
@@ -261,7 +261,7 @@ it.</p>
   const cumulate = variant({
     id: 'cumulate',
     label: 'Cumulate',
-    question: 'How much has store 7 sold so far this hour, every 15 minutes?',
+    question: 'How much has each store sold so far this hour, updated every 15 minutes?',
     blurb: 'A cumulating window grows in steps from the start of the hour, and emits a running total at each step, until it reaches its full size. Only store 7 sends orders here.',
     intro: 'Store 7 sends orders. The window starts on the hour, and grows by 15 minutes at a time, up to an hour. Press Play, or step through with the arrow keys.',
     tvf: ['CUMULATE(', '  TABLE orders,', '  DESCRIPTOR(event_time),', "  INTERVAL '15' MINUTES,", "  INTERVAL '1' HOUR)"],
