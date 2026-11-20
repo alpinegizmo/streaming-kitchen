@@ -122,7 +122,7 @@ kbd { border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4p
 .hero h1 { font-size: clamp(2.1rem, 5.2vw, 3.6rem); max-width: 15ch; letter-spacing: -0.025em; }
 .lede { font-size: 1.15rem; color: var(--ink-2); max-width: 58ch; margin-top: 18px; }
 
-.hero-stream { position: relative; height: 92px; border-top: 1px dashed var(--rule); background: var(--panel); overflow: hidden; }
+.hero-stream { position: relative; height: 100px; border-top: 1px dashed var(--rule); background: var(--panel); overflow: hidden; }
 .hero-stream::after {
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(90deg, var(--panel) 0, transparent 8%, transparent 92%, var(--panel) 100%);
@@ -132,27 +132,42 @@ kbd { border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4p
   display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1 var(--font-mono);
   background: var(--paper); border: 1px solid var(--rule); border-radius: 999px; padding: 3px 10px 3px 3px;
 }
-/* The hero's tumbling window: items are placed by js/hero.js. */
-.hs-item { position: absolute; top: 50%; left: 0; white-space: nowrap; will-change: transform, opacity; }
-.hs-result { gap: 10px; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
-.hs-late { color: var(--ink-3); background: var(--panel-2); }
-.hs-late .rk { opacity: 0.5; }
-/* Floats above the right end of the late order, which stays in view beside the window. */
-.hs-late-tag { position: absolute; right: 6px; bottom: calc(100% + 5px); font-size: 11px; color: var(--red); background: var(--red-soft); border-radius: 999px; padding: 3px 7px; }
-.hs-window {
-  position: absolute; z-index: 2; top: 50%; transform: translateY(-50%);
-  width: 196px; height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  background: var(--node); border: 1.5px solid var(--ink-3); border-radius: 8px; box-shadow: var(--shadow);
-  font: 500 12px/1 var(--font-mono); white-space: pre; transition: background-color 0.35s, border-color 0.2s;
+/* The hero's running totals: items are placed by js/hero.js. */
+.hs-item { position: absolute; top: 50%; left: 0; white-space: nowrap; will-change: transform, opacity; transition: opacity 0.4s; }
+.hs-result { border-color: var(--violet); box-shadow: 0 0 0 3px var(--violet-soft); transition: opacity 0.4s, box-shadow 0.4s, border-color 0.4s; }
+/* The streams in and out of the aggregate, in the colours of the append-only and upsert badges. */
+.hs-flow {
+  --c: var(--blue); --soft: var(--blue-soft);
+  position: absolute; top: 50%; left: 0; right: 0; height: 38px; transform: translateY(-50%);
+  background-color: var(--soft);
+  background-image: repeating-linear-gradient(110deg, transparent 0 40px, color-mix(in srgb, var(--c) 10%, transparent) 40px 48px);
+  border-block: 1px solid color-mix(in srgb, var(--c) 35%, transparent);
 }
-.hs-window.took { border-color: var(--blue); }
-.hs-window.fired { background: var(--hot); border-color: var(--wm-line); }
-.hs-label { color: var(--ink-3); font-size: 11px; }
-.hs-value { color: var(--ink); }
+.hs-flow.mode-append { right: auto; }
+.hs-flow.mode-upsert { --c: var(--violet); --soft: var(--violet-soft); }
+/* A later result for the same store supersedes this one. */
+.hs-result.hs-stale { border-color: var(--rule); box-shadow: none; }
+.hs-agg {
+  position: absolute; z-index: 2; top: 50%; transform: translateY(-50%);
+  width: 172px; height: 80px; display: flex; flex-direction: column; gap: 1px; padding: 8px 10px 8px 14px;
+  /* Drawn like the stateful node chip in the primer: the operator box with a blue state bar. */
+  background: var(--node); border: 1.5px solid var(--ink-3); border-radius: 7px;
+  box-shadow: inset 4px 0 0 var(--blue);
+  font: 500 12px/1 var(--font-mono); white-space: pre; transition: border-color 0.2s;
+}
+.hs-agg.took { border-color: var(--blue); }
+.hs-row { display: grid; grid-template-columns: auto 1fr auto; line-height: 16px; color: var(--ink); border-radius: 3px; padding: 0 3px; margin: 0 -3px; transition: background-color 0.35s; }
+.hs-row.hot { background: var(--hot); }
+.hs-head { color: var(--ink-3); font-size: 11px; line-height: 1; padding-bottom: 4px; margin-bottom: 3px; border-bottom: 1px solid var(--rule); border-radius: 0; }
+/* The amount just added to a store's sum: beside the row, or on a phone in place of the sum. */
+.hs-delta { justify-self: end; margin-right: 8px; color: var(--green); }
+.hs-sum { min-width: 0; text-align: right; }
+.hs-row.in-place .hs-delta { grid-column: 3; grid-row: 1; margin-right: 0; }
 @media (max-width: 600px) {
-  .hero-stream { height: 84px; }
-  .hs-window { width: 124px; height: 56px; gap: 5px; }
-  .hs-label { font-size: 10px; }
+  .hero-stream { height: 92px; }
+  .hs-agg { width: 150px; height: 74px; padding: 7px 8px 7px 12px; font-size: 11px; }
+  .hs-row { line-height: 15px; }
+  .hs-head { font-size: 10px; }
 }
 
 /* ---------- Layout ---------- */

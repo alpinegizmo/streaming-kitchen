@@ -1,157 +1,154 @@
-// The hero's stream: a tumbling window in miniature. Orders drift right into a ten-second window,
-// which counts them; a watermark closes the window, and its result drifts out ahead of the
-// watermark. Now and then an order turns up after the watermark has passed, and is dropped.
+// The hero's stream: a non-windowed aggregation in miniature. Orders drift right into a
+// GroupAggregate, which keeps a running total for each store. Every order changes its store's
+// total: its amount flashes beside the store's row, the sum rolls up, and the new total drifts
+// out: +I the first time a store is seen, +U after that. A newer result for a store supersedes the
+// one ahead of it, so that one fades.
 'use strict';
 
 (() => {
   const strip = document.querySelector('.hero-stream');
   if (!strip) return;
 
-  let SPEED = 80;               // px per second; slower on a phone, so a result stays in view
-  const GAP = 32;               // px between items on the way in
-  const LATE_GAP = 150;         // extra room behind a late order, so it can fall clear
-  const WINDOW = 10;            // seconds
-  const NOON = 12 * 3600;
-  const pad = (n) => String(n).padStart(2, '0');
-  const time = (s) => `${Math.floor(s / 3600)}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
+  let SPEED = 80;               // px per second; slower on a phone
+  const GAP = 32;               // px between orders on the way in
   const money = (cents) => `$${(cents / 100).toFixed(2)}`;
 
-  // Two windows' worth of input, repeated: each pass shifts the times by 20 s and the ids by 7.
-  // Order 106 is stamped 12:00:09 but arrives after the watermark for 12:00:10, so it's late.
+  // One pass of input, repeated with new order ids. Store 12 first turns up a few orders in,
+  // after the strip has started, so its +I is in view.
   const SCRIPT = [
-    { kind: 'order', id: 101, t: 1, cents: 1800 },
-    { kind: 'order', id: 102, t: 4, cents: 2450 },
-    { kind: 'order', id: 103, t: 7, cents: 3100 },
-    { kind: 'wm', t: 10 },
-    { kind: 'order', id: 104, t: 12, cents: 1200 },
-    { kind: 'order', id: 105, t: 15, cents: 2200 },
-    { kind: 'order', id: 106, t: 9, cents: 1600, late: true },
-    { kind: 'order', id: 107, t: 18, cents: 2750 },
-    { kind: 'wm', t: 20 },
+    { store: 7, cents: 1800 }, { store: 9, cents: 2450 }, { store: 7, cents: 3100 },
+    { store: 7, cents: 1300 }, { store: 9, cents: 1900 }, { store: 12, cents: 2200 },
+    { store: 9, cents: 1600 }, { store: 7, cents: 2750 }, { store: 12, cents: 1450 },
+    { store: 9, cents: 2100 },
   ];
   let next = 0;
-  const nextInput = () => {
-    const s = SCRIPT[next % SCRIPT.length], pass = Math.floor(next / SCRIPT.length);
-    next++;
-    return { ...s, t: NOON + s.t + pass * 20, id: s.id && s.id + pass * 7 };
-  };
+  const nextOrder = () => ({ ...SCRIPT[next % SCRIPT.length], id: 101 + next++ });
 
-  const pill = (cls, ...kids) => U.el('span', { class: `hero-pill hs-item ${cls}` }, U.el('span', { class: 'rk rk-I' }, '+I'), ...kids);
+  const pill = (kind, cls, text) =>
+    U.el('span', { class: `hero-pill hs-item ${cls}` }, U.el('span', { class: `rk rk-${kind}` }, kind === 'UA' ? '+U' : '+I'), text);
   const render = (it) => {
-    it.el.style.transform = `translate(${it.x}px, calc(-50% + ${it.y || 0}px)) scale(${it.scale ?? 1})`;
+    it.el.style.transform = `translate(${it.x}px, -50%) scale(${it.scale ?? 1})`;
     it.el.style.opacity = it.opacity ?? 1;
   };
 
-  // The window operator, centred in the strip.
-  const label = U.el('span', { class: 'hs-label' });
-  const value = U.el('span', { class: 'hs-value' });
-  const win = { el: U.el('div', { class: 'hs-window' }, label, value), start: NOON, count: 0, cents: 0, flash: 0, took: 0 };
-  strip.append(win.el);
-  let watermark = -Infinity, width = 0, winW = 0, winLeft = 0;
-  // On a phone the strip only has room for counts: orders lose their prices, and the window and
-  // its result show how many orders, not how much.
-  const orders = (n) => `${n} order${n === 1 ? '' : 's'}`;
-  const showWindow = () => {
-    const range = `${time(win.start)}–${time(win.start + WINDOW)}`;
-    label.textContent = narrow() ? range : `window ${range}`;
-    value.textContent = !win.count ? 'empty' : narrow() ? orders(win.count) : `${orders(win.count)}  ${money(win.cents)}`;
-  };
+  // The aggregate, centred in the strip: its state as a small table, headed by the query's own
+  // column names, with one row per store in the order they were seen.
+  const head = U.el('div', { class: 'hs-row hs-head' }, U.el('span', {}, 'store_id'), U.el('span', {}), U.el('span', {}, 'SUM(total)'));
+  const agg = { el: U.el('div', { class: 'hs-agg' }, head), took: 0 };
+  const state = new Map();      // store -> { cents, row, cells, anim }
+  let emitted = 0;
+  // The streams either side: append-only into the aggregate, upsert out of it, coloured like the
+  // stream-type badges. Their texture drifts with the records.
+  const flowIn = U.el('div', { class: 'hs-flow mode-append' });
+  const flowOut = U.el('div', { class: 'hs-flow mode-upsert' });
+  strip.append(flowIn, flowOut, agg.el);
+  let drift = 0;
+  let width = 0, aggW = 0, aggLeft = 0;
   const narrow = () => width < 600;
   const measure = () => {
     width = strip.clientWidth;
-    winW = win.el.offsetWidth;
+    aggW = agg.el.offsetWidth;
     SPEED = Math.min(80, Math.max(45, width / 14));
-    winLeft = Math.round((width - winW) / 2);
-    win.el.style.left = `${winLeft}px`;
+    aggLeft = Math.round((width - aggW) / 2);
+    agg.el.style.left = `${aggLeft}px`;
+    flowIn.style.width = `${aggLeft + 2}px`;
+    flowOut.style.left = `${aggLeft + aggW - 2}px`;
   };
 
   let items = [];
-  const add = (it) => { strip.insertBefore(it.el, win.el); it.w = it.el.offsetWidth; items.push(it); return it; };
-  // The incoming queue moves like a conveyor: tail is where the last input's left edge would be,
-  // even after that input has stopped (a late order) or been taken in by the window.
-  let tail = 0, tailGap = 0;
+  const add = (it) => { strip.insertBefore(it.el, agg.el); it.w = it.el.offsetWidth; items.push(it); return it; };
+  // The incoming queue moves like a conveyor: tail is where the last order's left edge would be,
+  // even after the aggregate has taken it in.
+  let tail = 0;
   const spawn = () => {
-    if (tail - tailGap < 0) return;
-    const s = nextInput();
-    const el = s.kind === 'wm'
-      ? U.el('span', { class: 'wm-chip hs-item' }, `WM ${time(s.t)}`)
-      : pill('', narrow() ? `${s.id} ${time(s.t)}` : `${s.id} ${time(s.t)} ${money(s.cents)}`);
-    const it = add({ ...s, el, phase: 'in' });
-    it.x = tail = Math.min(tail - tailGap, 0) - it.w;
-    tailGap = GAP + (s.late ? LATE_GAP : 0);
+    if (tail - GAP < 0) return;
+    const o = nextOrder();
+    const it = add({ ...o, el: pill('I', '', narrow() ? `store ${o.store} ${money(o.cents)}` : `${o.id} store ${o.store} ${money(o.cents)}`), phase: 'in' });
+    it.x = tail = Math.min(tail - GAP, 0) - it.w;
   };
 
-  const fire = () => {
-    const end = win.start + WINDOW;
+  // Adding an order to its store's sum: the order's amount shows (beside the row, or on a phone in
+  // place of the sum), then the sum rolls up to its new value, and then the result goes out.
+  const ADD = { show: 0.15, roll: 0.45, done: 0.9 };
+  const ADD_NARROW = { show: 0.45, roll: 0.4, done: 1.1 };
+  const timing = () => (narrow() ? ADD_NARROW : ADD);
+  const accumulate = (o) => {
+    let s = state.get(o.store);
+    if (!s) {
+      const cells = [U.el('span', {}, String(o.store)), U.el('span', { class: 'hs-delta' }), U.el('span', { class: 'hs-sum' })];
+      s = { cents: 0, row: U.el('div', { class: 'hs-row' }, ...cells), cells, anim: null, seen: false };
+      state.set(o.store, s);
+      agg.el.append(s.row);
+    }
+    if (s.anim) finish(o.store, s);
+    s.anim = { from: s.cents, to: s.cents + o.cents, delta: o.cents, t: 0 };
+    s.cents += o.cents;
+    agg.took = 0.35;
+  };
+  const finish = (store, s) => {
+    const first = !s.seen;
+    s.seen = true; s.anim = null;
+    // The new result supersedes any earlier one for this store that's still in view.
+    for (const it of items) if (it.result && it.store === store) { it.opacity = 0.4; it.el.classList.add('hs-stale'); }
     const res = add({
-      el: narrow() ? pill('hs-result', orders(win.count))
-        : pill('hs-result', U.el('span', {}, `${time(win.start)}–${time(end)}`),
-          U.el('span', {}, orders(win.count)), U.el('span', {}, money(win.cents))),
-      phase: 'out', age: 0, result: true,
+      el: pill(first ? 'I' : 'UA', 'hs-result', `store ${store} ${money(s.cents)}`),
+      phase: 'out', age: 0, result: true, store,
     });
-    res.x = winLeft + winW + 12;
-    win.start = end; win.count = 0; win.cents = 0; win.flash = 0.7;
-    showWindow();
+    res.x = aggLeft + aggW + 12;
+    emitted++;
   };
 
-  // Scale for a result popping out of the window: from 0.6, overshooting a little, to 1.
+  // Scale for a result popping out of the aggregate: from 0.6, overshooting a little, to 1.
   const popIn = (p) => { const c = 1.70158, q = p - 1; return 0.6 + 0.4 * (1 + (c + 1) * q * q * q + c * q * q); };
 
   function step(dt) {
     tail += SPEED * dt;
+    drift += SPEED * dt;
     spawn();
     for (const it of items) {
-      if (it.phase === 'late') {
-        // Bump off the window, then fall out of the stream.
-        it.age += dt;
-        it.x = it.x0 - 28 * Math.sin(Math.min(it.age / 0.3, 1) * Math.PI / 2);
-        const fall = Math.max(0, it.age - 0.55);
-        it.y = 160 * fall * fall;
-        it.opacity = Math.max(0, 1 - fall / 0.6);
-        if (it.age > 1.3) it.gone = true;
-        continue;
-      }
       it.x += SPEED * dt;
       if (it.phase === 'out') {
-        if (it.result) { it.age += dt; it.scale = popIn(Math.min(it.age / 0.4, 1)); }
+        it.age += dt; it.scale = popIn(Math.min(it.age / 0.4, 1));
         if (it.x > width) it.gone = true;
-        continue;
-      }
-      // Arriving at the window.
-      if (it.kind === 'order' && it.t <= watermark && it.x + it.w >= winLeft - 4) {
-        it.phase = 'late'; it.age = 0; it.x0 = it.x;
-        it.el.classList.add('hs-late');
-        it.el.append(U.el('span', { class: 'hs-late-tag' }, 'late'));
-      } else if (it.x >= winLeft) {
-        if (it.kind === 'order') {
-          win.count++; win.cents += it.cents; win.took = 0.35; it.gone = true;
-          showWindow();
-        } else {
-          // The watermark passes under the window and out the other side, after the result it triggers.
-          watermark = it.t;
-          it.phase = 'out';
-          if (watermark >= win.start + WINDOW) fire();
-        }
+      } else if (it.x >= aggLeft) {
+        it.gone = true;
+        accumulate(it);
       }
     }
     for (const it of items) if (it.gone) it.el.remove();
     items = items.filter((it) => !it.gone);
-    win.flash = Math.max(0, win.flash - dt);
-    win.took = Math.max(0, win.took - dt);
+    for (const [store, s] of state) {
+      if (s.anim && (s.anim.t += dt) >= timing().done) finish(store, s);
+    }
+    agg.took = Math.max(0, agg.took - dt);
   }
 
   function paint() {
     items.forEach(render);
-    win.el.classList.toggle('fired', win.flash > 0);
-    win.el.classList.toggle('took', win.took > 0);
+    flowIn.style.backgroundPositionX = flowOut.style.backgroundPositionX = `${drift % 48}px`;
+    const T = timing();
+    for (const s of state.values()) {
+      const a = s.anim, [, delta, sum] = s.cells;
+      const p = a ? Math.min(Math.max((a.t - T.show) / T.roll, 0), 1) : 1;
+      const ease = 1 - (1 - p) ** 3;
+      const shown = a ? Math.round(a.from + (a.to - a.from) * ease) : s.cents;
+      delta.textContent = a ? `+${money(a.delta)}` : '';
+      // Beside the row the amount fades once it's been added; on a phone it stands in for the sum.
+      const inPlace = narrow() && a && a.t < T.show;
+      delta.style.opacity = !a ? 0 : narrow() ? (inPlace ? 1 : 0) : Math.min(1, (T.done - a.t) / 0.3);
+      sum.textContent = inPlace ? '' : a && a.from === 0 && a.t < T.show ? '' : money(shown);
+      s.row.classList.toggle('hot', !!a);
+      s.row.classList.toggle('in-place', !!inPlace);
+    }
+    agg.el.classList.toggle('took', agg.took > 0);
   }
 
-  width = strip.clientWidth;
-  showWindow();
   measure();
-  // Run ahead until the first window has closed, so the strip starts full and a result is in view.
-  for (let t = 0; t < 120 && !items.some((i) => i.result && i.age > 0.6); t += 1 / 60) step(1 / 60);
-  win.flash = 0; win.took = 0;
+  // Run ahead until two results are out, so the strip starts full.
+  for (let t = 0; t < 120 && emitted < 2; t += 1 / 60) step(1 / 60);
+  for (let t = 0; t < 1; t += 1 / 60) step(1 / 60);
+  for (const [store, s] of state) if (s.anim) finish(store, s);
+  agg.took = 0;
   paint();
   if (U.reducedMotion()) return;
 
