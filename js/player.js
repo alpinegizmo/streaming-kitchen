@@ -106,11 +106,18 @@ const Player = (() => {
     }, graphWrap, U.el('div', { class: 'caption-row' }, caption, controls), scrub, topics);
 
     const details = variant.details || pattern.details;
+    // When each tab has its own details, name the tab, so it's clear they change with it:
+    // "Details (processing time)". A trailing parenthetical in the label is left out, and the
+    // label keeps its case if it starts with an acronym or a keyword, like LATERAL SNAPSHOT.
+    const tabName = variant.label.replace(/\s*\(.*\)$/, '');
+    const detailsTitle = pattern.variants.length > 1 && variant.details
+      ? `Details (${/^.[a-z]/.test(tabName) ? tabName[0].toLowerCase() + tabName.slice(1) : tabName})`
+      : 'Details';
     host.append(
       U.el('div', { class: 'code-and-facts' }, codeCol, facts),
       stage,
       U.el('details', { class: 'more' },
-        U.el('summary', {}, 'Details'),
+        U.el('summary', {}, detailsTitle),
         U.el('div', { class: 'more-body', html: details || '' }),
         variant.explain ? U.el('div', { class: 'more-plan' },
           U.el('p', {}, 'The optimized plan from ', U.el('code', {}, 'EXPLAIN CHANGELOG_MODE'), ` on Flink ${variant.flinkVersion || '2.3'}:`),
