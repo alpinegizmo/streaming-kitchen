@@ -1,1 +1,11 @@
+# The standalone bundle, built by tools/bundle.mjs
 dist/
+
+# macOS and editor clutter
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# In case the tools ever gain npm dependencies
+node_modules/
