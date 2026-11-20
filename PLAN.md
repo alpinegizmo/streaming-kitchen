@@ -167,7 +167,7 @@ NOTHING`, each of which plans the sink with `upsertMaterialize=[true]` and makes
   9; one match (9 → 13 → 18 at 12:35), and a late store 9 ticket that would have completed
   11 → 12 → 15.
 
-### 3.8 Regular join (added after the first plan; shown between Windows and Event correlation)
+### 3.8 Regular join (added after the first plan; shown right after Non-windowed aggregation)
 - **Question:** How much has each store sold, and who manages it right now? (a live leaderboard)
 - Per-store totals (GroupAggregate) joined with `stores` (upsert-kafka) on `store_id`, written to an
   upsert `store_leaderboard` topic.

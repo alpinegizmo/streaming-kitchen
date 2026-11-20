@@ -400,7 +400,7 @@ order's manager <em>at the time of the order</em>, that's a temporal join, not a
     id: 'join',
     nav: 'Regular join',
     title: 'Regular join',
-    summary: '<p>Join two tables that both change, and keep the result up to date when either side does. A regular join is only safe when both sides are upsert tables with a bounded number of keys. The second tab shows what happens when joining with an append-only stream instead: every event stays in state, forever.</p>',
+    summary: '<p>A regular join is only safe when both sides are upsert tables with a bounded number of keys. The second tab shows what happens when joining with an append-only stream instead: every event stays in state, forever.</p>',
     variants: [leaderboard, joinFirst],
   });
 })();
