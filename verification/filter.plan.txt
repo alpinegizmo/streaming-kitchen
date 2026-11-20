@@ -1,0 +1,15 @@
+# Flink 2.3.0, EXPLAIN CHANGELOG_MODE, optimized physical plans
+
+## Statement 1
+
+Sink(table=[default_catalog.default_database.delivery_orders], fields=[order_id, store_id, total_with_tax, event_time], changelogMode=[NONE])
++- Calc(select=[order_id, store_id, CAST(*(total, 1.08:DECIMAL(3, 2)) AS DECIMAL(10, 2)) AS total_with_tax, CAST(event_time AS TIMESTAMP(3)) AS event_time], where=[=(channel, _UTF-16LE'delivery':VARCHAR(2147483647) CHARACTER SET "UTF-16LE")], changelogMode=[I])
+   +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+
+## Statement 2
+
+Sink(table=[default_catalog.default_database.open_orders], fields=[order_id, store_id, status], changelogMode=[NONE])
++- ChangelogNormalize(key=[order_id], condition=[<>(status, _UTF-16LE'cancelled':VARCHAR(2147483647) CHARACTER SET "UTF-16LE")], changelogMode=[I,UA,D])
+   +- Exchange(distribution=[hash[order_id]], changelogMode=[UA,D])
+      +- TableSourceScan(table=[[default_catalog, default_database, order_status]], fields=[order_id, store_id, status], changelogMode=[UA,D])
+

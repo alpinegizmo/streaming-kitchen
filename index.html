@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flink SQL Patterns</title>
+  <meta name="description" content="Animated examples of the basic stream processing patterns in Apache Flink SQL: job graphs, stream types, state and watermarks.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the patterns</a>
+
+  <header class="hero">
+    <div class="hero-inner">
+      <h1>Stream processing patterns in Flink&nbsp;SQL</h1>
+      <p class="lede">Watch records, state and watermarks move through the job graph of each basic
+        Flink SQL pattern. The examples follow a chain of pizza shops, and the orders that stream in
+        from every store.</p>
+    </div>
+    <div class="hero-stream" aria-hidden="true">
+      <div class="hero-track"></div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Patterns">
+      <ol id="toc-list"></ol>
+    </nav>
+
+    <main id="main">
+      <section class="primer" id="reading" aria-labelledby="reading-h">
+        <h2 id="reading-h">How to read the diagrams</h2>
+        <p>Every pattern is a Flink job: a Kafka source on the left, a Kafka sink on the right, and the
+          operators the planner chose in between. Press <kbd>Play</kbd>, or step through one record at
+          a time with <kbd>&larr;</kbd> and <kbd>&rarr;</kbd>.</p>
+
+        <dl class="legend">
+          <div>
+            <dt>Stream types</dt>
+            <dd>
+              <span class="badge mode-append">append-only</span> only inserts. Each record is a new fact.<br>
+              <span class="badge mode-upsert">upsert</span> inserts, updates and deletes, by key. An update replaces the row with the same key.<br>
+              <span class="badge mode-retract">retract</span> every update is sent as a pair: retract the old row, then add the new one.
+            </dd>
+          </div>
+          <div>
+            <dt>Row kinds</dt>
+            <dd>
+              <span class="rk rk-I">+I</span> insert
+              <span class="rk rk-UB">&minus;U</span> retract the old version
+              <span class="rk rk-UA">+U</span> the new version
+              <span class="rk rk-D">&minus;D</span> delete
+            </dd>
+          </div>
+          <div>
+            <dt>Watermarks</dt>
+            <dd><span class="wm-chip">WM 12:00:04</span> travels with the data and says no record
+              older than this time should follow. Operators that wait for time use it to know when to
+              act.</dd>
+          </div>
+          <div>
+            <dt>Operators</dt>
+            <dd>
+              <span class="node-chip">stateless</span>
+              <span class="node-chip stateful">stateful</span> keeps keyed state, shown underneath it.
+              <span class="node-chip planner">added by the planner</span> isn't in your SQL, but the
+              planner needs it to produce correct results.
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <div id="patterns"></div>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <p>Job graphs and changelog modes are checked with <code>EXPLAIN CHANGELOG_MODE</code> on Apache
+      Flink 2.3. The animations simplify how Flink schedules work, but not what each operator does.</p>
+  </footer>
+
+  <script src="js/util.js"></script>
+  <script src="js/sql.js"></script>
+  <script src="js/operators.js"></script>
+  <script src="js/sim.js"></script>
+  <script src="js/graph.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/patterns/filter.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
