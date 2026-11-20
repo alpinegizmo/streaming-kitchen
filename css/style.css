@@ -150,16 +150,55 @@ main { min-width: 0; }
 .toc { display: none; }
 @media (min-width: 1680px) {
   .toc { display: block; position: sticky; top: 0; align-self: start; padding: 40px 0; }
-  .toc ol { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--rule); }
-  .toc a {
-    display: block; padding: 6px 0 6px 14px; margin-left: -2px; border-left: 2px solid transparent;
-    color: var(--ink-2); text-decoration: none; font-size: 0.92rem; line-height: 1.35;
-  }
-  .toc a:hover { color: var(--ink); }
-  .toc a[aria-current] { color: var(--ink); border-left-color: var(--blue); font-weight: 500; }
-  .toc ol ol { border-left: 0; margin-bottom: 4px; }
-  .toc ol ol a { padding: 2px 0 2px 26px; font-size: 0.84rem; color: var(--ink-3); }
 }
+.toc ol, .toc-pop ol { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--rule); }
+.toc a, .toc-pop a {
+  display: block; padding: 6px 0 6px 14px; margin-left: -2px; border-left: 2px solid transparent;
+  color: var(--ink-2); text-decoration: none; font-size: 0.92rem; line-height: 1.35;
+}
+.toc a:hover, .toc-pop a:hover { color: var(--ink); }
+.toc a[aria-current], .toc-pop a[aria-current] { color: var(--ink); border-left-color: var(--blue); font-weight: 500; }
+.toc ol ol, .toc-pop ol ol { border-left: 0; margin-bottom: 4px; }
+.toc ol ol a, .toc-pop ol ol a { padding: 2px 0 2px 26px; font-size: 0.84rem; color: var(--ink-3); }
+
+/* Top-right corner controls: the theme toggle, and without the sidebar, a button that opens the
+   same contents list in a popover. They sit at the top so they never cover the player controls,
+   which tend to be near the bottom. */
+.corner {
+  position: fixed; z-index: 5; display: flex; gap: 8px;
+  right: max(16px, env(safe-area-inset-right)); top: max(16px, env(safe-area-inset-top));
+}
+.theme-toggle {
+  display: inline-grid; place-items: center; width: 44px; height: 44px; padding: 0;
+  border: 1px solid var(--rule); border-radius: 50%; background: var(--node); color: var(--ink);
+  box-shadow: var(--shadow); cursor: pointer;
+}
+.theme-toggle:hover { border-color: var(--ink-3); }
+.theme-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+/* The icon shows what the button switches to. */
+.theme-toggle[aria-pressed="true"] .moon, .theme-toggle[aria-pressed="false"] .sun { display: none; }
+.toc-fab {
+  display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px 0 14px;
+  border: 0; border-radius: 999px; background: var(--blue); color: #fff;
+  box-shadow: 0 2px 6px rgb(0 40 120 / 0.25), 0 8px 24px rgb(0 40 120 / 0.25);
+  font: 500 0.95rem/1 var(--font-body); cursor: pointer;
+}
+.toc-fab:hover { filter: brightness(1.08); }
+.toc-fab:focus-visible, .theme-toggle:focus-visible { outline-offset: 3px; }
+.toc-fab svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; }
+.toc-pop {
+  /* Drops down from the button, as tall as the window allows, with a 16px margin at the bottom. */
+  position: fixed; inset: calc(max(16px, env(safe-area-inset-top)) + 52px) max(16px, env(safe-area-inset-right)) auto auto;
+  margin: 0; width: min(320px, calc(100vw - 32px)); overflow-y: auto; overscroll-behavior: contain;
+  max-height: calc(100vh - max(16px, env(safe-area-inset-top)) - 52px - 16px);
+  max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - 52px - 16px);
+  padding: 12px 16px 12px 14px; border: 1px solid var(--rule); border-radius: var(--radius);
+  background: var(--node); color: var(--ink); box-shadow: var(--shadow);
+}
+/* Tighter rows than the sidebar, so the whole list fits on a phone. */
+.toc-pop a { padding-block: 5px; }
+.toc-pop ol ol a { padding-block: 1px; }
+@media (min-width: 1680px) { .toc-fab, .toc-pop { display: none; } }
 
 .footer { max-width: 1440px; margin: 0 auto; padding: 40px 24px 64px; color: var(--ink-3); font-size: 0.9rem; }
 .footer p { max-width: var(--measure); }

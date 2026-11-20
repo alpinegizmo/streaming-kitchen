@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <!-- Apply a saved theme choice before the page paints, so it doesn't flash the other theme. -->
+  <script>try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}</script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to the patterns</a>
@@ -87,6 +89,20 @@
       </section>
     </main>
   </div>
+
+  <div class="corner">
+    <button class="theme-toggle" type="button" aria-label="Dark theme" aria-pressed="false">
+      <svg class="moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 9.6A5.8 5.8 0 0 1 6.4 2.5a5.8 5.8 0 1 0 7.1 7.1Z"/></svg>
+      <svg class="sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M3 13l1.1-1.1M11.9 4.1 13 3"/></svg>
+    </button>
+    <button class="toc-fab" type="button" popovertarget="toc-pop">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h8"/></svg>
+      Contents
+    </button>
+  </div>
+  <nav class="toc-pop" id="toc-pop" popover aria-label="Patterns">
+    <ol id="toc-pop-list"></ol>
+  </nav>
 
   <footer class="footer">
     <p>Job graphs and changelog modes are checked with <code>EXPLAIN CHANGELOG_MODE</code> on Apache

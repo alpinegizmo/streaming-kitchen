@@ -3,18 +3,22 @@
 
 (() => {
   const host = document.getElementById('patterns');
-  const toc = document.getElementById('toc-list');
+  // The contents list appears twice: in the sidebar on wide screens, and in a popover behind a
+  // floating button otherwise.
+  const tocs = [document.getElementById('toc-list'), document.getElementById('toc-pop-list')];
+  const tocItem = (href, text, sub) => U.el('li', {}, U.el('a', { href }, text), sub);
+  const tocAdd = (...args) => tocs.forEach((t) => t.append(tocItem(...args.map((a) => typeof a === 'function' ? a() : a))));
 
-  toc.append(U.el('li', {}, U.el('a', { href: '#reading' }, 'How to read the diagrams')));
+  tocAdd('#reading', 'How to read the diagrams');
   const mounted = {};
   for (const p of window.PATTERNS) {
     mounted[p.id] = Player.mount(host, p);
-    const sub = p.variants.length > 1
-      ? U.el('ol', {}, ...p.variants.map((v) => U.el('li', {}, U.el('a', { href: `#${p.id}-${v.id}` }, v.label))))
+    const sub = () => p.variants.length > 1
+      ? U.el('ol', {}, ...p.variants.map((v) => tocItem(`#${p.id}-${v.id}`, v.label)))
       : null;
-    toc.append(U.el('li', {}, U.el('a', { href: `#${p.id}` }, p.nav || p.title), sub));
+    tocAdd(`#${p.id}`, p.nav || p.title, sub);
   }
-  toc.append(U.el('li', {}, U.el('a', { href: '#summary' }, 'Summary')));
+  tocAdd('#summary', 'Summary');
 
   // The summary table: one row per variant, built from the same specs as the animations.
   const modeText = { append: 'append-only', upsert: 'upsert', retract: 'retract' };
@@ -52,16 +56,47 @@
   if (document.readyState === 'complete') follow();
   else window.addEventListener('load', () => follow(), { once: true });
 
-  // Mark the section in view in the table of contents.
-  const links = new Map([...toc.querySelectorAll('a')].map((a) => [a.getAttribute('href').slice(1), a]));
+  // Mark the section in view in both contents lists.
+  const links = [...document.querySelectorAll('#toc-list a, #toc-pop-list a')];
   const io = new IntersectionObserver((entries) => {
     for (const en of entries) {
       if (!en.isIntersecting) continue;
-      links.forEach((a) => a.removeAttribute('aria-current'));
-      links.get(en.target.id)?.setAttribute('aria-current', 'true');
+      for (const a of links) {
+        if (a.getAttribute('href') === `#${en.target.id}`) a.setAttribute('aria-current', 'true');
+        else a.removeAttribute('aria-current');
+      }
     }
   }, { rootMargin: '-30% 0px -60% 0px' });
   document.querySelectorAll('#reading, .pattern, #summary').forEach((s) => io.observe(s));
+
+  // The floating contents button: choosing a link closes the popover, and opening it brings the
+  // current section into view in the list.
+  const pop = document.getElementById('toc-pop');
+  pop.addEventListener('click', (e) => { if (e.target.closest('a')) pop.hidePopover(); });
+  pop.addEventListener('toggle', (e) => {
+    if (e.newState === 'open') pop.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest' });
+  });
+
+  // The theme toggle. With no choice saved, the page follows the system setting; choosing the
+  // system's own theme forgets the choice, so the page goes back to following the system.
+  const root = document.documentElement;
+  const themeBtn = document.querySelector('.theme-toggle');
+  const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+  const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : systemDark.matches);
+  const syncTheme = () => {
+    themeBtn.setAttribute('aria-pressed', String(isDark()));
+    themeBtn.title = isDark() ? 'Switch to the light theme' : 'Switch to the dark theme';
+  };
+  themeBtn.addEventListener('click', () => {
+    const dark = !isDark();
+    try {
+      if (dark === systemDark.matches) { delete root.dataset.theme; localStorage.removeItem('theme'); }
+      else { root.dataset.theme = dark ? 'dark' : 'light'; localStorage.setItem('theme', root.dataset.theme); }
+    } catch { root.dataset.theme = dark ? 'dark' : 'light'; }
+    syncTheme();
+  });
+  systemDark.addEventListener('change', syncTheme);
+  syncTheme();
 
   // The hero's ambient stream: a few orders and a watermark drifting by.
   const track = document.querySelector('.hero-track');
