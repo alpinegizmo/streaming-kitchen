@@ -122,21 +122,37 @@ kbd { border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4p
 .hero h1 { font-size: clamp(2.1rem, 5.2vw, 3.6rem); max-width: 15ch; letter-spacing: -0.025em; }
 .lede { font-size: 1.15rem; color: var(--ink-2); max-width: 58ch; margin-top: 18px; }
 
-.hero-stream { position: relative; height: 56px; border-top: 1px dashed var(--rule); background: var(--panel); }
+.hero-stream { position: relative; height: 92px; border-top: 1px dashed var(--rule); background: var(--panel); overflow: hidden; }
 .hero-stream::after {
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(90deg, var(--panel) 0, transparent 8%, transparent 92%, var(--panel) 100%);
   pointer-events: none;
 }
-.hero-track {
-  position: absolute; top: 50%; left: 0; display: flex; gap: 14px; white-space: nowrap;
-  transform: translateY(-50%); animation: drift 60s linear infinite;
-}
-@keyframes drift { from { transform: translate(-50%, -50%); } to { transform: translate(0, -50%); } }
-@media (prefers-reduced-motion: reduce) { .hero-track { animation: none; } }
 .hero-pill {
   display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1 var(--font-mono);
   background: var(--paper); border: 1px solid var(--rule); border-radius: 999px; padding: 3px 10px 3px 3px;
+}
+/* The hero's tumbling window: items are placed by js/hero.js. */
+.hs-item { position: absolute; top: 50%; left: 0; white-space: nowrap; will-change: transform, opacity; }
+.hs-result { gap: 10px; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+.hs-late { color: var(--ink-3); background: var(--panel-2); }
+.hs-late .rk { opacity: 0.5; }
+/* Floats above the right end of the late order, which stays in view beside the window. */
+.hs-late-tag { position: absolute; right: 6px; bottom: calc(100% + 5px); font-size: 11px; color: var(--red); background: var(--red-soft); border-radius: 999px; padding: 3px 7px; }
+.hs-window {
+  position: absolute; z-index: 2; top: 50%; transform: translateY(-50%);
+  width: 196px; height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  background: var(--node); border: 1.5px solid var(--ink-3); border-radius: 8px; box-shadow: var(--shadow);
+  font: 500 12px/1 var(--font-mono); white-space: pre; transition: background-color 0.35s, border-color 0.2s;
+}
+.hs-window.took { border-color: var(--blue); }
+.hs-window.fired { background: var(--hot); border-color: var(--wm-line); }
+.hs-label { color: var(--ink-3); font-size: 11px; }
+.hs-value { color: var(--ink); }
+@media (max-width: 600px) {
+  .hero-stream { height: 84px; }
+  .hs-window { width: 124px; height: 56px; gap: 5px; }
+  .hs-label { font-size: 10px; }
 }
 
 /* ---------- Layout ---------- */
