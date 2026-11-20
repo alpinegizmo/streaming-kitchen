@@ -72,6 +72,7 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
       sql: sql(v.tvf),
       ddl,
       facts: v.facts,
+      matrix: v.matrix,
       graphLabel: `Job graph: Kafka source orders, hash partitioned by store_id into WindowAggregate (${v.label.toLowerCase()}), then Kafka sink store_sales. Both edges are append-only.`,
       graph: {
         nodes: [
@@ -130,7 +131,7 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
   }
 
   const sharedFacts = {
-    watermarks: 'They drive the job. A window fires when the watermark passes its end. An order that arrives after its window has fired is late, and dropped.',
+    watermarks: 'They drive the job. A window fires when the watermark passes its end. An order is late, and dropped, only once every window it belongs to has fired.',
   };
 
   // ---------- Tumble ----------
@@ -161,6 +162,7 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
       const rows = ev.rows.map((x) => `store ${x.store_id}, ${result(x)}`).join('; ');
       return `The watermark reaches ${ev.time}, so the ${list(wins)} window is complete. WindowAggregate emits a final row for each store (${rows}), frees their state, and then forwards the watermark.`;
     },
+    matrix: { state: 'An accumulator per key and window, freed when the window fires', watermarks: 'Triggers results and frees state' },
     facts: {
       state: 'One accumulator per store and window (an order count and a running sum), and a timer at the end of each window. A window\'s state is freed as soon as it fires.',
       ...sharedFacts,
@@ -186,9 +188,10 @@ state and fires the timers. The graph draws them as one operator. It also leaves
 only drop columns.</p>
 <p>Under the hood, the state is kept per <em>slice</em>. For a tumbling window, a slice is the whole
 window. Hopping and cumulating windows share slices between overlapping windows.</p>
-<p>If late orders matter, don't let them vanish: route them to a separate table with
-<code>WHERE event_time &lt;= CURRENT_WATERMARK(event_time)</code>, or give the watermark a longer
-delay, at the cost of later results.</p>`,
+<p>If late orders matter, give the watermark a longer delay, at the cost of later results.
+<code>CURRENT_WATERMARK(event_time)</code> can flag rows that are behind the watermark, but that
+catches more than the window drops: a row behind the watermark still counts while its window is
+open.</p>`,
   });
 
   // ---------- Hop ----------
@@ -231,6 +234,7 @@ delay, at the cost of later results.</p>`,
         return parts.join(' ');
       }).join(' ');
     },
+    matrix: { state: 'An accumulator per key and slice, freed when no open window needs it', watermarks: 'Triggers results and frees state' },
     facts: {
       state: 'One accumulator per store and 5-minute slice, and a timer at the next window\'s end. Each order is stored once, though it belongs to three windows. A slice is freed when the last window that needs it has fired.',
       ...sharedFacts,
@@ -246,8 +250,9 @@ slice, and when a window fires, Flink merges the three slices it spans. Then it 
 first slice, which no later window needs.</p>
 <p>The timers follow the data. An order sets a timer at the end of its slice, and each window that
 fires with data sets a timer for the next one. Once a window comes out empty, no more timers are
-set until another order arrives. That's why the first order, at 12:01:10, appears in windows that
-started before it: 11:50–12:05 and 11:55–12:10.</p>
+set until another order arrives, so empty windows are never emitted. Windows aren't aligned to the
+first order, either: the order at 12:01:10 is in 11:50–12:05 and 11:55–12:10, which started before
+it.</p>
 <p>Like a tumbling window, it's planned in two phases, and drawn here as one operator.</p>`,
   });
 
@@ -289,6 +294,7 @@ started before it: 11:50–12:05 and 11:55–12:10.</p>
         return parts.join(' ');
       }).join(' ');
     },
+    matrix: { state: 'An accumulator per key and slice, freed when the hour is complete', watermarks: 'Triggers results and frees state' },
     facts: {
       state: 'One accumulator per store and 15-minute slice, and a timer for the next step. As each step fires, its slice is merged into the window\'s first slice, which holds the running total. It\'s all freed when the hour is complete.',
       ...sharedFacts,
@@ -330,15 +336,16 @@ orders arrive.</p>
       const r = ev.row;
       if (ev.type === 'new-session') return `Order ${r.order_id} starts a session for store ${r.store_id}: ${ev.now}, its own time plus the 10-minute gap. A timer is set for the session's end.`;
       if (ev.type === 'merge') return `Order ${r.order_id}'s window, ${ev.own}, overlaps store ${r.store_id}'s session ${list(ev.was)}, so they merge into ${ev.now}: ${result({ orders: ev.acc.count, sales: ev.acc.sum })}. The timer moves to the new end.`;
-      return `Order ${r.order_id}'s session has already fired, so it's late, and dropped.`;
+      return `Order ${r.order_id}'s own time plus the 10-minute gap is already behind the watermark, so it's late, and dropped.`;
     },
     fire(ev) {
       const done = ev.rows.map((x) => `store ${x.store_id}'s ${x.window_start}–${x.window_end} session (${result(x)})`);
       return `The watermark reaches ${ev.time}, past the end of ${list(done)}. Ten quiet minutes have passed, so ${ev.rows.length > 1 ? 'they are' : 'it is'} complete. WindowAggregate emits ${ev.rows.length > 1 ? 'them' : 'it'}, and frees the state.`;
     },
+    matrix: { state: 'A session per key, merged as rows arrive, freed when it fires', watermarks: 'Triggers results and frees state' },
     facts: {
       state: 'One accumulator per store and open session, and a timer at the session\'s end. When sessions merge, so does their state. A session\'s state is freed when it fires.',
-      watermarks: 'A session fires when the watermark passes its end: its last order plus the gap. An order for a session that has already fired is late, and dropped.',
+      watermarks: 'A session fires when the watermark passes its end: its last order plus the gap. An order is late, and dropped, if its own time plus the gap is already behind the watermark. One that misses its session but isn\'t that late starts a new session.',
       output: 'Append-only. One row per session, once it has ended.',
     },
     explain: `

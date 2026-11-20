@@ -55,6 +55,7 @@ CREATE TABLE delivery_times (
 ) WITH ('connector' = 'kafka', 'topic' = 'delivery_times');
 
 -- Connection and format options are left out.`,
+    matrix: { state: 'None in Flink: the connector caches lookups', watermarks: 'Not used' },
     facts: {
       state: 'None in Flink. The connector\'s cache, of recent lookups, lives in memory, and isn\'t checkpointed.',
       watermarks: 'Not used. The lookup happens in processing time: each order sees whatever the service answers when it\'s processed.',
@@ -118,7 +119,7 @@ Sink(table=[delivery_times], fields=[order_id, delivery_address, drive_minutes],
       +- Calc(select=[order_id, store_id, delivery_address], changelogMode=[I])
          +- TableSourceScan(table=[[orders, watermark=[...]]], fields=[...], changelogMode=[I])
 
-Verified with the JDBC connector, which supports lookup and ships with Apache Flink.`,
+Verified with the Apache Flink JDBC connector (4.1), which supports lookup joins.`,
     details: `
 <p>A lookup join enriches each row by querying an external system as the row goes by.
 <code>FOR SYSTEM_TIME AS OF o.proc_time</code> means "whatever the answer is right now". Flink keeps
@@ -194,7 +195,7 @@ CREATE TABLE order_costs (
   const sourceNarration = (node, ev) => {
     if (ev.type === 'wm') return `The ${node === 'orders' ? 'orders' : 'pizza_costs'} source emits a watermark for ${ev.time}: its newest event time minus 1 second.`;
     if (node === 'orders') return `The orders source reads order ${ev.row.order_id}: pizza ${ev.row.pizza_id}, placed at ${ev.row.event_time}.`;
-    return `The pizza_costs source reads a new cost for pizza ${ev.key}: ${U.money(ev.row.food_cost)}, valid from ${ev.row.valid_from}. It's an upsert (+U).`;
+    return `The pizza_costs source reads a new cost for pizza ${ev.key}: ${U.money(ev.row.food_cost)}, valid from ${ev.row.valid_from}. The planner treats it as an upsert (+U) for pizza ${ev.key}.`;
   };
 
   // ---------- Event-time temporal join ----------
@@ -212,8 +213,9 @@ FROM orders AS o
 JOIN pizza_costs FOR SYSTEM_TIME AS OF o.event_time AS c
   ON o.pizza_id = c.pizza_id;`,
     ddl: ordersDdl,
+    matrix: { state: 'Waiting orders, and the versions of each cost', watermarks: 'Holds results until both inputs catch up' },
     facts: {
-      state: 'Orders wait in state until the watermark reaches them. For each pizza, the cost versions that might still be needed: the latest one before the watermark, and any newer ones.',
+      state: 'Orders wait in state until the watermark reaches them. For each pizza, its cost versions, and one timer. When the timer fires, versions older than the latest one at or before the watermark are removed.',
       watermarks: 'They drive the join. An order is joined once the watermark, the minimum of both inputs, passes its time, so that every cost change up to then has arrived. If pizza_costs goes quiet, the join stalls.',
       output: 'Append-only. Each order is joined once, with the cost that was valid when it was placed.',
     },
@@ -224,7 +226,7 @@ JOIN pizza_costs FOR SYSTEM_TIME AS OF o.event_time AS c
         {
           id: 'join', kind: 'op', op: 'temporalJoin', title: 'TemporalJoin', lines: ['AS OF o.event_time'],
           stateful: true, sqlLines: [2, 4, 5],
-          cfg: { left: 'orders', key: 'pizza_id', leftId: 'order_id', leftTime: 'event_time', rightTime: 'valid_from', valueField: 'food_cost', leftName: 'order', rightName: 'cost', leftTopic: 'orders', rightTopic: 'pizza_costs', joinRow },
+          cfg: { left: 'orders', key: 'pizza_id', leftId: 'order_id', leftTime: 'event_time', rightTime: 'valid_from', valueField: 'food_cost', leftName: 'order', rightName: 'cost', keyName: 'pizza', leftTopic: 'orders', rightTopic: 'pizza_costs', joinRow },
         },
         sinkNode,
       ],
@@ -262,7 +264,7 @@ JOIN pizza_costs FOR SYSTEM_TIME AS OF o.event_time AS c
         } else {
           parts.push('No waiting order is at or before it yet.');
         }
-        if (ev.removed.length) parts.push(`The ${ev.removed.map((v) => `${U.money(v.food_cost)} version of pizza ${v.pizza_id}`).join(' and ')} can't be needed any more, so ${ev.removed.length > 1 ? 'they are' : 'it is'} removed.`);
+        if (ev.removed.length) parts.push(`Pizza ${ev.removed[0].pizza_id}'s timer has fired, so the join also cleans up its versions: the ${ev.removed.map((v) => U.money(v.food_cost)).join(' and ')} version${ev.removed.length > 1 ? 's are' : ' is'} older than the latest one at or before the watermark, and can't be needed any more.`);
         return parts.join(' ');
       }
       if (node === 'sink') {
@@ -316,6 +318,7 @@ JOIN LATERAL SNAPSHOT(
        on_time => DESCRIPTOR(valid_from)) AS c
   ON o.pizza_id = c.pizza_id;`,
     ddl: ordersDdl,
+    matrix: { state: 'The current costs; while loading, buffered orders and pending changes', watermarks: 'Ends the load phase, and orders cost changes' },
     facts: {
       state: 'The current cost rows, per pizza, and cost changes waiting for the watermark. Orders are buffered only during the load phase. ChangelogNormalize also keeps the last row of every pizza.',
       watermarks: 'The costs watermark decides when the load phase ends, and when each cost change becomes visible. Orders don\'t wait for watermarks in the join phase, and the order watermark is forwarded.',

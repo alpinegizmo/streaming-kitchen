@@ -219,6 +219,19 @@ mode) that links back to each section.
 6. **MATCH_RECOGNIZE.**
 7. **Primer, summary matrix, polish:** responsive layout, dark mode, accessibility (captions as a
    live region, keyboard), and a Flink-accuracy review pass on every caption.
+   - Phones get their own graph layout: a column of full-width operator cards, each state panel
+     right under its operator, and a join's other input routed down a rail on the right. Long panel
+     titles and footers wrap.
+   - The summary table is generated from a short `matrix` entry in each variant, plus the sink
+     edge's stream type and the planner-added nodes from the graph.
+   - Deep links (`#windows-hop`) open a variant's tab; the sticky nav lists the variants.
+   - The caption is a live region only while paused, so playback doesn't flood screen readers.
+     Variant tabs use a roving tabindex.
+   - The accuracy review (an independent pass against the 2.3 / 2.4 sources) corrected: window and
+     session lateness rules, the temporal join's version clean-up (per key, when that key's timer
+     fires; the simulator now keeps one timer per key), upsert-kafka's runtime row kind, why the
+     debezium sink gets −U, event-time dedup with mini-batch, `DECIMAL(14, 4)`, the JDBC
+     connector's packaging, the primer's watermark definition (at or before), and the footer.
 
 Each milestone ends with a browser check (screenshots, light and dark, narrow width).
 
@@ -231,7 +244,8 @@ Each milestone ends with a browser check (screenshots, light and dark, narrow wi
   ChangelogNormalize and SinkUpsertMaterializer are present. Save the output in `verification/`, and
   draw graphs only from it. Every **(verify)** item above is resolved this way.
 - For a few patterns (tumble, temporal join, event-time dedup), feed the same input events to real
-  Flink and compare its sink output with the simulator's trace.
+  Flink and compare its sink output with the simulator's trace. **Not done yet:** the simulators were
+  checked against the operator source code instead.
 - For SinkUpsertMaterializer, find a query in the set that naturally triggers it (a sink PK that
   differs from the upsert key). If none does, add a short "When does Flink add a
   SinkUpsertMaterializer?" aside to §3.3 instead of contriving a pattern.

@@ -61,7 +61,7 @@ const Ops = (() => {
     say(ev, cfg) {
       if (ev.type === 'wm') return kafkaSource.say(ev, cfg);
       if (ev.type === 'tombstone') return `A tombstone for key ${ev.key}. The source emits a delete that carries only the key.`;
-      return `The source reads key ${ev.key} from ${cfg.topic}. It can't tell whether the key is new, so it emits an upsert.`;
+      return `The source reads key ${ev.key} from ${cfg.topic}. It can't tell whether the key is new, so the planner treats the value as an upsert.`;
     },
   };
 
@@ -263,7 +263,7 @@ const Ops = (() => {
       switch (ev.type) {
         case 'new-slice': return `The record opens the ${ev.slice.start}–${ev.slice.end} slice, with a timer for ${ev.timer}.`;
         case 'accumulate': return `The record is added to the ${ev.slice.start}–${ev.slice.end} slice.`;
-        case 'late': return `The record's window has already fired, so it's late, and dropped.`;
+        case 'late': return `Every window the record belongs to has already fired, so it's late, and dropped.`;
         case 'fire': return `The watermark passes the end of a window, which fires.`;
         case 'wm': return `The watermark hasn't reached any timer, so nothing fires. It's forwarded.`;
       }
@@ -323,7 +323,7 @@ const Ops = (() => {
       switch (ev.type) {
         case 'new-session': return `The record starts a new session, ${ev.now}.`;
         case 'merge': return `The record's window overlaps an existing session, so they merge into ${ev.now}.`;
-        case 'late': return `The record's session has already fired, so it's late, and dropped.`;
+        case 'late': return `The record's own time plus the gap is already behind the watermark, so it's late, and dropped.`;
         case 'fire': return `The watermark passes the end of a session, which fires.`;
         case 'wm': return `No session has ended yet, so nothing fires. The watermark is forwarded.`;
       }
@@ -567,7 +567,7 @@ const Ops = (() => {
     watermark: (st, item) => ({ out: [wm(item.time)], ev: { type: 'wm', time: item.time } }),
     view(st, cfg) {
       return {
-        title: 'Lookup cache (in the connector, not Flink state)',
+        title: 'Lookup cache (connector, not Flink state)',
         cols: cfg.cacheCols,
         rows: Object.entries(st.cache).map(([k, v]) => ({ key: k, cells: cfg.cacheCells(k, v) })),
       };
@@ -584,12 +584,15 @@ const Ops = (() => {
   // the latest one at or before W are removed. Inner join: no version, no output.
   //   cfg: { left, key, leftTime, rightTime, joinRow(l, version), leftId, valueField }
   const temporalJoin = {
-    init: () => ({ left: [], versions: {}, wms: { left: null, right: null }, W: null, seq: 0 }),
+    init: () => ({ left: [], versions: {}, timers: {}, wms: { left: null, right: null }, W: null, seq: 0 }),
     record(st, item, cfg, ctx) {
       const row = item.row;
       const k = row[cfg.key];
+      // One timer per key, at the smallest time registered for it (registerSmallestTimer).
+      const timer = (t) => { st.timers[k] = Math.min(st.timers[k] ?? Infinity, U.toSec(t)); };
       if (ctx.from === cfg.left) {
         st.left.push({ row, seq: ++st.seq });
+        timer(row[cfg.leftTime]);
         return { out: [], absorb: true, touched: `L${row[cfg.leftId]}`, ev: { type: 'buffer', row } };
       }
       const t = row[cfg.rightTime];
@@ -597,6 +600,7 @@ const Ops = (() => {
       vs.push({ row });
       vs.sort((a, b) => U.toSec(a.row[cfg.rightTime]) - U.toSec(b.row[cfg.rightTime]));
       st.versions[k] = vs;
+      timer(t);
       return { out: [], absorb: true, touched: `V${k}|${t}`, ev: { type: 'version', row } };
     },
     watermark(st, item, cfg, ctx) {
@@ -606,18 +610,28 @@ const Ops = (() => {
       if (!W || !later(W, st.W)) return { out: [], nodeWm: st.W, ev: { type: 'hold', side, time: item.time, W: st.W, wms: { ...st.wms } } };
       st.W = W;
       const w = U.toSec(W);
-      const due = st.left.filter((l) => U.toSec(l.row[cfg.leftTime]) <= w).sort((a, b) => a.seq - b.seq);
-      st.left = st.left.filter((l) => !due.includes(l));
-      const results = due.map((l) => {
-        const t = U.toSec(l.row[cfg.leftTime]);
-        const version = (st.versions[l.row[cfg.key]] || []).filter((v) => U.toSec(v.row[cfg.rightTime]) <= t).pop();
-        return { left: l.row, version: version?.row || null };
-      });
+      // Timers fire in time order. Each one joins its key's orders up to W (in arrival order),
+      // drops the versions older than the latest one at or before W, and re-registers a timer
+      // only for the key's next waiting order (onEventTime / emitResultAndCleanUpState).
+      const results = [];
       const removed = [];
-      for (const [k, vs] of Object.entries(st.versions)) {
+      const firing = Object.entries(st.timers).filter(([, t]) => t <= w).sort((a, b) => a[1] - b[1]);
+      for (const [k] of firing) {
+        delete st.timers[k];
+        const mine = (l) => String(l.row[cfg.key]) === k;
+        const due = st.left.filter((l) => mine(l) && U.toSec(l.row[cfg.leftTime]) <= w).sort((a, b) => a.seq - b.seq);
+        st.left = st.left.filter((l) => !due.includes(l));
+        for (const l of due) {
+          const t = U.toSec(l.row[cfg.leftTime]);
+          const version = (st.versions[k] || []).filter((v) => U.toSec(v.row[cfg.rightTime]) <= t).pop();
+          results.push({ left: l.row, version: version?.row || null });
+        }
+        const vs = st.versions[k] || [];
         const keepFrom = vs.reduce((idx, v, i) => (U.toSec(v.row[cfg.rightTime]) <= w ? i : idx), 0);
         removed.push(...vs.slice(0, keepFrom).map((v) => v.row));
-        st.versions[k] = vs.slice(keepFrom);
+        if (st.versions[k]) st.versions[k] = vs.slice(keepFrom);
+        const next = st.left.filter(mine).map((l) => U.toSec(l.row[cfg.leftTime]));
+        if (next.length) st.timers[k] = Math.min(...next);
       }
       const out = results.filter((r) => r.version).map((r) => rec('+I', cfg.joinRow(r.left, r.version)));
       out.push(wm(W));
@@ -634,7 +648,7 @@ const Ops = (() => {
         title: 'Waiting orders, and versions',
         cols: ['kind', cfg.key, 'time', 'value'],
         rows,
-        footer: `watermarks in: ${cfg.leftTopic} ${st.wms.left || 'none'}, ${cfg.rightTopic} ${st.wms.right || 'none'}`,
+        footer: `watermarks in: ${cfg.leftTopic} ${st.wms.left || 'none'}, ${cfg.rightTopic} ${st.wms.right || 'none'}; timers: ${Object.entries(st.timers).sort((a, b) => a[1] - b[1]).map(([k, t]) => `${cfg.keyName || cfg.key} ${k} at ${U.fromSec(t).slice(0, 5)}`).join(', ') || 'none'}`,
       };
     },
     say(ev) {
@@ -801,16 +815,12 @@ const Ops = (() => {
     view(st, cfg) {
       const v = (r) => r[cfg.valueField];
       return {
-        title: `Per ${cfg.key}`,
-        cols: [cfg.key, 'buffered', 'partial matches'],
-        rows: Object.entries(st.keys).map(([k, s]) => ({
-          key: k,
-          cells: [
-            k,
-            s.buffer.map((b) => `${v(b.row)}@${b.row[cfg.timeField].slice(0, 5)}`).join(', ') || '–',
-            s.partials.map((p) => [...p.map(v), '?', '?'].slice(0, 3).join('→')).join(', ') || '–',
-          ],
-        })),
+        title: `Per ${cfg.keyLabel || cfg.key}: buffered rows and partial matches`,
+        cols: [cfg.keyLabel || cfg.key, 'kind', cfg.valueLabel || cfg.valueField, 'time'],
+        rows: Object.entries(st.keys).flatMap(([k, s]) => [
+          ...s.buffer.map((b) => ({ key: k, cells: [k, 'buffered', v(b.row), b.row[cfg.timeField].slice(0, 5)] })),
+          ...s.partials.map((p) => ({ key: k, cells: [k, 'partial', [...p.map(v), '?', '?'].slice(0, 3).join('→'), p[0][cfg.timeField].slice(0, 5)] })),
+        ]),
         footer: st.wm ? `late: at or before ${st.wm}` : 'no watermark yet',
       };
     },

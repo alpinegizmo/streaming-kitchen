@@ -1,16 +1,15 @@
 // Lays out and draws a job graph as SVG: operators, edges with their stream type,
 // state panels, watermark tags, and the record "pills" that travel along the edges.
 //
-// Two orientations: 'h' (left to right) for wide screens, 'v' (top to bottom) for phones.
+// Two orientations: 'h' (left to right) for wide screens, and 'v' for phones: a column of
+// full-width operator cards, top to bottom, each with its state panel right under it.
 'use strict';
 
 const Graph = (() => {
   const BASE = { nodeH: 66, pad: 14, pillH: 20, rowH: 18, panelHead: 28 };
-  // Horizontal: state panels hang under their operator. Vertical: a side column to the
-  // right of each operator holds the planner note, the watermark tag and the state panel.
   const DIMS = {
     h: { ...BASE, nodeW: 176, gapH: 196, top: 52 },
-    v: { ...BASE, nodeW: 140, gapV: 132, top: 16, side: 12 },
+    v: { ...BASE, width: 340, rail: 40 },
   };
   let G = DIMS.h;
 
@@ -42,21 +41,52 @@ const Graph = (() => {
   const COL_HEAD = 17;
   const COL_GAP = 14;
   const CHAR = 11.5 * 0.6;
+  const TITLE_CHAR = 6.4;
+  const FOOT_CHAR = 10.5 * 0.6;
+  const TITLE_LINE = 15;
+
+  // Greedy word wrap to at most `chars` characters a line.
+  function wrap(text, chars) {
+    const lines = [];
+    let cur = '';
+    for (const word of text.split(' ')) {
+      if (cur && cur.length + 1 + word.length > chars) { lines.push(cur); cur = word; } else cur = cur ? `${cur} ${word}` : word;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
 
   // Sizes a state panel from every view it will show over the animation, so it never
-  // has to grow while playing. Views are { title, cols: [header], rows: [{ key, cells }] }.
+  // has to grow while playing. Views are { title, cols: [header], rows: [{ key, cells }], footer }.
   function panelSpec(views) {
     const cols = views[0].cols;
     const rows = Math.max(1, ...views.map((v) => v.rows.length));
     const colW = cols.map((h, j) => CHAR * Math.max(h.length, ...views.flatMap((v) => v.rows.map((r) => String(r.cells[j]).length))));
-    const titleW = Math.max(...views.map((v) => v.title.length)) * 6.4;
-    const footW = Math.max(0, ...views.map((v) => (v.footer || '').length)) * 10.5 * 0.6;
-    const width = Math.max(180, 24 + colW.reduce((a, b) => a + b, 0) + COL_GAP * (cols.length - 1), titleW + 24, footW + 24);
-    return { rows, colW, width, footer: views.some((v) => v.footer) };
+    return {
+      rows, colW,
+      colsW: 24 + colW.reduce((a, b) => a + b, 0) + COL_GAP * (cols.length - 1),
+      titles: [...new Set(views.map((v) => v.title))],
+      footers: [...new Set(views.map((v) => v.footer).filter(Boolean))],
+    };
   }
 
-  function panelHeight(spec) {
-    return G.panelHead + COL_HEAD + spec.rows * G.rowH + (spec.footer ? G.rowH + 4 : 0) + 8;
+  // Fits a panel into maxW by wrapping its title and footer. The columns never wrap.
+  function fitPanel(spec, maxW = Infinity) {
+    const titleW = Math.max(...spec.titles.map((t) => t.length)) * TITLE_CHAR + 24;
+    const footW = Math.max(0, ...spec.footers.map((f) => f.length)) * FOOT_CHAR + 24;
+    const width = Math.max(180, spec.colsW, Math.min(titleW, maxW), Math.min(footW, maxW));
+    const titleChars = Math.floor((width - 24) / TITLE_CHAR);
+    const footChars = Math.floor((width - 24) / FOOT_CHAR);
+    return {
+      ...spec, width, titleChars, footChars,
+      titleLines: Math.max(...spec.titles.map((t) => wrap(t, titleChars).length)),
+      footLines: Math.max(0, ...spec.footers.map((f) => wrap(f, footChars).length)),
+    };
+  }
+
+  function panelHeight(fit) {
+    return G.panelHead + (fit.titleLines - 1) * TITLE_LINE + COL_HEAD + fit.rows * G.rowH
+      + (fit.footLines ? fit.footLines * G.rowH + 4 : 0) + 8;
   }
 
   // Every operator gets the same width, wide enough for the longest label.
@@ -67,97 +97,139 @@ const Graph = (() => {
 
   function layout(graph, orient, specs, wmNodes) {
     G = { ...DIMS[orient] };
+    if (orient === 'v') return layoutV(graph, specs, wmNodes);
     G.nodeW = nodeWidth(graph);
+    const fits = Object.fromEntries(Object.entries(specs).map(([id, spec]) => [id, fitPanel(spec, 400)]));
     const { depth, rows } = layers(graph);
     // Long pipelines get shorter edges, so they still fit a laptop screen.
     if (Math.max(...Object.values(depth)) >= 3) G.gapH = 156;
     const hasPanel = (n) => n.stateful || n.panel;
     const multiInput = (n) => graph.edges.filter((e) => e.to === n.id && isStream(e)).length > 1;
-    const tallest = Math.max(0, ...graph.nodes.map((n) => (hasPanel(n) ? panelHeight(specs[n.id]) : 0)));
-    const widest = Math.max(0, ...graph.nodes.map((n) => (hasPanel(n) ? specs[n.id].width : 0)));
-    // An external system (the lookup join's service) sits beside the operator that calls it:
-    // above it in the horizontal layout, at the top of its side column in the vertical one.
+    const tallest = Math.max(0, ...graph.nodes.map((n) => (hasPanel(n) ? panelHeight(fits[n.id]) : 0)));
+    // An external system (the lookup join's service) sits above the operator that calls it.
     const externals = graph.nodes.filter((n) => n.kind === 'external');
     // Lookup edges always run from the calling operator to the external system.
     const calledBy = Object.fromEntries(graph.edges.filter((e) => e.mode === 'lookup').map((e) => [e.from, e.to]));
     const pos = {};
     const panels = {};
-    const side = {};
-    // Vertical: how far down the side column each operator's state panel starts.
-    const sideTop = (n) => (n.planner ? 20 : 0) + (wmNodes.has(n.id) ? 24 : 0) + (calledBy[n.id] ? G.nodeH + 16 : 0);
-    const gapV = orient === 'v'
-      ? Math.max(G.gapV ?? 0, ...graph.nodes.map((n) => (hasPanel(n) ? sideTop(n) + panelHeight(specs[n.id]) - G.nodeH + 76 : 0)))
-      : 0;
-    const top = orient === 'h' && externals.length ? G.top + G.nodeH + 56 : G.top;
+    const top = externals.length ? G.top + G.nodeH + 56 : G.top;
     for (const n of graph.nodes.filter((x) => x.kind !== 'external')) {
-      const d = depth[n.id];
-      const r = rows[n.id];
-      let x, y;
-      if (orient === 'h') {
-        x = G.pad + d * (G.nodeW + G.gapH);
-        y = top + r * (G.nodeH + tallest + 90);
-      } else {
-        x = G.pad + r * (G.nodeW + widest + 40);
-        y = G.top + d * (G.nodeH + gapV);
-      }
+      const x = G.pad + depth[n.id] * (G.nodeW + G.gapH);
+      const y = top + rows[n.id] * (G.nodeH + tallest + 90);
       pos[n.id] = { x, y, w: G.nodeW, h: G.nodeH, cx: x + G.nodeW / 2, cy: y + G.nodeH / 2 };
       if (hasPanel(n)) {
-        const spec = specs[n.id];
-        const h = panelHeight(spec);
-        panels[n.id] = orient === 'h'
-          // A panel much wider than its operator reaches under the edge labels, so it drops below them.
-          ? {
-            // Centred under the operator, unless other inputs curve in from below: then it hangs
-            // to the right, clear of them. A panel that reaches under edge labels drops below them.
-            x: multiInput(n) ? x : x + G.nodeW / 2 - spec.width / 2,
-            y: y + G.nodeH + ((multiInput(n) ? spec.width - G.nodeW : (spec.width - G.nodeW) / 2) > 46 ? 48 : 14),
-            w: spec.width, h, colW: spec.colW,
-          }
-          : { x: x + G.nodeW + G.side, y: y + sideTop(n), w: spec.width, h, colW: spec.colW };
+        const fit = fits[n.id];
+        // Centred under the operator, unless other inputs curve in from below: then it hangs
+        // to the right, clear of them. A panel that reaches under edge labels drops below them.
+        panels[n.id] = {
+          x: multiInput(n) ? x : x + G.nodeW / 2 - fit.width / 2,
+          y: y + G.nodeH + ((multiInput(n) ? fit.width - G.nodeW : (fit.width - G.nodeW) / 2) > 46 ? 48 : 14),
+          w: fit.width, h: panelHeight(fit), fit,
+        };
       }
-      if (orient === 'v') side[n.id] = { x: x + G.nodeW + G.side, wmY: y + (n.planner ? 20 : 0) };
     }
     for (const [caller, id] of Object.entries(calledBy)) {
       const c = pos[caller];
-      const x = orient === 'h' ? c.x : c.x + G.nodeW + G.side;
-      const y = orient === 'h' ? c.y - G.nodeH - 56 : c.y;
-      pos[id] = { x, y, w: G.nodeW, h: G.nodeH, cx: x + G.nodeW / 2, cy: y + G.nodeH / 2 };
+      pos[id] = { x: c.x, y: c.y - G.nodeH - 56, w: G.nodeW, h: G.nodeH, cx: c.cx, cy: c.y - G.nodeH - 56 + G.nodeH / 2 };
     }
     const edges = graph.edges.map((e) => {
       const a = pos[e.from];
       const b = pos[e.to];
-      let d, mid;
       if (e.mode === 'lookup') {
         // A request/response line between the operator and the service it calls.
-        const [op, ext] = [a, b];
-        d = orient === 'h' ? `M${op.cx},${op.y} L${ext.cx},${ext.y + ext.h}` : `M${op.x + op.w},${op.cy} L${ext.x},${ext.cy}`;
-        mid = orient === 'h' ? { x: op.cx, y: (op.y + ext.y + ext.h) / 2 } : { x: (op.x + op.w + ext.x) / 2, y: op.cy };
-        return { ...e, d, mid, badgeY: mid.y };
+        return { ...e, d: `M${a.cx},${a.y} L${b.cx},${b.y + b.h}`, mid: { x: a.cx, y: (a.y + b.y + b.h) / 2 } };
       }
-      if (orient === 'h') {
-        const x1 = a.x + a.w, y1 = a.cy, x2 = b.x - 6, y2 = b.cy;
-        d = y1 === y2 ? `M${x1},${y1} L${x2},${y2}` : `M${x1},${y1} C${x1 + 90},${y1} ${x2 - 90},${y2} ${x2},${y2}`;
-        mid = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
-      } else {
-        const x1 = a.cx, y1 = a.y + a.h, x2 = b.cx, y2 = b.y - 6;
-        d = x1 === x2 ? `M${x1},${y1} L${x2},${y2}` : `M${x1},${y1} C${x1},${y1 + 60} ${x2},${y2 - 60} ${x2},${y2}`;
-        mid = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
-      }
-      // Vertical: keep the badge clear of the state panel beside the upstream operator.
-      const panel = panels[e.from];
-      const badgeY = orient === 'v' && panel ? Math.max(mid.y, panel.y + panel.h + 18) : mid.y;
-      return { ...e, d, mid, badgeY };
+      const x1 = a.x + a.w, y1 = a.cy, x2 = b.x - 6, y2 = b.cy;
+      const d = y1 === y2 ? `M${x1},${y1} L${x2},${y2}` : `M${x1},${y1} C${x1 + 90},${y1} ${x2 - 90},${y2} ${x2},${y2}`;
+      return { ...e, d, mid: { x: (x1 + x2) / 2, y: (y1 + y2) / 2 } };
     });
     let width = 0, height = 0, left = 0;
     for (const p of Object.values(pos)) { width = Math.max(width, p.x + p.w); height = Math.max(height, p.y + p.h); }
     for (const p of Object.values(panels)) {
       width = Math.max(width, p.x + p.w); height = Math.max(height, p.y + p.h); left = Math.min(left, p.x - G.pad);
     }
-    if (orient === 'v') {
-      width = Math.max(width, G.pad + G.nodeW + G.side + 120);
-      for (const n of graph.nodes) if (wmNodes.has(n.id)) width = Math.max(width, side[n.id].x + 96);
-    }
-    return { pos, panels, side, edges, left, width: width + G.pad - left, height: height + 18 };
+    return { pos, panels, edges, left, width: width + G.pad - left, height: height + 18 };
+  }
+
+  // Vertical layout, for phones: one column of full-width cards in an order where every
+  // operator comes right after its first input, so most edges are short and straight. A join's
+  // other input comes earlier in the column, and its edge runs down a rail on the right and
+  // into the join's side. Edge labels sit at the right of each gap; watermark tags and planner
+  // notes sit just above their card.
+  function layoutV(graph, specs, wmNodes) {
+    const byId = Object.fromEntries(graph.nodes.map((n) => [n.id, n]));
+    const ins = (id) => graph.edges.filter((e) => e.to === id && isStream(e));
+    const outs = (id) => graph.edges.filter((e) => e.from === id && isStream(e));
+    const order = [];
+    const place = (id) => {
+      if (order.includes(id)) return;
+      const inputs = ins(id);
+      inputs.slice(1).forEach((e) => place(e.from));
+      if (inputs[0]) place(inputs[0].from);
+      order.push(id);
+    };
+    graph.nodes.filter((n) => n.kind !== 'external' && !outs(n.id).length).forEach((n) => place(n.id));
+
+    const rail = graph.nodes.some((n) => ins(n.id).length > 1) ? G.rail : 0;
+    const fitIn = (W) => Object.fromEntries(Object.entries(specs).map(([id, spec]) => [id, fitPanel(spec, W - 2 * G.pad - rail)]));
+    let fits = fitIn(G.width);
+    const W = Math.max(G.width, ...Object.values(fits).map((f) => f.width + 2 * G.pad + rail));
+    fits = fitIn(W);
+    const colW = W - 2 * G.pad - rail;
+    const railX = G.pad + colW + rail - 10;
+    const calledBy = Object.fromEntries(graph.edges.filter((e) => e.mode === 'lookup').map((e) => [e.from, e.to]));
+
+    const cardH = (n) => 36 + 15 * Math.max(1, (n.lines || []).length);
+    const labels = (e) => 52 + (e.exchange ? 16 : 0);
+    const above = (n) => (wmNodes.has(n.id) || n.planner ? 26 : 0);
+    const pos = {};
+    const panels = {};
+    const bottom = {};
+    let y = 12 + above(byId[order[0]]);
+    order.forEach((id, i) => {
+      const n = byId[id];
+      if (i > 0) {
+        const prev = order[i - 1];
+        const out = outs(prev)[0];
+        const railed = out && out.to !== id;
+        y = bottom[prev] + 14 + (out ? labels(out) : 0) + (railed ? 18 : 0) + above(n) + 6;
+      }
+      const h = cardH(n);
+      const w = calledBy[id] ? Math.round(colW * 0.56) : colW;
+      pos[id] = { x: G.pad, y, w, h, cx: G.pad + w / 2, cy: y + h / 2 };
+      if (calledBy[id]) {
+        const x = G.pad + w + 20;
+        pos[calledBy[id]] = { x, y, w: colW - w - 20, h, cx: x + (colW - w - 20) / 2, cy: y + h / 2 };
+      }
+      bottom[id] = y + h;
+      if (specs[id]) {
+        const fit = fits[id];
+        panels[id] = { x: G.pad, y: y + h + 6, w: colW, h: panelHeight(fit), fit };
+        bottom[id] = panels[id].y + panels[id].h;
+      }
+    });
+
+    const r = 12;
+    const edges = graph.edges.map((e) => {
+      const a = pos[e.from];
+      const b = pos[e.to];
+      if (e.mode === 'lookup') return { ...e, d: `M${a.x + a.w},${a.cy} L${b.x},${b.cy}`, mid: { x: (a.x + a.w + b.x) / 2, y: a.cy } };
+      const y1 = bottom[e.from];
+      const badgeY = y1 + 24;
+      if (order[order.indexOf(e.from) + 1] === e.to) {
+        const x1 = a.cx, x2 = b.cx, y2 = b.y - 6;
+        const d = x1 === x2 ? `M${x1},${y1} L${x2},${y2}` : `M${x1},${y1} C${x1},${y1 + 50} ${x2},${y2 - 50} ${x2},${y2}`;
+        return { ...e, d, badgeY };
+      }
+      // Down from the operator, right to the rail, down the rail, and into the join's side.
+      const yT = y1 + 14 + labels(e) + 4;
+      const yE = b.y + b.h * 0.7;
+      const d = `M${a.cx},${y1} V${yT - r} Q${a.cx},${yT} ${a.cx + r},${yT} H${railX - r} Q${railX},${yT} ${railX},${yT + r}`
+        + ` V${yE - r} Q${railX},${yE} ${railX - r},${yE} H${b.x + b.w + 6}`;
+      return { ...e, d, badgeY };
+    });
+    const last = order[order.length - 1];
+    return { pos, panels, edges, left: 0, width: W, height: bottom[last] + 18, badgeRight: G.pad + colW };
   }
 
   // A record or watermark, drawn as a small pill centred on (0, 0).
@@ -203,10 +275,9 @@ const Graph = (() => {
       if (e.mode === 'lookup') {
         const path = U.svg('path', { d: e.d, class: 'edge mode-lookup' });
         edgeLayer.append(path);
-        if (e.label) {
+        if (e.label && orient === 'h') {
           edgeLayer.append(U.svg('text', {
-            class: 'edge-lookup-label', x: orient === 'h' ? e.mid.x + 10 : e.mid.x, y: orient === 'h' ? e.mid.y + 4 : e.mid.y - 8,
-            'text-anchor': orient === 'h' ? 'start' : 'middle', text: e.label,
+            class: 'edge-lookup-label', x: e.mid.x + 10, y: e.mid.y + 4, 'text-anchor': 'start', text: e.label,
           }));
         }
         return path;
@@ -215,7 +286,7 @@ const Graph = (() => {
       edgeLayer.append(path);
       const modeText = { append: 'append-only', upsert: 'upsert', retract: 'retract' }[e.mode];
       const bw = U.monoWidth(modeText, 11) + 18;
-      let bx = orient === 'h' ? e.mid.x : L.pos[e.from].x + G.nodeW + G.side + bw / 2;
+      let bx = orient === 'h' ? e.mid.x : L.badgeRight - bw / 2;
       let by = orient === 'h' ? e.mid.y + 22 : e.badgeY;
       const intoJoin = graph.edges.filter((x) => x.to === e.to && isStream(x)).length > 1;
       if (orient === 'h' && intoJoin && L.pos[e.from].cy === L.pos[e.to].cy) {
@@ -228,11 +299,13 @@ const Graph = (() => {
         bx = pt.x + bw / 2 + 6;
         by = pt.y + (L.pos[e.from].cy > L.pos[e.to].cy ? 22 : -46);
       }
+      // Vertical: the labels under the badge line up with its right end, the edge of the column.
+      const [lx, anchor] = orient === 'h' ? [0, 'middle'] : [bw / 2 - 4, 'end'];
       const badge = U.svg('g', { class: `edge-badge mode-${e.mode}`, transform: `translate(${bx},${by})` },
         U.svg('rect', { x: -bw / 2, y: -10, width: bw, height: 20, rx: 10 }),
         U.svg('text', { x: 0, y: 4, 'text-anchor': 'middle', text: modeText }),
-        U.svg('text', { class: 'edge-kinds', x: 0, y: 25, 'text-anchor': 'middle', text: e.kinds.replace(/-/g, '−') }),
-        e.exchange ? U.svg('text', { class: 'edge-exchange', x: 0, y: 41, 'text-anchor': 'middle', text: e.exchange }) : null);
+        U.svg('text', { class: 'edge-kinds', x: lx, y: 25, 'text-anchor': anchor, text: e.kinds.replace(/-/g, '−') }),
+        e.exchange ? U.svg('text', { class: 'edge-exchange', x: lx, y: 41, 'text-anchor': anchor, text: e.exchange }) : null);
       edgeLayer.append(badge);
       return path;
     });
@@ -243,15 +316,19 @@ const Graph = (() => {
     for (const n of graph.nodes) {
       const p = L.pos[n.id];
       const cls = ['node', `node-${n.kind}`, n.stateful && 'stateful', n.planner && 'planner'].filter(Boolean).join(' ');
+      // Horizontal: labels centred. Vertical: left-aligned, so the card reads like a list item.
+      const [tx, anchor] = orient === 'h' ? [p.w / 2, 'middle'] : [16, 'start'];
+      const titleY = orient === 'h' ? (n.lines?.length > 1 ? 22 : 28) : 22;
+      const lineY = orient === 'h' ? (n.lines?.length > 1 ? 40 : 46) : 39;
       const g = U.svg('g', { class: cls, transform: `translate(${p.x},${p.y})` },
         U.svg('rect', { class: 'node-box', width: p.w, height: p.h, rx: 10 }),
         n.stateful ? U.svg('rect', { class: 'node-state-bar', x: 0, y: 8, width: 4, height: p.h - 16, rx: 2 }) : null,
-        U.svg('text', { class: 'node-title', x: p.w / 2, y: n.lines?.length > 1 ? 22 : 28, 'text-anchor': 'middle', text: n.title }),
-        ...(n.lines || []).map((t, i) => U.svg('text', { class: 'node-line', x: p.w / 2, y: (n.lines.length > 1 ? 40 : 46) + i * 15, 'text-anchor': 'middle', text: t })));
+        U.svg('text', { class: 'node-title', x: tx, y: titleY, 'text-anchor': anchor, text: n.title }),
+        ...(n.lines || []).map((t, i) => U.svg('text', { class: 'node-line', x: tx, y: lineY + i * 15, 'text-anchor': anchor, text: t })));
       if (n.planner) {
         g.append(orient === 'h'
           ? U.svg('text', { class: 'node-planner', x: p.w / 2, y: -8, 'text-anchor': 'middle', text: 'added by the planner' })
-          : U.svg('text', { class: 'node-planner', x: p.w + G.side, y: 12, text: 'added by the planner' }));
+          : U.svg('text', { class: 'node-planner', x: 2, y: -8, text: 'added by the planner' }));
       }
       nodeEls[n.id] = g;
       nodeLayer.append(g);
@@ -291,21 +368,23 @@ const Graph = (() => {
         const view = Ops[n.op].view(snap.ops[n.id], n.cfg || {});
         const g = U.svg('g', { class: 'state-panel', transform: `translate(${p.x},${p.y})` },
           U.svg('rect', { class: 'state-box', width: p.w, height: p.h, rx: 8 }),
-          U.svg('text', { class: 'state-title', x: 12, y: 19, text: view.title }));
-        const colX = p.colW.reduce((xs, w) => [...xs, xs[xs.length - 1] + w + COL_GAP], [12]);
-        view.cols.forEach((h, j) => g.append(U.svg('text', { class: 'state-col', x: colX[j], y: G.panelHead + 9, text: h })));
+          ...wrap(view.title, p.fit.titleChars).map((t, i) => U.svg('text', { class: 'state-title', x: 12, y: 19 + i * TITLE_LINE, text: t })));
+        const head = G.panelHead + (p.fit.titleLines - 1) * TITLE_LINE;
+        const colX = p.fit.colW.reduce((xs, w) => [...xs, xs[xs.length - 1] + w + COL_GAP], [12]);
+        view.cols.forEach((h, j) => g.append(U.svg('text', { class: 'state-col', x: colX[j], y: head + 9, text: h })));
         if (!view.rows.length) {
-          g.append(U.svg('text', { class: 'state-empty', x: 12, y: G.panelHead + COL_HEAD + 13, text: 'empty' }));
+          g.append(U.svg('text', { class: 'state-empty', x: 12, y: head + COL_HEAD + 13, text: 'empty' }));
         }
         view.rows.forEach((r, i) => {
-          const y = G.panelHead + COL_HEAD + i * G.rowH;
+          const y = head + COL_HEAD + i * G.rowH;
           const hot = info.touched != null && String(info.touched) === String(r.key) && info.active === n.id;
           if (hot) g.append(U.svg('rect', { class: 'state-hot', x: 4, y: y - 1, width: p.w - 8, height: G.rowH, rx: 4 }));
           r.cells.forEach((c, j) => g.append(U.svg('text', { class: 'state-row', x: colX[j], y: y + 12, text: String(c) })));
         });
         if (view.footer) {
-          g.append(U.svg('line', { class: 'state-rule', x1: 12, x2: p.w - 12, y1: p.h - G.rowH - 9, y2: p.h - G.rowH - 9 }));
-          g.append(U.svg('text', { class: 'state-foot', x: 12, y: p.h - 12, text: view.footer }));
+          const n = p.fit.footLines;
+          g.append(U.svg('line', { class: 'state-rule', x1: 12, x2: p.w - 12, y1: p.h - n * G.rowH - 9, y2: p.h - n * G.rowH - 9 }));
+          wrap(view.footer, p.fit.footChars).forEach((t, i) => g.append(U.svg('text', { class: 'state-foot', x: 12, y: p.h - 12 - (n - 1 - i) * G.rowH, text: t })));
         }
         stateLayer.append(g);
       }
@@ -316,8 +395,8 @@ const Graph = (() => {
         const text = `WM ${time}`;
         const w = U.monoWidth(text, 10) + 12;
         const planner = graph.nodes.find((n) => n.id === id).planner;
-        const x = orient === 'h' ? p.x + p.w - w : L.side[id].x;
-        const y = orient === 'h' ? (planner ? p.y - 42 : p.y - 26) : L.side[id].wmY;
+        const x = p.x + p.w - w;
+        const y = orient === 'h' && planner ? p.y - 42 : p.y - 26;
         wmLayer.append(U.svg('g', { class: 'wm-tag', transform: `translate(${x},${y})` },
           U.svg('rect', { width: w, height: 18, rx: 3 }),
           U.svg('text', { x: w / 2, y: 13, 'text-anchor': 'middle', text })));

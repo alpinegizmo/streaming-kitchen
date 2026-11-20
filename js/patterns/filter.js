@@ -50,6 +50,7 @@ CREATE TABLE delivery_orders (
 ) WITH ('connector' = 'kafka', 'topic' = 'delivery_orders');
 
 -- Connection and format options are left out.`,
+    matrix: { state: 'None', watermarks: 'Passed through' },
     facts: {
       state: 'None. Each order is handled on its own, and nothing is remembered.',
       watermarks: 'Not used. The source generates them, because <code>orders</code> declares a watermark, and the Calc passes them along. Nothing waits for them.',
@@ -115,7 +116,7 @@ Sink(table=[delivery_orders], fields=[order_id, store_id, total_with_tax, event_
 time, and keeps no state, so there's nothing to checkpoint and nothing to grow. Flink chains the
 Calc onto the source, so the rows don't even cross the network between them.</p>
 <p>The planner turns the whole <code>SELECT</code> list and the <code>WHERE</code> clause into this
-one Calc. It also adds the cast from <code>total * 1.08</code>, a <code>DECIMAL(13, 4)</code>, to
+one Calc. It also adds the cast from <code>total * 1.08</code>, a <code>DECIMAL(14, 4)</code>, to
 the sink's <code>DECIMAL(10, 2)</code>.</p>
 <p>Watermarks still flow, because <code>orders</code> declares one. Operators that don't care about
 time just forward them. Here, nothing downstream uses them, and Kafka doesn't store them.</p>`,
@@ -150,6 +151,7 @@ CREATE TABLE open_orders (
 ) WITH ('connector' = 'upsert-kafka', 'topic' = 'open_orders');
 
 -- Connection and format options are left out.`,
+    matrix: { state: 'The last row per key, in ChangelogNormalize', watermarks: 'Passed through' },
     facts: {
       state: 'ChangelogNormalize keeps the last row of every order that currently passes the filter. A key is cleared when its order is cancelled or deleted.',
       watermarks: 'Not used. <code>order_status</code> declares no watermark, and nothing in this job depends on time.',
@@ -194,7 +196,7 @@ CREATE TABLE open_orders (
     pill: (r) => (r.status ? `${r.order_id} ${r.status}` : `${r.order_id}`),
     narrate(node, ev) {
       if (node === 'src' && ev.type === 'read') {
-        return `The source reads ${ev.key} → ${ev.row.status}. upsert-kafka can't tell whether order ${ev.key} is new, so every value comes out as an upsert (+U).`;
+        return `The source reads ${ev.key} → ${ev.row.status}. upsert-kafka can't tell whether order ${ev.key} is new, so the planner treats every value as an upsert (+U).`;
       }
       if (node === 'src' && ev.type === 'tombstone') {
         return `A tombstone for ${ev.key}: the order was delivered, and the status service removed it. The source emits a delete (−D) that carries only the key.`;

@@ -50,6 +50,7 @@ CREATE TABLE late_orders (
 ) WITH ('connector' = 'kafka', 'topic' = 'late_orders');
 
 -- Connection and format options are left out.`,
+    matrix: { state: 'Rows from both sides, by key, until no row on the other side can match', watermarks: 'Decides when an unmatched row is final, and frees state' },
     facts: {
       state: 'Both sides are buffered by order_id: each order until the watermark passes its time + 45 minutes, each delivery until the watermark passes its own time. The interval bounds the state.',
       watermarks: 'The join takes the minimum of both inputs\' watermarks. That decides when an order can no longer be matched, so it\'s emitted with no delivery, and when buffered rows are freed. The output watermark is held back by 45 minutes.',

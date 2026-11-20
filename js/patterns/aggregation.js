@@ -41,13 +41,14 @@ GROUP BY store_id;`;
 
   const result = (r) => `store ${r.store_id}: ${plural(r.orders, 'order')}, ${U.money(r.sales)}`;
 
-  function runningTotal({ id, label, sink, sinkOp, generateUpdateBefore, ddl, question, blurb, facts, explain, details, sinkCfg, narrateSink, mode, kinds }) {
+  function runningTotal({ id, label, sink, sinkOp, generateUpdateBefore, ddl, question, blurb, facts, matrix, explain, details, sinkCfg, narrateSink, mode, kinds }) {
     return {
       id, label, question, blurb,
       intro: 'Stores 7 and 9 send orders. Every order changes its store\'s running total. Press Play, or step through with the arrow keys.',
       sql: totalSql(sink),
       ddl: `${ordersDdl}\n\n${ddl}\n\n-- Connection and format options are left out.`,
       facts,
+      matrix,
       graphLabel: `Job graph: Kafka source orders, hash partitioned by store_id into GroupAggregate, then Kafka sink ${sink}. The first edge is append-only, the second is ${mode}.`,
       graph: {
         nodes: [
@@ -84,7 +85,7 @@ GROUP BY store_id;`;
           }
           if (ev.type === 'update') {
             return generateUpdateBefore
-              ? `Order ${r.order_id} makes ${result(ev.next)}. This sink has no key, so GroupAggregate first retracts the old result (−U, ${plural(ev.prev.orders, 'order')}, ${U.money(ev.prev.sales)}), then sends the new one (+U).`
+              ? `Order ${r.order_id} makes ${result(ev.next)}. The debezium-json sink accepts retractions, so GroupAggregate first retracts the old result (−U, ${plural(ev.prev.orders, 'order')}, ${U.money(ev.prev.sales)}), then sends the new one (+U).`
               : `Order ${r.order_id} makes ${result(ev.next)}. The sink is keyed by store_id, so GroupAggregate only sends the new result (+U). The old one doesn't need retracting.`;
           }
         }
@@ -118,6 +119,7 @@ CREATE TABLE store_totals (
       cfg: { topic: 'store_totals', key: 'store_id', showKey: true, columns: [{ f: 'orders', num: true }, { f: 'sales', ...money }] },
     },
     narrateSink: (ev) => `The sink writes ${result(ev.row)}, keyed by store ${ev.key}. After compaction it replaces any earlier value for store ${ev.key}.`,
+    matrix: { state: 'An accumulator per key, kept until state TTL', watermarks: 'Not used' },
     facts: {
       state: 'One accumulator per store: an order count and a running sum. Nothing ever removes it, so set a state TTL if the set of keys keeps growing.',
       watermarks: 'Not used. A non-windowed aggregate never decides that a group is complete, so nothing waits for time.',
@@ -187,6 +189,7 @@ CREATE TABLE store_totals_changelog (
     narrateSink: (ev) => (ev.type === 'delete'
       ? `The sink writes the retraction as a Debezium delete (op d), with the old result as its before image.`
       : `The sink writes ${result(ev.row)} as a Debezium create (op c), with the new result as its after image.`),
+    matrix: { state: 'An accumulator per key, kept until state TTL', watermarks: 'Not used' },
     facts: {
       state: 'One accumulator per store: an order count and a running sum, kept until a state TTL expires it.',
       watermarks: 'Not used. A non-windowed aggregate never decides that a group is complete.',
@@ -200,8 +203,9 @@ Sink(table=[store_totals_changelog], fields=[store_id, orders, sales], changelog
          +- TableSourceScan(table=[[orders, watermark=[...]]], fields=[...], changelogMode=[I])`,
     details: `
 <p>The plan is the same as with the upsert sink, except for one thing: GroupAggregate now produces
-<code>[I, UB, UA]</code>. The <code>debezium-json</code> format can carry retractions, and the topic
-has no key, so the planner asks for <code>−U</code> as well as <code>+U</code>.</p>
+<code>[I, UB, UA]</code>. The <code>debezium-json</code> format declares that it accepts
+retractions, so the planner asks for <code>−U</code> as well as <code>+U</code>. That comes from the
+format alone; a primary key on the sink table wouldn't change it.</p>
 <p>The format writes a <code>−U</code> as a Debezium delete (<code>op: d</code>, with a
 <code>before</code> image), and a <code>+I</code> or <code>+U</code> as a create (<code>op: c</code>,
 with an <code>after</code> image). A consumer that applies the changes in order ends up with the
@@ -242,6 +246,7 @@ CREATE TABLE status_counts (
 ) WITH ('connector' = 'upsert-kafka', 'topic' = 'status_counts');
 
 -- Connection and format options are left out.`,
+    matrix: { state: 'The last row per key, and an accumulator per key', watermarks: 'Not used' },
     facts: {
       state: 'ChangelogNormalize keeps the last row of every order, so it can retract it. GroupAggregate keeps a count per status, and drops a status when its count reaches zero.',
       watermarks: 'Not used. <code>order_status</code> declares no watermark, and nothing waits for time.',
@@ -287,7 +292,7 @@ CREATE TABLE status_counts (
     pill: (r) => (r.order_id != null ? `${r.order_id} ${r.status ?? ''}`.trim() : `${r.status} ${r.orders}`),
     narrate(node, ev) {
       if (node === 'src' && ev.type === 'read') {
-        return `The source reads ${ev.key} → ${ev.row.status}. upsert-kafka can't tell whether order ${ev.key} is new, so it emits an upsert (+U).`;
+        return `The source reads ${ev.key} → ${ev.row.status}. upsert-kafka can't tell whether order ${ev.key} is new, so the planner treats every value as an upsert (+U).`;
       }
       if (node === 'src' && ev.type === 'tombstone') {
         return `A tombstone for ${ev.key}: the order was delivered, and removed from order_status. The source emits a delete (−D) that carries only the key.`;

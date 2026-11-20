@@ -226,6 +226,8 @@ const Player = (() => {
     async function play() {
       if (idx >= N) jump(0);
       playing = true;
+      // While playing, screen readers would announce every step; they get the caption when paused.
+      caption.setAttribute('aria-live', 'off');
       playBtn.innerHTML = ICON.pause + '<span>Pause</span>';
       const my = gen + 1;
       while (playing && idx < N) {
@@ -238,6 +240,7 @@ const Player = (() => {
 
     function pause() {
       playing = false;
+      caption.setAttribute('aria-live', 'polite');
       playBtn.innerHTML = ICON.play + '<span>Play</span>';
     }
 
@@ -289,16 +292,30 @@ const Player = (() => {
       current = mountVariant(body, pattern, v);
     }
 
+    let tabs = null;
+    // Shows a variant by id, as a deep link (#windows-hop) does. Returns false if there's no such variant.
+    function select(id, { updateUrl = false } = {}) {
+      const i = pattern.variants.findIndex((v) => v.id === id);
+      if (i < 0) return false;
+      if (tabs) {
+        tabs.querySelectorAll('[role=tab]').forEach((t, j) => {
+          t.setAttribute('aria-selected', String(j === i));
+          t.tabIndex = j === i ? 0 : -1;
+        });
+      }
+      show(i);
+      if (updateUrl) history.replaceState(null, '', `#${pattern.id}-${id}`);
+      return true;
+    }
+
     if (pattern.variants.length > 1) {
-      const tabs = U.el('div', { class: 'variants', role: 'tablist', 'aria-label': `${pattern.title} variants` });
+      tabs = U.el('div', { class: 'variants', role: 'tablist', 'aria-label': `${pattern.title} variants` });
       pattern.variants.forEach((v, i) => {
         const tab = U.el('button', {
           type: 'button', role: 'tab', class: 'variant-tab', id: `${pattern.id}-tab-${v.id}`,
           'aria-selected': i === 0 ? 'true' : 'false', 'aria-controls': `${pattern.id}-panel`,
-          onclick: () => {
-            tabs.querySelectorAll('[role=tab]').forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
-            show(i);
-          },
+          tabindex: i === 0 ? 0 : -1,
+          onclick: () => select(v.id, { updateUrl: true }),
         }, v.label);
         tabs.append(tab);
       });
@@ -316,6 +333,7 @@ const Player = (() => {
     section.append(body);
     container.append(section);
     show(0);
+    return { section, select };
   }
 
   return { mount };

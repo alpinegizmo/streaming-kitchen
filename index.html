@@ -58,7 +58,7 @@
           <div>
             <dt>Watermarks</dt>
             <dd><span class="wm-chip">WM 12:00:04</span> travels with the data and says no record
-              older than this time should follow. Operators that wait for time use it to know when to
+              at or before this time should follow. Operators that wait for time use it to know when to
               act.</dd>
           </div>
           <div>
@@ -68,19 +68,34 @@
               <span class="node-chip stateful">stateful</span> keeps keyed state, shown underneath it.
               <span class="node-chip planner">added by the planner</span> isn't in your SQL, but the
               planner needs it to produce correct results. Calcs that only drop columns, or set up a
-              time attribute, are left out.
+              time attribute, are left out. <code>hash(store_id)</code> under an edge means the
+              records are repartitioned by that key, so every record for a key reaches the same
+              parallel instance.
             </dd>
+          </div>
+          <div>
+            <dt>Topics</dt>
+            <dd>Under each animation, the Kafka topics the job reads and writes, filling up as it
+              runs. An upsert topic also shows the table you get once Kafka compacts it: the
+              latest value for each key.</dd>
           </div>
         </dl>
       </section>
 
       <div id="patterns"></div>
+
+      <section class="matrix" id="summary" aria-labelledby="summary-h">
+        <h2 id="summary-h">Summary</h2>
+        <p>Every pattern at a glance: the state it keeps, what it uses watermarks for, the stream it
+          writes, and the operators the planner adds. Each row links back to its animation.</p>
+        <div class="matrix-wrap"></div>
+      </section>
     </main>
   </div>
 
   <footer class="footer">
     <p>Job graphs and changelog modes are checked with <code>EXPLAIN CHANGELOG_MODE</code> on Apache
-      Flink 2.3. The animations simplify how Flink schedules work, but not what each operator does.</p>
+      Flink 2.3.0, except LATERAL SNAPSHOT, which is checked on a 2.4 snapshot build. The animations simplify how Flink schedules work, but not what each operator does.</p>
   </footer>
 
   <script src="js/util.js"></script>

@@ -80,6 +80,7 @@ CREATE TABLE slow_kitchens (
 ) WITH ('connector' = 'kafka', 'topic' = 'slow_kitchens');
 
 -- Connection and format options are left out.`,
+    matrix: { state: 'Rows waiting for the watermark, and partial matches, per key', watermarks: 'Orders events; late rows are dropped' },
     facts: {
       state: 'Per store: the rows that are waiting for the watermark, and the partial matches. With PATTERN (A B C) and no gaps allowed, a store never has more than two partial matches.',
       watermarks: 'Rows are buffered until the watermark passes them, then fed to the pattern in event-time order. A row at or before the watermark is late, and dropped.',
@@ -96,7 +97,7 @@ CREATE TABLE slow_kitchens (
           id: 'match', kind: 'op', op: 'match', title: 'Match', lines: ['PATTERN (A B C)'],
           stateful: true, sqlLines: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
           cfg: {
-            key: 'store_id', timeField: 'event_time', valueField: 'prep_minutes',
+            key: 'store_id', keyLabel: 'store', timeField: 'event_time', valueField: 'prep_minutes', valueLabel: 'minutes',
             next: (prev, row) => row.prep_minutes > prev.prep_minutes,
             measures: (a, b, c) => ({ store_id: a.store_id, first_minutes: a.prep_minutes, last_minutes: c.prep_minutes, detected_at: c.event_time }),
           },
