@@ -17,12 +17,40 @@
 
   <header class="hero">
     <div class="hero-inner">
-      <h1>Stream processing patterns in Apache&nbsp;Flink<sup class="tm">®</sup>&nbsp;SQL</h1>
-      <p class="lede">Watch records, state, and watermarks flow through the job graph of each basic
-        Apache Flink® SQL pattern. The examples follow a chain of
-        pizza shops, and the orders that are streaming in.</p>
+      <div class="hero-text">
+        <h1>Stream processing patterns in Apache&nbsp;Flink<sup class="tm">®</sup>&nbsp;SQL</h1>
+        <p class="lede">Watch records, state, and watermarks flow through the job graph of each basic
+          Apache Flink® SQL pattern. The examples follow a chain of
+          pizza shops, and the orders that are streaming in.</p>
+      </div>
+      <!-- A job graph in miniature, drawn like the diagrams below; js/hero.js moves records through it. -->
+      <svg class="hero-graph" viewBox="0 0 440 196" aria-hidden="true" focusable="false">
+        <defs><clipPath id="hg-op-clip"><rect x="172" y="36" width="96" height="56" rx="9"/></clipPath></defs>
+        <path class="hg-edge mode-append" d="M96 64H164"/>
+        <path class="hg-arrow mode-append" d="M163 58.5 172 64 163 69.5Z"/>
+        <path class="hg-edge mode-upsert" d="M268 64H336"/>
+        <path class="hg-arrow mode-upsert" d="M335 58.5 344 64 335 69.5Z"/>
+        <path class="hg-tie" d="M220 92V112"/>
+        <g class="hg-dots"></g>
+        <rect class="hg-node" x="1" y="36" width="95" height="56" rx="9"/>
+        <rect class="hg-line" x="18" y="54" width="56" height="7" rx="3.5"/>
+        <rect class="hg-line hg-dim" x="18" y="67" width="38" height="6" rx="3"/>
+        <rect class="hg-node" x="172" y="36" width="96" height="56" rx="9"/>
+        <rect class="hg-state-bar" x="172" y="36" width="5" height="56" clip-path="url(#hg-op-clip)"/>
+        <rect class="hg-line" x="190" y="54" width="60" height="7" rx="3.5"/>
+        <rect class="hg-line hg-dim" x="190" y="67" width="44" height="6" rx="3"/>
+        <rect class="hg-node" x="344" y="36" width="95" height="56" rx="9"/>
+        <rect class="hg-line" x="361" y="54" width="52" height="7" rx="3.5"/>
+        <rect class="hg-line hg-dim" x="361" y="67" width="34" height="6" rx="3"/>
+        <rect class="hg-panel" x="156" y="112" width="128" height="80" rx="8"/>
+        <rect class="hg-key" x="170" y="128" width="12" height="8" rx="4"/>
+        <rect class="hg-key" x="170" y="146" width="12" height="8" rx="4"/>
+        <rect class="hg-key" x="170" y="164" width="12" height="8" rx="4"/>
+        <rect class="hg-val" x="190" y="128" width="56" height="8" rx="4"/>
+        <rect class="hg-val" x="190" y="146" width="34" height="8" rx="4"/>
+        <rect class="hg-val" x="190" y="164" width="72" height="8" rx="4"/>
+      </svg>
     </div>
-    <div class="hero-stream" aria-hidden="true"></div>
   </header>
 
   <div class="layout">

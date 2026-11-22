@@ -30,7 +30,7 @@ keep the font link instead (the page then falls back to system fonts when offlin
 | `js/sim.js` | Runs a pattern's input through its graph, and records every step with a state snapshot |
 | `js/graph.js` | Draws the job graph in SVG, and animates records along the edges |
 | `js/player.js` | Builds a pattern section, and the playback controls |
-| `js/hero.js` | The hero's running totals in miniature: orders in, a GROUP BY keeps a total per store, each new total out (+I, then +U) |
+| `js/hero.js` | Moves abstract records through the hero's miniature job graph (the SVG is in index.html): append-only in, a state update, upsert out, and the odd watermark |
 | `verification/` | The SQL behind every job graph, and the plans Flink produced for it |
 | `tools/shoot.mjs` | Screenshots the page in headless Chrome, and reports console errors |
 | `tools/bundle.mjs` | Bundles the site into one standalone HTML file |
