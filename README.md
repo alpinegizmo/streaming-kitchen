@@ -117,6 +117,10 @@ node tools/shoot.mjs out.png --width 390 --dark            # phone width, dark m
 `--eval JS` runs in the page before the screenshot, for example to step an animation forward.
 The script exits non-zero if the page logged an error.
 
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE).
+
 ## Trademarks
 
 Apache®, Apache Flink®, Flink®, Apache Kafka® and Kafka® are either registered trademarks or
