@@ -1,6 +1,6 @@
-# A streaming cookbook
+# The streaming kitchen
 
-Apache Flink® SQL recipes for a chain of pizza shops.
+Apache Flink® SQL for pizza shops: the recipes, and the science behind them.
 
 A single-page site with animated examples of the basic Apache Flink® SQL patterns, with Apache
 Kafka® sources and sinks. For each one it shows
