@@ -2,6 +2,7 @@
   "pattern": "aggregation",
   "variant": "retract",
   "label": "Non-windowed aggregation / Retract sink",
+  "flinkVersion": null,
   "sql": "INSERT INTO store_totals_changelog\nSELECT store_id,\n       COUNT(*) AS orders,\n       SUM(total) AS sales\nFROM orders\nGROUP BY store_id;",
   "sources": {
     "orders": {

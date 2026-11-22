@@ -2,6 +2,7 @@
   "pattern": "dedup",
   "variant": "proctime",
   "label": "Deduplication / Processing time",
+  "flinkVersion": null,
   "sql": "INSERT INTO unique_orders\nSELECT order_id, store_id, total, event_time\nFROM (\n  SELECT *,\n    ROW_NUMBER() OVER (PARTITION BY order_id\n                       ORDER BY proc_time ASC) AS row_num\n  FROM orders)\nWHERE row_num = 1;",
   "sources": {
     "orders": {

@@ -2,6 +2,7 @@
   "pattern": "join",
   "variant": "join-first",
   "label": "Regular join / Join, then aggregate (anti-pattern)",
+  "flinkVersion": null,
   "sql": "INSERT INTO store_leaderboard\nSELECT s.store_id, s.city, s.manager,\n       COUNT(*) AS orders, SUM(o.total) AS sales\nFROM orders AS o\nJOIN stores AS s\n  ON o.store_id = s.store_id\nGROUP BY s.store_id, s.city, s.manager\nON CONFLICT DO DEDUPLICATE;",
   "sources": {
     "orders": {

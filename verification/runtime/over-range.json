@@ -2,6 +2,7 @@
   "pattern": "over",
   "variant": "range",
   "label": "OVER aggregation / Range",
+  "flinkVersion": null,
   "sql": "INSERT INTO orders_with_recent_sales\nSELECT order_id, store_id, total, event_time,\n       COUNT(*) OVER w AS recent_orders,\n       SUM(total) OVER w AS recent_sales\nFROM orders\nWINDOW w AS (\n  PARTITION BY store_id\n  ORDER BY event_time\n  RANGE BETWEEN INTERVAL '5' MINUTE PRECEDING AND CURRENT ROW);",
   "sources": {
     "orders": {

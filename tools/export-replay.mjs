@@ -1,7 +1,7 @@
 // Exports patterns as replay specs for verification/harness (Replay.java), which runs each one
 // through real Flink and compares the sink output with the simulator's.
 //
-//   node tools/export-replay.mjs [pattern/variant ...]     (default: the patterns listed below)
+//   node tools/export-replay.mjs [pattern/variant ...]     (default: every tab that can be replayed)
 //
 // It loads the page's own util.js, operators.js, sim.js and pattern files into a VM, runs the
 // simulator, and writes verification/runtime/<pattern>-<variant>.json with:
@@ -15,7 +15,6 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
-const DEFAULT = ['windows/tumble', 'dedup/eventtime', 'over/range', 'windowjoin/fullouter', 'enrichment/temporal'];
 
 // Load the scripts the way the page does: classic scripts sharing one global scope.
 const ctx = { console, structuredClone };
@@ -73,15 +72,23 @@ function exportOne(id) {
 
   const spec = {
     pattern: pid, variant: vid, label: `${pattern.title} / ${variant.label}`,
+    // Tabs checked on a snapshot build say so; the replay runs them on that build.
+    flinkVersion: variant.flinkVersion || null,
     sql: variant.sql.trim(),
     sources: Object.fromEntries(sources.map((n) => [tableOf(n), tables[tableOf(n)]])),
     sinks: Object.fromEntries(sinks.map((n) => [tableOf(n), tables[tableOf(n)]])),
     inputs, expected,
   };
+  // A LATERAL SNAPSHOT join's load phase ends when the build side's watermark reaches the time the
+  // query was compiled. The simulator assumes a compile time; the replay passes it explicitly.
+  const lateral = variant.graph.nodes.find((n) => n.op === 'lateralSnapshotJoin');
+  if (lateral) spec.loadCompletedTime = lateral.cfg.loadCompletedTime;
   const out = join(REPO, 'verification', 'runtime', `${pid}-${vid}.json`);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, JSON.stringify(spec, null, 2) + '\n');
   console.log(`wrote verification/runtime/${pid}-${vid}.json (${inputs.length} inputs, ${expected.length} expected rows)`);
 }
 
-for (const id of process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT) exportOne(id);
+// Every tab, except the ones with an external system: a lookup join needs a real service.
+const all = PATTERNS.flatMap((p) => p.variants.filter((v) => !v.graph.nodes.some((n) => n.kind === 'external')).map((v) => `${p.id}/${v.id}`));
+for (const id of process.argv.slice(2).length ? process.argv.slice(2) : all) exportOne(id);

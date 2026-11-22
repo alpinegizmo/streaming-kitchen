@@ -355,8 +355,10 @@ Each milestone ends with a browser check (screenshots, light and dark, narrow wi
   ChangelogNormalize and SinkUpsertMaterializer are present. Save the output in `verification/`, and
   draw graphs only from it. Every **(verify)** item above is resolved this way.
 - Feed the same input events to real Flink and compare its sink output with the simulator's trace:
-  `verification/run-replay.sh` (see the README). Done for every tab except the lookup join and LATERAL
-  SNAPSHOT: 22 of 22 match on Flink 2.3.0, row kinds included (2026-11-21). A negative control (the
+  `verification/run-replay.sh` (see the README). Done for every tab except the lookup join: 21 match
+  on Flink 2.3.0, "Ordered by order_id" on the 2.3 snapshot, and LATERAL SNAPSHOT on the 2.4 snapshot
+  (with `load_completed_time` set to the 10:00:00 compile time the tab assumes), row kinds included
+  (2026-11-21). A negative control (the
   tumble spec with one watermark removed) fails, as it should. Patterns with two sources are compared
   unordered; only sink output is compared, not state or intermediate operators.
 - For SinkUpsertMaterializer, find a query in the set that naturally triggers it (a sink PK that

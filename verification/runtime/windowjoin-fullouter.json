@@ -2,6 +2,7 @@
   "pattern": "windowjoin",
   "variant": "fullouter",
   "label": "Window join / Full outer join",
+  "flinkVersion": null,
   "sql": "INSERT INTO kitchen_load\nSELECT COALESCE(o.store_id, k.store_id) AS store_id,\n       COALESCE(o.window_start, k.window_start) AS window_start,\n       COALESCE(o.window_end, k.window_end) AS window_end,\n       o.placed, k.cooked\nFROM (\n  SELECT store_id, window_start, window_end, COUNT(*) AS placed\n  FROM TUMBLE(TABLE orders, DESCRIPTOR(event_time), INTERVAL '15' MINUTES)\n  GROUP BY store_id, window_start, window_end) o\nFULL OUTER JOIN (\n  SELECT store_id, window_start, window_end, COUNT(*) AS cooked\n  FROM TUMBLE(TABLE kitchen_tickets, DESCRIPTOR(event_time), INTERVAL '15' MINUTES)\n  GROUP BY store_id, window_start, window_end) k\nON o.store_id = k.store_id\nAND o.window_start = k.window_start AND o.window_end = k.window_end;",
   "sources": {
     "orders": {

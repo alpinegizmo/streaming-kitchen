@@ -2,6 +2,7 @@
   "pattern": "windows",
   "variant": "updating",
   "label": "Windows / Updating input",
+  "flinkVersion": null,
   "sql": "INSERT INTO store_sales\nSELECT window_start, window_end, store_id,\n       COUNT(*) AS orders,\n       SUM(total) AS sales\nFROM TUMBLE(\n  TABLE order_status,\n  DESCRIPTOR(event_time),\n  INTERVAL '5' MINUTES)\nWHERE status <> 'cancelled'\nGROUP BY window_start, window_end, store_id;",
   "sources": {
     "order_status": {

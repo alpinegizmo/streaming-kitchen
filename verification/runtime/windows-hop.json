@@ -2,6 +2,7 @@
   "pattern": "windows",
   "variant": "hop",
   "label": "Windows / Hop",
+  "flinkVersion": null,
   "sql": "INSERT INTO store_sales\nSELECT window_start, window_end, store_id,\n       COUNT(*) AS orders,\n       SUM(total) AS sales\nFROM HOP(\n  TABLE orders,\n  DESCRIPTOR(event_time),\n  INTERVAL '5' MINUTES,\n  INTERVAL '15' MINUTES)\nGROUP BY window_start, window_end, store_id;",
   "sources": {
     "orders": {

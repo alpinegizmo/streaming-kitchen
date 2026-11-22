@@ -2,6 +2,7 @@
   "pattern": "dedup",
   "variant": "updating",
   "label": "Deduplication / Updating input",
+  "flinkVersion": null,
   "sql": "INSERT INTO first_orders\nSELECT store_id, order_id, total, event_time\nFROM (\n  SELECT *,\n    ROW_NUMBER() OVER (PARTITION BY store_id\n                       ORDER BY event_time ASC) AS row_num\n  FROM order_status\n  WHERE status <> 'cancelled')\nWHERE row_num = 1;",
   "sources": {
     "order_status": {

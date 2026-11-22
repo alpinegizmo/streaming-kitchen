@@ -2,6 +2,7 @@
   "pattern": "filter",
   "variant": "upsert",
   "label": "Filtering and projection / Upsert source",
+  "flinkVersion": null,
   "sql": "INSERT INTO open_orders\nSELECT order_id, store_id, status\nFROM order_status\nWHERE status <> 'cancelled';",
   "sources": {
     "order_status": {

@@ -2,6 +2,7 @@
   "pattern": "enrichment",
   "variant": "temporal",
   "label": "Enrichment / Temporal join",
+  "flinkVersion": null,
   "sql": "INSERT INTO order_costs\nSELECT o.order_id, o.pizza_id, o.total, c.food_cost\nFROM orders AS o\nJOIN pizza_costs FOR SYSTEM_TIME AS OF o.event_time AS c\n  ON o.pizza_id = c.pizza_id;",
   "sources": {
     "orders": {

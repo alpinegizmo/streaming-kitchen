@@ -2,6 +2,7 @@
   "pattern": "windows",
   "variant": "session",
   "label": "Windows / Session",
+  "flinkVersion": null,
   "sql": "INSERT INTO store_sales\nSELECT window_start, window_end, store_id,\n       COUNT(*) AS orders,\n       SUM(total) AS sales\nFROM SESSION(\n  TABLE orders PARTITION BY store_id,\n  DESCRIPTOR(event_time),\n  INTERVAL '10' MINUTES)\nGROUP BY window_start, window_end, store_id;",
   "sources": {
     "orders": {

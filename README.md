@@ -56,8 +56,10 @@ Keep the SQL in `verification/` identical to the SQL shown on the page.
 ### Replaying patterns through real Flink
 
 ```sh
-verification/run-replay.sh                       # every exported pattern, on Flink 2.3.0
+verification/run-replay.sh                       # every tab, on Flink 2.3.0
 verification/run-replay.sh windows/tumble        # just one (pattern id / tab id)
+FLINK_VERSION=2.4-SNAPSHOT verification/run-replay.sh enrichment/lateral
+FLINK_VERSION=2.3-SNAPSHOT verification/run-replay.sh dedup/byid
 ```
 
 This checks what the job graphs can't: that the simulator behind each animation produces the rows
@@ -69,9 +71,11 @@ the real sinks' changelog modes, and compares the output row by row, row kinds i
 source never finishes, so Flink never fires the windows the simulator leaves open.
 
 With more than one source, the order in which inputs reach an operator isn't fixed in a real job,
-so those outputs are compared as unordered sets of rows. The lookup join (it needs an HTTP
-service) and LATERAL SNAPSHOT (Flink 2.4) aren't replayed. Only sink output is compared, not
-the state panels or each operator's intermediate output.
+so those outputs are compared as unordered sets of rows. Tabs checked on a snapshot build are
+skipped by a plain run, which says how to run them. The lookup join isn't replayed: it needs an
+HTTP service. For LATERAL SNAPSHOT, the replay passes `load_completed_time` with the compile time
+the tab assumes (10:00:00), since the replay's own compile time is now. Only sink output is
+compared, not the state panels or each operator's intermediate output.
 
 ## Screenshots
 

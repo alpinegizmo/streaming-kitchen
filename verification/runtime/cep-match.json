@@ -2,6 +2,7 @@
   "pattern": "cep",
   "variant": "match",
   "label": "Complex event processing / MATCH_RECOGNIZE",
+  "flinkVersion": null,
   "sql": "INSERT INTO slow_kitchens\nSELECT *\nFROM kitchen_tickets MATCH_RECOGNIZE (\n  PARTITION BY store_id\n  ORDER BY event_time\n  MEASURES A.prep_minutes AS first_minutes,\n           C.prep_minutes AS last_minutes,\n           MATCH_ROWTIME() AS detected_at\n  ONE ROW PER MATCH\n  AFTER MATCH SKIP PAST LAST ROW\n  PATTERN (A B C)\n  DEFINE\n    B AS B.prep_minutes > A.prep_minutes,\n    C AS C.prep_minutes > B.prep_minutes\n);",
   "sources": {
     "kitchen_tickets": {

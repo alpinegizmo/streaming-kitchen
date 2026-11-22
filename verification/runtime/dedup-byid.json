@@ -2,6 +2,7 @@
   "pattern": "dedup",
   "variant": "byid",
   "label": "Deduplication / Ordered by order_id",
+  "flinkVersion": "2.3-SNAPSHOT",
   "sql": "INSERT INTO deduped_orders\nSELECT order_id, store_id, total, event_time\nFROM (\n  SELECT *,\n    ROW_NUMBER() OVER (PARTITION BY order_id\n                       ORDER BY order_id ASC) AS row_num\n  FROM orders)\nWHERE row_num = 1;",
   "sources": {
     "orders": {

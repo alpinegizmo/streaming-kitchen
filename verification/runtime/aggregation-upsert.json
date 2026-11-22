@@ -2,6 +2,7 @@
   "pattern": "aggregation",
   "variant": "upsert",
   "label": "Non-windowed aggregation / Upsert sink",
+  "flinkVersion": null,
   "sql": "INSERT INTO store_totals\nSELECT store_id,\n       COUNT(*) AS orders,\n       SUM(total) AS sales\nFROM orders\nGROUP BY store_id;",
   "sources": {
     "orders": {

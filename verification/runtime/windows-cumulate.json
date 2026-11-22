@@ -2,6 +2,7 @@
   "pattern": "windows",
   "variant": "cumulate",
   "label": "Windows / Cumulate",
+  "flinkVersion": null,
   "sql": "INSERT INTO store_sales\nSELECT window_start, window_end, store_id,\n       COUNT(*) AS orders,\n       SUM(total) AS sales\nFROM CUMULATE(\n  TABLE orders,\n  DESCRIPTOR(event_time),\n  INTERVAL '15' MINUTES,\n  INTERVAL '1' HOUR)\nGROUP BY window_start, window_end, store_id;",
   "sources": {
     "orders": {

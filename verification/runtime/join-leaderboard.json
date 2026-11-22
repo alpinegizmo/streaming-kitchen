@@ -2,6 +2,7 @@
   "pattern": "join",
   "variant": "leaderboard",
   "label": "Regular join / Aggregate, then join",
+  "flinkVersion": null,
   "sql": "INSERT INTO store_leaderboard\nSELECT s.store_id, s.city, s.manager, t.orders, t.sales\nFROM (\n  SELECT store_id, COUNT(*) AS orders, SUM(total) AS sales\n  FROM orders\n  GROUP BY store_id\n) AS t\nJOIN stores AS s\n  ON t.store_id = s.store_id;",
   "sources": {
     "orders": {

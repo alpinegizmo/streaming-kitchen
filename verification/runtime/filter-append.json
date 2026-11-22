@@ -2,6 +2,7 @@
   "pattern": "filter",
   "variant": "append",
   "label": "Filtering and projection / Append-only source",
+  "flinkVersion": null,
   "sql": "INSERT INTO delivery_orders\nSELECT order_id,\n       store_id,\n       total * 1.08 AS total_with_tax,\n       event_time\nFROM orders\nWHERE channel = 'delivery';",
   "sources": {
     "orders": {

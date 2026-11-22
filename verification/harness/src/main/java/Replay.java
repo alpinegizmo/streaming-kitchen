@@ -221,6 +221,14 @@ public class Replay {
         if (sql.endsWith(";")) {
             sql = sql.substring(0, sql.length() - 1);
         }
+        // The simulator assumes the query was compiled at a given time, which ends a LATERAL
+        // SNAPSHOT join's load phase. In a replay, compile time is now, so it's passed explicitly.
+        if (spec.has("loadCompletedTime")) {
+            String time = spec.get("loadCompletedTime").asText();
+            sql = sql.replaceFirst("(on_time\\s*=>\\s*DESCRIPTOR\\(\\w+\\))",
+                    "$1, load_completed_time => CAST(TIMESTAMP '" + DAY + " " + pad(time) + "' AS TIMESTAMP_LTZ(3))");
+            System.out.printf("(load_completed_time => %s added, as if the query were compiled then)%n", time);
+        }
         JobClient job = tEnv.executeSql(sql).getJobClient().orElseThrow();
 
         // Wait for every input to be read, then for the output to settle, and stop the job.

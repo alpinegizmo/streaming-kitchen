@@ -2,6 +2,7 @@
   "pattern": "late",
   "variant": "dlq",
   "label": "Late events to a dead letter queue / Statement set",
+  "flinkVersion": null,
   "sql": "EXECUTE STATEMENT SET\nBEGIN\n\n-- Late orders go to a dead letter queue.\nINSERT INTO late_orders\nSELECT * FROM orders\nWHERE event_time <= CURRENT_WATERMARK(event_time);\n\n-- The main query counts the rest.\nINSERT INTO store_sales\nSELECT window_start, window_end, store_id,\n       COUNT(*) AS orders,\n       SUM(total) AS sales\nFROM TUMBLE(\n  (SELECT * FROM orders\n   WHERE CURRENT_WATERMARK(event_time) IS NULL\n      OR event_time > CURRENT_WATERMARK(event_time)),\n  DESCRIPTOR(event_time),\n  INTERVAL '1' MINUTE)\nGROUP BY window_start, window_end, store_id;\n\nEND;",
   "sources": {
     "orders": {

@@ -2,6 +2,7 @@
   "pattern": "correlation",
   "variant": "interval",
   "label": "Event correlation / Interval join",
+  "flinkVersion": null,
   "sql": "INSERT INTO late_orders\nSELECT o.order_id, o.store_id, o.event_time AS ordered_at\nFROM orders o\nLEFT JOIN deliveries d\n  ON o.order_id = d.order_id\n AND d.event_time BETWEEN o.event_time\n                      AND o.event_time + INTERVAL '45' MINUTE\nWHERE d.order_id IS NULL;",
   "sources": {
     "orders": {

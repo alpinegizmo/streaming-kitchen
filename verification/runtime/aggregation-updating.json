@@ -2,6 +2,7 @@
   "pattern": "aggregation",
   "variant": "updating",
   "label": "Non-windowed aggregation / Updating input",
+  "flinkVersion": null,
   "sql": "INSERT INTO status_counts\nSELECT status,\n       COUNT(*) AS orders\nFROM order_status\nGROUP BY status;",
   "sources": {
     "order_status": {

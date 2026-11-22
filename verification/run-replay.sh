@@ -19,9 +19,18 @@ node "$here/../tools/export-replay.mjs" "$@"
 (cd "$harness" && mvn -q -Dflink.version="$FLINK_VERSION" compile dependency:build-classpath \
   -Dmdep.outputFile="$cp_file" >/dev/null)
 
+# Tabs checked on a snapshot build only run on that build.
 specs=()
 if [[ $# -eq 0 ]]; then
-  for f in "$here"/runtime/*.json; do specs+=("$f"); done
+  for f in "$here"/runtime/*.json; do
+    v="$(sed -n 's/.*"flinkVersion": "\([^"]*\)".*/\1/p' "$f")"
+    if [[ -z "$v" || "$v" == "$FLINK_VERSION" ]]; then
+      specs+=("$f")
+    else
+      name="$(basename "$f" .json)"
+      echo "skipping $name: run FLINK_VERSION=$v verification/run-replay.sh ${name/-//}"
+    fi
+  done
 else
   for id in "$@"; do specs+=("$here/runtime/${id/\//-}.json"); done
 fi
