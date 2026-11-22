@@ -191,5 +191,302 @@
       }
     }
   ],
-  "operators": []
+  "operators": [
+    {
+      "node": "join",
+      "op": "intervalJoin",
+      "title": "IntervalJoin",
+      "flink": [
+        "IntervalJoin"
+      ],
+      "upstream": [
+        "deliveries",
+        "orders"
+      ],
+      "steps": [
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "event_time": "12:00:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "101"
+            ]
+          },
+          "caption": "Order 101 has no delivery yet. It's buffered: a delivery up to 12:45:00 can still match it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "event_time": "12:05:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "101",
+              "102"
+            ]
+          },
+          "caption": "Order 102 has no delivery yet. It's buffered: a delivery up to 12:50:00 can still match it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:04:59"
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "101",
+              "102"
+            ]
+          },
+          "caption": "The join records the orders watermark, 12:04:59. It has no watermark from deliveries yet, so its own watermark, the minimum of the two, can't advance."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "event_time": "12:10:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103"
+            ]
+          },
+          "caption": "Order 103 has no delivery yet. It's buffered: a delivery up to 12:55:00 can still match it."
+        },
+        {
+          "from": [
+            "deliveries"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "driver_id": 31,
+              "event_time": "12:31:00"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 101,
+                "store_id": 7,
+                "ordered_at": "12:00:00",
+                "delivered_at": "12:31:00"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103",
+              "101"
+            ]
+          },
+          "caption": "The delivery of order 101 comes 31 minutes after the order, within the interval. The joined row is emitted, and the buffered order is marked as matched. The delivery is buffered too, in case another order could match it."
+        },
+        {
+          "from": [
+            "deliveries"
+          ],
+          "item": {
+            "wm": "12:30:59"
+          },
+          "out": [
+            {
+              "wm": "11:19:59"
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103",
+              "101"
+            ]
+          },
+          "caption": "The join's watermark, the minimum of both inputs, moves to 12:04:59. No buffered row has expired yet. The output watermark is held back by the 45-minute interval, to 11:19:59."
+        },
+        {
+          "from": [
+            "deliveries"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "driver_id": 18,
+              "event_time": "12:40:00"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 102,
+                "store_id": 9,
+                "ordered_at": "12:05:00",
+                "delivered_at": "12:40:00"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103",
+              "101",
+              "102"
+            ]
+          },
+          "caption": "The delivery of order 102 comes 35 minutes after the order, within the interval. The joined row is emitted, and the buffered order is marked as matched. The delivery is buffered too, in case another order could match it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 104,
+              "store_id": 9,
+              "event_time": "12:58:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103",
+              "104",
+              "101",
+              "102"
+            ]
+          },
+          "caption": "Order 104 has no delivery yet. It's buffered: a delivery up to 13:43:00 can still match it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:57:59"
+          },
+          "out": [
+            {
+              "wm": "11:45:59"
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103",
+              "104",
+              "101",
+              "102"
+            ]
+          },
+          "caption": "The join's watermark, the minimum of both inputs, moves to 12:30:59. No buffered row has expired yet. The output watermark is held back by the 45-minute interval, to 11:45:59."
+        },
+        {
+          "from": [
+            "deliveries"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 104,
+              "driver_id": 31,
+              "event_time": "13:20:00"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 104,
+                "store_id": 9,
+                "ordered_at": "12:58:00",
+                "delivered_at": "13:20:00"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103",
+              "104",
+              "101",
+              "102",
+              "104"
+            ]
+          },
+          "caption": "The delivery of order 104 comes 22 minutes after the order, within the interval. The joined row is emitted, and the buffered order is marked as matched. The delivery is buffered too, in case another order could match it."
+        },
+        {
+          "from": [
+            "deliveries"
+          ],
+          "item": {
+            "wm": "13:19:59"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 103,
+                "store_id": 7,
+                "ordered_at": "12:10:00",
+                "delivered_at": null
+              }
+            },
+            {
+              "wm": "12:12:59"
+            }
+          ],
+          "facts": {
+            "state": [
+              "104",
+              "104"
+            ]
+          },
+          "caption": "The join's watermark, the minimum of both inputs, moves to 12:57:59. That's more than 45 minutes after order 103, which never matched a delivery. No delivery can match it now, so it is emitted with no delivery. 5 buffered rows are freed. The output watermark is held back by the 45-minute interval, to 12:12:59."
+        }
+      ]
+    }
+  ]
 }

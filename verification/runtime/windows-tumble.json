@@ -249,6 +249,9 @@
       ],
       "steps": [
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -270,6 +273,9 @@
           "caption": "Order 101 falls in the 12:00–12:05 window. Store 7 has no accumulator for it yet, so one is created, with a timer for 12:05."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -293,6 +299,9 @@
           "caption": "Order 102 falls in the 12:00–12:05 window. Store 9 has no accumulator for it yet, so one is created, with a timer for 12:05."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -316,6 +325,9 @@
           "caption": "Order 103 also falls in the 12:00–12:05 window. Store 7's accumulator becomes 2 orders, $49.00."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "wm": "12:03:44"
           },
@@ -337,6 +349,9 @@
           "caption": "The watermark, 12:03:44, hasn't reached any timer, so nothing fires. WindowAggregate forwards it."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -360,6 +375,9 @@
           "caption": "Order 104 also falls in the 12:00–12:05 window. Store 7's accumulator becomes 3 orders, $62.00."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -385,6 +403,9 @@
           "caption": "Order 106 falls in the 12:05–12:10 window. Store 7 has no accumulator for it yet, so one is created, with a timer for 12:10."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "wm": "12:05:00"
           },
@@ -424,6 +445,9 @@
           "caption": "The watermark reaches 12:05:00, so the 12:00–12:05 window is complete. WindowAggregate emits a final row for each store (store 7, 3 orders, $62.00; store 9, 1 order, $24.50), frees their state, and then forwards the watermark."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -445,6 +469,9 @@
           "caption": "Order 105 was placed at 12:04:58, but the watermark is already at 12:05:00. Its 12:00–12:05 window has fired and its state is gone, so the order is late, and dropped."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -468,6 +495,9 @@
           "caption": "Order 107 falls in the 12:05–12:10 window. Store 9 has no accumulator for it yet, so one is created, with a timer for 12:10."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -491,6 +521,9 @@
           "caption": "Order 108 also falls in the 12:05–12:10 window. Store 7's accumulator becomes 2 orders, $48.50."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "wm": "12:09:09"
           },
@@ -512,6 +545,9 @@
           "caption": "The watermark, 12:09:09, hasn't reached any timer, so nothing fires. WindowAggregate forwards it."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -537,6 +573,9 @@
           "caption": "Order 109 falls in the 12:10–12:15 window. Store 9 has no accumulator for it yet, so one is created, with a timer for 12:15."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "wm": "12:10:19"
           },

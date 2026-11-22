@@ -229,5 +229,327 @@
       }
     }
   ],
-  "operators": []
+  "operators": [
+    {
+      "node": "rank",
+      "op": "fastTop1",
+      "title": "Rank",
+      "flink": [
+        "Rank"
+      ],
+      "upstream": [
+        "orders"
+      ],
+      "steps": [
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "total": 18,
+              "event_time": "12:00:01"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 101,
+                "store_id": 7,
+                "total": 18,
+                "event_time": "12:00:01"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101"
+            ],
+            "timers": []
+          },
+          "caption": "Order 101 has no row in state. Rank stores this copy, the whole row, and emits it (+I)."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "total": 24.5,
+              "event_time": "12:00:03"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 102,
+                "store_id": 9,
+                "total": 24.5,
+                "event_time": "12:00:03"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102"
+            ],
+            "timers": []
+          },
+          "caption": "Order 102 has no row in state. Rank stores this copy, the whole row, and emits it (+I)."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "total": 18,
+              "event_time": "12:00:04"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "101",
+              "102"
+            ],
+            "timers": []
+          },
+          "caption": "Order 101 already has a row in state. This copy has the same order_id, so it doesn't sort ahead of the stored one, and it's ignored, even if its event time is earlier."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:00:03"
+          },
+          "out": [
+            {
+              "wm": "12:00:03"
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102"
+            ],
+            "timers": []
+          },
+          "caption": "The watermark passes through. Rank has no use for it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "total": 31,
+              "event_time": "12:00:06"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 103,
+                "store_id": 7,
+                "total": 31,
+                "event_time": "12:00:06"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103"
+            ],
+            "timers": []
+          },
+          "caption": "Order 103 has no row in state. Rank stores this copy, the whole row, and emits it (+I)."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "total": 31,
+              "event_time": "12:00:05"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103"
+            ],
+            "timers": []
+          },
+          "caption": "Order 103 already has a row in state. This copy has the same order_id, so it doesn't sort ahead of the stored one, and it's ignored, even if its event time is earlier."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "total": 24.5,
+              "event_time": "12:00:02"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103"
+            ],
+            "timers": []
+          },
+          "caption": "Order 102 already has a row in state. This copy has the same order_id, so it doesn't sort ahead of the stored one, and it's ignored, even if its event time is earlier."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:00:05"
+          },
+          "out": [
+            {
+              "wm": "12:00:05"
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103"
+            ],
+            "timers": []
+          },
+          "caption": "The watermark passes through. Rank has no use for it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 104,
+              "store_id": 9,
+              "total": 13,
+              "event_time": "12:00:08"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 104,
+                "store_id": 9,
+                "total": 13,
+                "event_time": "12:00:08"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103",
+              "104"
+            ],
+            "timers": []
+          },
+          "caption": "Order 104 has no row in state. Rank stores this copy, the whole row, and emits it (+I)."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 105,
+              "store_id": 7,
+              "total": 22,
+              "event_time": "12:00:10"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 105,
+                "store_id": 7,
+                "total": 22,
+                "event_time": "12:00:10"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103",
+              "104",
+              "105"
+            ],
+            "timers": []
+          },
+          "caption": "Order 105 has no row in state. Rank stores this copy, the whole row, and emits it (+I)."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:00:09"
+          },
+          "out": [
+            {
+              "wm": "12:00:09"
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103",
+              "104",
+              "105"
+            ],
+            "timers": []
+          },
+          "caption": "The watermark passes through. Rank has no use for it."
+        }
+      ]
+    }
+  ]
 }

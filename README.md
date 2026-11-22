@@ -84,17 +84,21 @@ compared here; `run-state.sh` checks the state panels.
 ```sh
 verification/run-state.sh                        # every tab with a traced operator
 verification/run-state.sh windows/tumble         # just one
+FLINK_VERSION=2.4-SNAPSHOT verification/run-state.sh enrichment/lateral
 ```
 
 This checks what the state panels show, operator by operator. For each operator with a `facts()`
-function in `js/operators.js` (so far GroupAggregate and the window aggregations), the exporter
-also writes every item the simulated operator received, what it emitted, and its state and timers
-afterwards. `StateCheck.java` plans the pattern's SQL, takes the operators the planner built for it
+function in `js/operators.js` (every stateful one except the lookup join), the exporter also writes
+every item the simulated operator received, what it emitted, and its state and timers afterwards.
+`StateCheck.java` plans the pattern's SQL, takes the operators the planner built for it
 (LocalWindowAggregate and GlobalWindowAggregate for one simulated WindowAggregate), and runs them in
-Flink's operator test harness, with the heap state backend. After each item it compares the
-emitted rows and watermarks, the keys and namespaces in state, and every timer. Window aggregations
-buffer records in memory until a watermark or a checkpoint, so the harness flushes them before each
-comparison, as a checkpoint would. The plan for the remaining operators is in
+Flink's operator test harness, with the heap state backend; a two-input operator gets each item on
+the input that reads from the same source table. After each item it compares the emitted rows and
+watermarks, the keys and namespaces in state, and every timer. Window aggregations and Rank's
+FastTop1Function hold records in memory until a checkpoint, so the harness takes one before each
+comparison. Output fields the simulator doesn't model (a join's copy of the other side's key, say)
+and input fields it leaves out are listed, not compared. The same snapshot gating as
+`run-replay.sh` applies. What the checks found, and what's left, is in
 `verification/STATE-PLAN.md`.
 
 ## Screenshots

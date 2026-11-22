@@ -220,5 +220,514 @@
       }
     }
   ],
-  "operators": []
+  "operators": [
+    {
+      "node": "cn",
+      "op": "changelogNormalize",
+      "title": "ChangelogNormalize",
+      "flink": [
+        "ChangelogNormalize"
+      ],
+      "upstream": [
+        "order_status"
+      ],
+      "steps": [
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 201,
+              "store_id": 7,
+              "status": "placed",
+              "total": 18,
+              "event_time": "12:00:05"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 201,
+                "store_id": 7,
+                "status": "placed",
+                "total": 18,
+                "event_time": "12:00:05"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "201"
+            ],
+            "timers": []
+          },
+          "caption": "Order 201 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 202,
+              "store_id": 9,
+              "status": "placed",
+              "total": 24.5,
+              "event_time": "12:00:09"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 202,
+                "store_id": 9,
+                "status": "placed",
+                "total": 24.5,
+                "event_time": "12:00:09"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "201",
+              "202"
+            ],
+            "timers": []
+          },
+          "caption": "Order 202 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 203,
+              "store_id": 7,
+              "status": "placed",
+              "total": 31,
+              "event_time": "12:00:12"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 203,
+                "store_id": 7,
+                "status": "placed",
+                "total": 31,
+                "event_time": "12:00:12"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "201",
+              "202",
+              "203"
+            ],
+            "timers": []
+          },
+          "caption": "Order 203 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 204,
+              "store_id": 7,
+              "status": "placed",
+              "total": 13,
+              "event_time": "12:00:20"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 204,
+                "store_id": 7,
+                "status": "placed",
+                "total": 13,
+                "event_time": "12:00:20"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "201",
+              "202",
+              "203",
+              "204"
+            ],
+            "timers": []
+          },
+          "caption": "Order 204 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 201,
+              "store_id": 7,
+              "status": "cancelled",
+              "total": 18,
+              "event_time": "12:00:05"
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "order_id": 201,
+                "store_id": 7,
+                "status": "placed",
+                "total": 18,
+                "event_time": "12:00:05"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "202",
+              "203",
+              "204"
+            ],
+            "timers": []
+          },
+          "caption": "Order 201 is now cancelled, so it fails the filter. ChangelogNormalize emits a delete (−D) with the row from state, and clears the key."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 205,
+              "store_id": 9,
+              "status": "placed",
+              "total": 22,
+              "event_time": "12:00:03"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 205,
+                "store_id": 9,
+                "status": "placed",
+                "total": 22,
+                "event_time": "12:00:03"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "202",
+              "203",
+              "204",
+              "205"
+            ],
+            "timers": []
+          },
+          "caption": "Order 205 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 204,
+              "store_id": 7,
+              "status": "cancelled",
+              "total": 13,
+              "event_time": "12:00:20"
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "order_id": 204,
+                "store_id": 7,
+                "status": "placed",
+                "total": 13,
+                "event_time": "12:00:20"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "202",
+              "203",
+              "205"
+            ],
+            "timers": []
+          },
+          "caption": "Order 204 is now cancelled, so it fails the filter. ChangelogNormalize emits a delete (−D) with the row from state, and clears the key."
+        }
+      ]
+    },
+    {
+      "node": "rank",
+      "op": "retractRank",
+      "title": "Rank",
+      "flink": [
+        "Rank"
+      ],
+      "upstream": [
+        "order_status"
+      ],
+      "steps": [
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 201,
+              "store_id": 7,
+              "status": "placed",
+              "total": 18,
+              "event_time": "12:00:05"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 201,
+                "store_id": 7,
+                "status": "placed",
+                "total": 18,
+                "event_time": "12:00:05"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7"
+            ],
+            "timers": []
+          },
+          "caption": "Store 7 has no rows yet, so order 201 is its first order. Rank stores it and emits an insert (+I)."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 202,
+              "store_id": 9,
+              "status": "placed",
+              "total": 24.5,
+              "event_time": "12:00:09"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 202,
+                "store_id": 9,
+                "status": "placed",
+                "total": 24.5,
+                "event_time": "12:00:09"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Store 9 has no rows yet, so order 202 is its first order. Rank stores it and emits an insert (+I)."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 203,
+              "store_id": 7,
+              "status": "placed",
+              "total": 31,
+              "event_time": "12:00:12"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Order 203 (12:00:12) comes after store 7's first order, so nothing changes downstream. Rank stores it anyway, as row 2 of 2, in case the orders ahead of it are cancelled."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 204,
+              "store_id": 7,
+              "status": "placed",
+              "total": 13,
+              "event_time": "12:00:20"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Order 204 (12:00:20) comes after store 7's first order, so nothing changes downstream. Rank stores it anyway, as row 3 of 3, in case the orders ahead of it are cancelled."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "-D",
+            "row": {
+              "order_id": 201,
+              "store_id": 7,
+              "status": "placed",
+              "total": 18,
+              "event_time": "12:00:05"
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "order_id": 201,
+                "store_id": 7,
+                "status": "placed",
+                "total": 18,
+                "event_time": "12:00:05"
+              }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 203,
+                "store_id": 7,
+                "status": "placed",
+                "total": 31,
+                "event_time": "12:00:12"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Order 201 was store 7's first order, and it's been cancelled. Rank deletes it (−D), and inserts the next order it has kept, 203 (+I). Without every row in state, it couldn't."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 205,
+              "store_id": 9,
+              "status": "placed",
+              "total": 22,
+              "event_time": "12:00:03"
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "order_id": 202,
+                "store_id": 9,
+                "status": "placed",
+                "total": 24.5,
+                "event_time": "12:00:09"
+              }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 205,
+                "store_id": 9,
+                "status": "placed",
+                "total": 22,
+                "event_time": "12:00:03"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Order 205 was placed at 12:00:03, before order 202 (12:00:09), though it arrived after it. It's store 9's first order now, so Rank deletes order 202 (−D) and inserts order 205 (+I)."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "-D",
+            "row": {
+              "order_id": 204,
+              "store_id": 7,
+              "status": "placed",
+              "total": 13,
+              "event_time": "12:00:20"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Order 204 is cancelled, but it was row 2 for store 7, not the first. Rank removes it from state, and emits nothing."
+        }
+      ]
+    }
+  ]
 }

@@ -29,6 +29,13 @@ import org.apache.flink.streaming.api.operators.InternalTimerServiceImpl;
 import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.streaming.api.transformations.OneInputTransformation;
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.table.runtime.operators.CodeGenOperatorFactory;
+import org.apache.flink.streaming.util.TwoInputStreamOperatorTestHarness;
+import org.apache.flink.streaming.util.KeyedTwoInputStreamOperatorTestHarness;
+import org.apache.flink.streaming.util.AbstractStreamOperatorTestHarness;
+import org.apache.flink.streaming.api.operators.SimpleOperatorFactory;
+import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
+import org.apache.flink.streaming.api.transformations.TwoInputTransformation;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.util.KeyedOneInputStreamOperatorTestHarness;
 import org.apache.flink.streaming.util.OneInputStreamOperatorTestHarness;
@@ -38,6 +45,7 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
+import org.apache.flink.table.runtime.operators.window.TimeWindow;
 import org.apache.flink.table.runtime.typeutils.InternalTypeInfo;
 import org.apache.flink.table.runtime.typeutils.RowDataSerializer;
 import org.apache.flink.table.types.logical.DecimalType;
@@ -61,9 +69,10 @@ import org.apache.flink.types.RowKind;
  *   <li>every event-time and processing-time timer, by key and timestamp.
  * </ul>
  *
- * <p>Some operators buffer records in memory before writing them to state, until a watermark or a
- * checkpoint (the window aggregations' RecordsWindowBuffer). Before each inspection the harness
- * flushes them, as a checkpoint would (prepareSnapshotPreBarrier).
+ * <p>Some operators hold records in memory before writing them to state, until a watermark or a
+ * checkpoint: the window aggregations' RecordsWindowBuffer, and FastTop1Function's cache. Before
+ * each inspection the harness takes a checkpoint (prepareSnapshotPreBarrier, then snapshotState),
+ * which writes them to state.
  */
 public class StateCheck {
 
@@ -108,10 +117,10 @@ public class StateCheck {
             List<String> names = new ArrayList<>();
             op.get("flink").forEach(n -> names.add(n.asText()));
             Set<String> upstream = strings(op.get("upstream"));
-            List<OneInputTransformation<RowData, RowData>> chain = find(all, names, tables, upstream);
+            List<Transformation<RowData>> chain = find(all, names, tables, upstream);
             System.out.printf("operator %s: %s%n", op.get("node").asText(),
                     String.join(" -> ", chain.stream().map(Transformation::getName).toList()));
-            pass &= check(op, chain);
+            pass &= check(op, chain, tables);
         }
         return pass;
     }
@@ -156,8 +165,8 @@ public class StateCheck {
      * order. When a job has several, the one fed by exactly the given source tables.
      */
     @SuppressWarnings("unchecked")
-    static List<OneInputTransformation<RowData, RowData>> find(List<Transformation<?>> all, List<String> names, Set<String> tables, Set<String> upstream) {
-        List<OneInputTransformation<RowData, RowData>> chain = new ArrayList<>();
+    static List<Transformation<RowData>> find(List<Transformation<?>> all, List<String> names, Set<String> tables, Set<String> upstream) {
+        List<Transformation<RowData>> chain = new ArrayList<>();
         for (String name : names) {
             List<Transformation<?>> matches = all.stream()
                     .filter(t -> t.getName().equals(name) || t.getName().startsWith(name + "["))
@@ -170,10 +179,10 @@ public class StateCheck {
                         + matches.stream().map(Transformation::getName).toList()
                         + " among " + all.stream().map(Transformation::getName).toList());
             }
-            if (!(matches.get(0) instanceof OneInputTransformation)) {
-                throw new IllegalStateException(name + " isn't a one-input transformation: " + matches.get(0).getClass().getSimpleName());
+            if (!(matches.get(0) instanceof OneInputTransformation) && !(matches.get(0) instanceof TwoInputTransformation)) {
+                throw new IllegalStateException(name + " has neither one input nor two: " + matches.get(0).getClass().getSimpleName());
             }
-            chain.add((OneInputTransformation<RowData, RowData>) matches.get(0));
+            chain.add((Transformation<RowData>) matches.get(0));
         }
         return chain;
     }
@@ -191,56 +200,117 @@ public class StateCheck {
         return found;
     }
 
-    /** One Flink operator in a test harness. */
+    /** One Flink operator, with one input or two, in a test harness. */
     static class Stage {
-        final OneInputTransformation<RowData, RowData> t;
-        final OneInputStreamOperatorTestHarness<RowData, RowData> harness;
-        final RowType in;
+        final AbstractStreamOperatorTestHarness<RowData> harness;
+        final List<RowType> ins = new ArrayList<>();
+        final List<RowDataSerializer> inSerializers = new ArrayList<>();
+        final List<Set<String>> inSources = new ArrayList<>();
         final RowType out;
         final RowType key;
-        final RowDataSerializer inSerializer;
 
         @SuppressWarnings({"unchecked", "rawtypes"})
-        Stage(OneInputTransformation<RowData, RowData> t) throws Exception {
-            this.t = t;
-            this.in = ((InternalTypeInfo<RowData>) t.getInputs().get(0).getOutputType()).toRowType();
-            this.inSerializer = new RowDataSerializer(in);
-            this.out = ((InternalTypeInfo<RowData>) t.getOutputType()).toRowType();
-            StreamOperatorFactory<RowData> factory = t.getOperatorFactory();
-            KeySelector<RowData, ?> selector = t.getStateKeySelector();
-            if (selector != null) {
-                TypeInformation keyType = t.getStateKeyType();
-                this.key = keyType instanceof InternalTypeInfo ? ((InternalTypeInfo<?>) keyType).toRowType() : null;
-                this.harness = new KeyedOneInputStreamOperatorTestHarness(factory, selector, keyType, new RowDataSerializer(in));
-            } else {
-                this.key = null;
-                this.harness = new OneInputStreamOperatorTestHarness<>(factory, 1, 1, 0);
+        Stage(Transformation<RowData> t, Set<String> tables) throws Exception {
+            for (Transformation<?> input : t.getInputs()) {
+                RowType type = ((InternalTypeInfo<RowData>) input.getOutputType()).toRowType();
+                ins.add(type);
+                inSerializers.add(new RowDataSerializer(type));
+                inSources.add(sourcesOf(input, tables));
             }
+            this.out = ((InternalTypeInfo<RowData>) t.getOutputType()).toRowType();
+            TypeInformation keyType;
+            if (t instanceof OneInputTransformation) {
+                OneInputTransformation<RowData, RowData> one = (OneInputTransformation<RowData, RowData>) t;
+                keyType = one.getStateKeyType();
+                KeySelector<RowData, ?> selector = one.getStateKeySelector();
+                this.harness = selector != null
+                        ? new KeyedOneInputStreamOperatorTestHarness(one.getOperatorFactory(), selector, keyType, inSerializers.get(0))
+                        : new OneInputStreamOperatorTestHarness<>(one.getOperatorFactory(), 1, 1, 0);
+            } else {
+                // The two-input harnesses take an operator, not a factory.
+                TwoInputTransformation<RowData, RowData, RowData> two = (TwoInputTransformation<RowData, RowData, RowData>) t;
+                keyType = two.getStateKeyType();
+                TwoInputStreamOperator<RowData, RowData, RowData> operator = operator(two.getOperatorFactory());
+                this.harness = two.getStateKeySelector1() != null
+                        ? new KeyedTwoInputStreamOperatorTestHarness(operator, two.getStateKeySelector1(), two.getStateKeySelector2(), keyType)
+                        : new TwoInputStreamOperatorTestHarness<>(operator);
+            }
+            this.key = keyType instanceof InternalTypeInfo ? ((InternalTypeInfo<?>) keyType).toRowType() : null;
             harness.setStateBackend(new HashMapStateBackend());
             harness.setup(new RowDataSerializer(out));
             harness.open();
         }
 
+        @SuppressWarnings("unchecked")
+        static TwoInputStreamOperator<RowData, RowData, RowData> operator(StreamOperatorFactory<RowData> factory) {
+            if (factory instanceof SimpleOperatorFactory) {
+                return (TwoInputStreamOperator<RowData, RowData, RowData>) ((SimpleOperatorFactory<RowData>) factory).getOperator();
+            }
+            if (factory instanceof CodeGenOperatorFactory) {
+                return (TwoInputStreamOperator<RowData, RowData, RowData>) ((CodeGenOperatorFactory<RowData>) factory)
+                        .getGeneratedClass().newInstance(Thread.currentThread().getContextClassLoader());
+            }
+            throw new IllegalStateException("can't make an operator from " + factory.getClass().getSimpleName());
+        }
+
+        /** Which input reads from the given source tables. */
+        int input(Set<String> from) {
+            if (ins.size() == 1) {
+                return 0;
+            }
+            for (int i = 0; i < inSources.size(); i++) {
+                if (inSources.get(i).equals(from)) {
+                    return i;
+                }
+            }
+            throw new IllegalStateException("no input reads from " + from + "; the inputs read from " + inSources);
+        }
+
         /**
-         * Hands an item (a StreamRecord or a Watermark) to the operator. A row arrives as
-         * BinaryRowData, as it would after an exchange or from a source: some operators rely on
+         * Hands an item (a StreamRecord or a Watermark) to an input of the operator. A row arrives
+         * as BinaryRowData, as it would after an exchange or from a source: some operators rely on
          * its layout (a global window aggregation reads the slice end, a BIGINT, as a compact
          * timestamp).
          */
         @SuppressWarnings("unchecked")
-        void push(Object item) throws Exception {
-            if (item instanceof Watermark) {
-                harness.processWatermark((Watermark) item);
-            } else {
+        void push(Object item, int input) throws Exception {
+            Object o = item;
+            if (item instanceof StreamRecord) {
                 StreamRecord<RowData> r = (StreamRecord<RowData>) item;
-                RowData binary = inSerializer.toBinaryRow(r.getValue()).copy();
-                harness.processElement(r.hasTimestamp() ? new StreamRecord<>(binary, r.getTimestamp()) : new StreamRecord<>(binary));
+                RowData binary = inSerializers.get(input).toBinaryRow(r.getValue()).copy();
+                o = r.hasTimestamp() ? new StreamRecord<>(binary, r.getTimestamp()) : new StreamRecord<>(binary);
+            }
+            if (harness instanceof OneInputStreamOperatorTestHarness) {
+                OneInputStreamOperatorTestHarness<RowData, RowData> h = (OneInputStreamOperatorTestHarness<RowData, RowData>) harness;
+                if (o instanceof Watermark) {
+                    h.processWatermark((Watermark) o);
+                } else {
+                    h.processElement((StreamRecord<RowData>) o);
+                }
+            } else {
+                TwoInputStreamOperatorTestHarness<RowData, RowData, RowData> h = (TwoInputStreamOperatorTestHarness<RowData, RowData, RowData>) harness;
+                if (o instanceof Watermark) {
+                    if (input == 0) {
+                        h.processWatermark1((Watermark) o);
+                    } else {
+                        h.processWatermark2((Watermark) o);
+                    }
+                } else if (input == 0) {
+                    h.processElement1((StreamRecord<RowData>) o);
+                } else {
+                    h.processElement2((StreamRecord<RowData>) o);
+                }
             }
         }
 
-        /** Flushes buffered records to state, as a checkpoint would, and takes what the operator emitted. */
+        /**
+         * Writes what the operator holds in memory to state, as a checkpoint would, and takes what
+         * it emitted. Window aggregations buffer records until prepareSnapshotPreBarrier; Rank's
+         * FastTop1Function caches rows until snapshotState.
+         */
         List<Object> drain(long checkpoint) throws Exception {
             harness.prepareSnapshotPreBarrier(checkpoint);
+            harness.snapshot(checkpoint, checkpoint);
             List<Object> items = new ArrayList<>();
             for (Object o : harness.getOutput()) {
                 if (o instanceof StreamRecord || o instanceof Watermark) {
@@ -252,40 +322,76 @@ public class StateCheck {
         }
     }
 
-    static boolean check(JsonNode op, List<OneInputTransformation<RowData, RowData>> chain) throws Exception {
+    static boolean check(JsonNode op, List<Transformation<RowData>> chain, Set<String> tables) throws Exception {
         List<Stage> stages = new ArrayList<>();
-        for (OneInputTransformation<RowData, RowData> t : chain) {
-            stages.add(new Stage(t));
+        for (Transformation<RowData> t : chain) {
+            stages.add(new Stage(t, tables));
         }
         Stage first = stages.get(0);
         Stage last = stages.get(stages.size() - 1);
+
+        // The simulator's names for output fields the planner names itself (w0$o0, ...).
+        Map<String, String> fields = new java.util.HashMap<>();
+        if (op.has("fields")) {
+            op.get("fields").fields().forEachRemaining(f -> fields.put(f.getKey(), f.getValue().asText()));
+        }
+        Set<String> nulls = new TreeSet<>();
+        // Fields the simulator shows coalesced from both sides of an outer join (see the exporter).
+        Map<String, String> coalesce = new java.util.HashMap<>();
+        if (op.has("coalesce")) {
+            op.get("coalesce").fields().forEachRemaining(f -> coalesce.put(f.getKey(), f.getValue().asText()));
+        }
+        // The output fields the simulator models: a join's own output carries both sides' columns
+        // (store_id0, ...), where the simulator's rows only have the ones the pattern shows.
+        // Fields it never models are left out of the comparison (Replay checks the sink's rows).
+        Set<String> modelled = new TreeSet<>();
+        Map<String, String> simToFlink = new java.util.HashMap<>();
+        fields.forEach((flink, sim) -> simToFlink.putIfAbsent(sim, flink));
+        for (JsonNode step : op.get("steps")) {
+            for (JsonNode o : step.get("out")) {
+                if (o.has("row")) {
+                    o.get("row").fieldNames().forEachRemaining(f -> modelled.add(f));
+                }
+            }
+        }
+        Set<String> unmodelled = new TreeSet<>();
+        for (String f : last.out.getFieldNames()) {
+            if (!modelled.contains(fields.getOrDefault(f, f))) {
+                unmodelled.add(f);
+            }
+        }
 
         boolean pass = true;
         long checkpoint = 0;
         int n = 0;
         for (JsonNode step : op.get("steps")) {
             n++;
-            List<Object> items = List.of(toItem(step.get("item"), first.in));
+            // A two-input operator: the input that reads from the same source tables as the
+            // simulator's input edge.
+            int input = first.input(strings(step.get("from")));
+            List<Object> items = List.of(toItem(step.get("item"), first.ins.get(input), nulls));
             for (Stage s : stages) {
                 for (Object item : items) {
-                    s.push(item);
+                    s.push(item, s == first ? input : 0);
                 }
                 items = s.drain(++checkpoint);
             }
 
             List<String> simOut = new ArrayList<>();
-            step.get("out").forEach(o -> simOut.add(describeSim(o, last.out)));
+            step.get("out").forEach(o -> simOut.add(describeSim(o, last.out, fields, unmodelled)));
             List<String> flinkOut = new ArrayList<>();
-            items.forEach(o -> flinkOut.add(describe(o, last.out)));
+            items.forEach(o -> flinkOut.add(describe(o, last.out, unmodelled, coalesce)));
 
             Set<String> simState = strings(step.get("facts").get("state"));
+            // An operator whose panel shows no timers leaves them out of its facts.
+            boolean showsTimers = step.get("facts").has("timers");
             Set<String> simTimers = strings(step.get("facts").get("timers"));
             Set<String> flinkState = new TreeSet<>();
             List<String> values = new ArrayList<>();
-            state(last, flinkState, values);
+            state(last, op.get("op").asText(), flinkState, values);
             Set<String> flinkTimers = timers(last);
 
-            boolean ok = simOut.equals(flinkOut) && simState.equals(flinkState) && simTimers.equals(flinkTimers);
+            boolean ok = simOut.equals(flinkOut) && simState.equals(flinkState) && (!showsTimers || simTimers.equals(flinkTimers));
             pass &= ok;
             System.out.printf("  %s step %d: %s%n", ok ? "PASS" : "FAIL", n, describeSimItem(step.get("item")));
             if (!ok) {
@@ -293,13 +399,23 @@ public class StateCheck {
             }
             row("emitted", simOut, flinkOut);
             row("state", simState, flinkState);
-            row("timers", simTimers, flinkTimers);
+            if (showsTimers) {
+                row("timers", simTimers, flinkTimers);
+            } else {
+                System.out.printf("      %-8s flink %s (not shown in the simulator)%n", "timers", flinkTimers.isEmpty() ? "none" : String.join(", ", flinkTimers));
+            }
             if (!ok) {
                 values.forEach(v -> System.out.printf("      flink state: %s%n", v));
             }
         }
         for (Stage s : stages) {
             s.harness.close();
+        }
+        if (!unmodelled.isEmpty() && op.get("steps").findValues("row").size() > 0) {
+            System.out.printf("  (output fields the simulator doesn't model, not compared: %s)%n", String.join(", ", unmodelled));
+        }
+        if (!nulls.isEmpty()) {
+            System.out.printf("  (fields the simulator doesn't model, given to Flink as null: %s)%n", String.join(", ", nulls));
         }
         return pass;
     }
@@ -324,9 +440,16 @@ public class StateCheck {
 
     // ---- Flink state and timers ------------------------------------------------------------
 
-    /** Every (key, namespace) in every keyed state the operator registered, and their values. */
+    /**
+     * Every (key, namespace) in every keyed state the operator registered, and their values.
+     *
+     * <p>One exception, for session windows: Flink keeps a session's accumulator under the window
+     * it started as, and a per-key map from each merged session to that window
+     * (MergingWindowSet). The simulator shows the merged sessions, so for those the map's keys
+     * are listed, not the accumulators' namespaces.
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    static void state(Stage s, Set<String> keys, List<String> values) throws Exception {
+    static void state(Stage s, String op, Set<String> keys, List<String> values) throws Exception {
         KeyedStateBackend<?> backend = s.harness.getOperator().getKeyedStateBackend();
         if (backend == null) {
             return;
@@ -339,7 +462,15 @@ public class StateCheck {
             for (Object o : (Iterable) e.getValue()) {
                 StateEntry<?, ?, ?> entry = (StateEntry<?, ?, ?>) o;
                 String k = key(entry.getKey(), s.key) + namespace(entry.getNamespace());
-                keys.add(k);
+                if (op.equals("sessionWindowAggregate")) {
+                    if (e.getKey().equals("session-window-mapping")) {
+                        for (Object w : ((Map<?, ?>) entry.getState()).keySet()) {
+                            keys.add(key(entry.getKey(), s.key) + namespace(w));
+                        }
+                    }
+                } else {
+                    keys.add(k);
+                }
                 values.add(e.getKey() + " " + k + " = " + value(entry.getState(), e.getValue().getStateSerializer()));
             }
         }
@@ -397,6 +528,10 @@ public class StateCheck {
         if (ns instanceof Long) {
             return "|" + time((Long) ns, false);
         }
+        if (ns instanceof TimeWindow) {
+            TimeWindow w = (TimeWindow) ns;
+            return "|" + time(w.getStart(), false) + "–" + time(w.getEnd(), false);
+        }
         return "|" + ns;
     }
 
@@ -428,7 +563,7 @@ public class StateCheck {
     // ---- Converting rows ---------------------------------------------------------------------
 
     /** A simulator item as a StreamRecord (with the operator's input type) or a Watermark. */
-    static Object toItem(JsonNode item, RowType type) {
+    static Object toItem(JsonNode item, RowType type, Set<String> nulls) {
         if (item.has("wm")) {
             return new Watermark(Replay.millis(item.get("wm").asText()));
         }
@@ -438,11 +573,14 @@ public class StateCheck {
         for (int i = 0; i < type.getFieldCount(); i++) {
             String name = type.getFieldNames().get(i);
             JsonNode v = row.get(name);
+            // A delete from an upsert source carries only its key; a column the pattern doesn't
+            // use may be left out of its data, and a processing-time attribute isn't
+            // materialized. Those are null.
             if (v == null) {
-                throw new IllegalStateException("the simulator's row has no field " + name + " (the Flink operator's input is " + type + "): " + row);
+                nulls.add(name);
             }
             LogicalType ft = type.getTypeAt(i);
-            Object internal = internal(v.isNull() ? null : v.asText(), ft);
+            Object internal = internal(v == null || v.isNull() ? null : v.asText(), ft);
             r.setField(i, internal);
             if (internal instanceof TimestampData && ts == Long.MIN_VALUE) {
                 ts = ((TimestampData) internal).getMillisecond();
@@ -498,27 +636,38 @@ public class StateCheck {
 
     /** A Flink output item: +I[7, 1, 18.00], or wm 12:05:00. */
     @SuppressWarnings("unchecked")
-    static String describe(Object o, RowType type) {
+    static String describe(Object o, RowType type, Set<String> skip, Map<String, String> coalesce) {
         if (o instanceof Watermark) {
             return "wm " + time(((Watermark) o).getTimestamp(), false);
         }
         RowData r = ((StreamRecord<RowData>) o).getValue();
         List<String> parts = new ArrayList<>();
         for (int i = 0; i < type.getFieldCount(); i++) {
-            parts.add(type.getFieldNames().get(i) + "=" + text(RowData.createFieldGetter(type.getTypeAt(i), i).getFieldOrNull(r), type.getTypeAt(i)));
+            String name = type.getFieldNames().get(i);
+            if (skip.contains(name)) {
+                continue;
+            }
+            int j = i;
+            if (r.isNullAt(i) && coalesce.containsKey(name)) {
+                j = type.getFieldIndex(coalesce.get(name));
+            }
+            parts.add(name + "=" + text(RowData.createFieldGetter(type.getTypeAt(j), j).getFieldOrNull(r), type.getTypeAt(j)));
         }
         return r.getRowKind().shortString() + "[" + String.join(", ", parts) + "]";
     }
 
     /** A simulator output item, with the fields of the Flink operator's output, in its order. */
-    static String describeSim(JsonNode o, RowType type) {
+    static String describeSim(JsonNode o, RowType type, Map<String, String> fields, Set<String> skip) {
         if (o.has("wm")) {
             return "wm " + Replay.pad(o.get("wm").asText());
         }
         List<String> parts = new ArrayList<>();
         for (int i = 0; i < type.getFieldCount(); i++) {
             String name = type.getFieldNames().get(i);
-            JsonNode v = o.get("row").get(name);
+            if (skip.contains(name)) {
+                continue;
+            }
+            JsonNode v = o.get("row").get(fields.getOrDefault(name, name));
             parts.add(name + "=" + Replay.format(v == null || v.isNull() ? null : v.asText(), type.getTypeAt(i).asSummaryString()));
         }
         return o.get("kind").asText() + "[" + String.join(", ", parts) + "]";

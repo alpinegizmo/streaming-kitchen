@@ -35,6 +35,32 @@ const Ops = vm.runInContext('Ops', ctx);
 const FLINK_OPERATORS = {
   groupAggregate: ['GroupAggregate'],
   windowAggregate: ['LocalWindowAggregate', 'GlobalWindowAggregate'],
+  sessionWindowAggregate: ['WindowAggregate'],
+  overAggregate: ['OverAggregate'],
+  changelogNormalize: ['ChangelogNormalize'],
+  procTimeDedup: ['Deduplicate'],
+  rowTimeDedup: ['Deduplicate'],
+  retractRank: ['Rank'],
+  fastTop1: ['Rank'],
+  upsertMaterializer: ['SinkMaterializer'],
+  match: ['Match'],
+  regularJoin: ['Join'],
+  intervalJoin: ['IntervalJoin'],
+  windowJoin: ['WindowJoin'],
+  temporalJoin: ['TemporalJoin'],
+  lateralSnapshotJoin: ['LateralSnapshotJoin'],
+};
+// The simulator's names for output fields the planner names itself. OVER: COUNT(*) is w0$o0, and
+// SUM(total) is computed from COUNT(total) (w0$o1, the same as the order count, since total is
+// never null) and $SUM0(total) (w0$o2).
+const FLINK_FIELDS = {
+  overAggregate: (cfg) => ({ w0$o0: cfg.countName, w0$o1: cfg.countName, w0$o2: cfg.sumName }),
+};
+// Output fields the pattern's SQL takes from either side of an outer join, with COALESCE(left,
+// right): the simulator's rows hold the coalesced value. The planner names the right side's copy
+// with a 0 suffix.
+const FLINK_COALESCE = {
+  windowJoin: { store_id: 'store_id0', window_start: 'window_start0', window_end: 'window_end0' },
 };
 const item = (i) => (i.t === 'wm' ? { wm: i.time } : { kind: i.kind, row: i.row });
 
@@ -97,7 +123,11 @@ function exportOne(id) {
     flink: n.cfg?.flinkOperators || FLINK_OPERATORS[n.op],
     // The source tables upstream of it, to tell apart operators of the same kind.
     upstream: upstreamTables(n.id),
+    fields: FLINK_FIELDS[n.op]?.(n.cfg || {}),
+    coalesce: FLINK_COALESCE[n.op],
     steps: steps.filter((s) => s.node === n.id).map((s) => ({
+      // The source tables behind the edge the item came on, to pick a two-input operator's input.
+      from: upstreamTables(variant.graph.edges[s.via].from),
       item: item(s.item),
       out: s.out.map(item),
       facts: Ops[n.op].facts(s.snap.ops[n.id], n.cfg || {}),

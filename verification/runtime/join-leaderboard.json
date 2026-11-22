@@ -297,6 +297,9 @@
       ],
       "steps": [
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -325,6 +328,9 @@
           "caption": "Store 7's first order. GroupAggregate starts its totals, 1 order, $18.00, and emits an insert."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -354,6 +360,9 @@
           "caption": "Store 9's first order. GroupAggregate starts its totals, 1 order, $24.50, and emits an insert."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -383,6 +392,9 @@
           "caption": "Store 7's totals become 2 orders, $49.00. The join only needs the latest value for each store, so GroupAggregate sends +U, with no −U."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "wm": "12:00:03"
           },
@@ -401,6 +413,9 @@
           "caption": "The watermark passes through GroupAggregate, which has no use for it."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -430,6 +445,9 @@
           "caption": "Store 7's totals become 3 orders, $62.00. The join only needs the latest value for each store, so GroupAggregate sends +U, with no −U."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -458,6 +476,351 @@
             "timers": []
           },
           "caption": "Store 12's first order. GroupAggregate starts its totals, 1 order, $22.00, and emits an insert."
+        }
+      ]
+    },
+    {
+      "node": "join",
+      "op": "regularJoin",
+      "title": "Join",
+      "flink": [
+        "Join"
+      ],
+      "upstream": [
+        "orders",
+        "stores"
+      ],
+      "steps": [
+        {
+          "from": [
+            "stores"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7"
+            ],
+            "timers": []
+          },
+          "caption": "Store 7's row (Oakland, Sam) is stored. There are no totals for store 7 yet, so nothing is emitted: it's an inner join."
+        },
+        {
+          "from": [
+            "stores"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 9,
+              "city": "Fresno",
+              "manager": "Priya"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Store 9's row (Fresno, Priya) is stored. There are no totals for store 9 yet, so nothing is emitted: it's an inner join."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 7,
+              "orders": 1,
+              "sales": 18
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 1,
+                "sales": 18
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Store 7's totals are stored, and are joined with store 7's row: Oakland, Sam. The joined row goes out as +I, the row kind that came in."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 9,
+              "orders": 1,
+              "sales": 24.5
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 9,
+                "city": "Fresno",
+                "manager": "Priya",
+                "orders": 1,
+                "sales": 24.5
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Store 9's totals are stored, and are joined with store 9's row: Fresno, Priya. The joined row goes out as +I, the row kind that came in."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 7,
+              "orders": 2,
+              "sales": 49
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 2,
+                "sales": 49
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Store 7's totals replace the old ones, and are joined with store 7's row: Oakland, Sam. The joined row goes out as +U, the row kind that came in."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:00:03"
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The join records the orders watermark, 12:00:03. Its own watermark is the minimum of both inputs, and stores never sends one, so the join's watermark never advances, and nothing is forwarded to the sink."
+        },
+        {
+          "from": [
+            "stores"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Alex"
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Alex",
+                "orders": 2,
+                "sales": 49
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Store 7's manager changes from Sam to Alex. The join replaces the store row, and re-emits store 7's leaderboard row with the new manager and the current totals, 2 orders, $49.00. Updating a result that was already emitted is what only a regular join can do."
+        },
+        {
+          "from": [
+            "stores"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 12,
+              "city": "San Jose",
+              "manager": "Kim"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "7",
+              "9",
+              "12"
+            ],
+            "timers": []
+          },
+          "caption": "Store 12's row (San Jose, Kim) is stored. There are no totals for store 12 yet, so nothing is emitted: it's an inner join."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 7,
+              "orders": 3,
+              "sales": 62
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Alex",
+                "orders": 3,
+                "sales": 62
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "7",
+              "9",
+              "12"
+            ],
+            "timers": []
+          },
+          "caption": "Store 7's totals replace the old ones, and are joined with store 7's row: Oakland, Alex. The joined row goes out as +U, the row kind that came in."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 12,
+              "orders": 1,
+              "sales": 22
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 12,
+                "city": "San Jose",
+                "manager": "Kim",
+                "orders": 1,
+                "sales": 22
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "12",
+              "7",
+              "9",
+              "12"
+            ],
+            "timers": []
+          },
+          "caption": "Store 12's totals are stored, and are joined with store 12's row: San Jose, Kim. The joined row goes out as +I, the row kind that came in."
+        },
+        {
+          "from": [
+            "stores"
+          ],
+          "item": {
+            "kind": "-D",
+            "row": {
+              "store_id": 9
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "store_id": 9,
+                "orders": 1,
+                "sales": 24.5
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "12",
+              "7",
+              "12"
+            ],
+            "timers": []
+          },
+          "caption": "Store 9's row is removed from the join's state, and the join deletes store 9's leaderboard row (−D). Its totals stay in state, in case the store reopens."
         }
       ]
     }

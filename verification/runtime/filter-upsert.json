@@ -186,5 +186,239 @@
       }
     }
   ],
-  "operators": []
+  "operators": [
+    {
+      "node": "cn",
+      "op": "changelogNormalize",
+      "title": "ChangelogNormalize",
+      "flink": [
+        "ChangelogNormalize"
+      ],
+      "upstream": [
+        "order_status"
+      ],
+      "steps": [
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 201,
+              "store_id": 7,
+              "status": "placed"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 201,
+                "store_id": 7,
+                "status": "placed"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "201"
+            ],
+            "timers": []
+          },
+          "caption": "Order 201 isn't in state, and placed passes the filter. ChangelogNormalize stores the row and emits an insert (+I)."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 202,
+              "store_id": 7,
+              "status": "placed"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 202,
+                "store_id": 7,
+                "status": "placed"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "201",
+              "202"
+            ],
+            "timers": []
+          },
+          "caption": "Order 202 isn't in state, and placed passes the filter. ChangelogNormalize stores the row and emits an insert (+I)."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 201,
+              "store_id": 7,
+              "status": "baking"
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "order_id": 201,
+                "store_id": 7,
+                "status": "baking"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "201",
+              "202"
+            ],
+            "timers": []
+          },
+          "caption": "Order 201 is already in state, and baking still passes the filter. The stored row is replaced, and an update (+U) goes downstream."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 202,
+              "store_id": 7,
+              "status": "cancelled"
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "order_id": 202,
+                "store_id": 7,
+                "status": "placed"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "201"
+            ],
+            "timers": []
+          },
+          "caption": "Order 202 is now cancelled, so it fails the filter. Dropping the upsert wouldn't remove the order downstream. Because ChangelogNormalize remembers emitting it, it sends a delete (−D) for the old row, and clears the key."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 203,
+              "store_id": 9,
+              "status": "cancelled"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "201"
+            ],
+            "timers": []
+          },
+          "caption": "Order 203 was cancelled before it was ever emitted. It fails the filter and there's nothing to retract, so nothing is emitted or stored."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 201,
+              "store_id": 7,
+              "status": "baking"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "201"
+            ],
+            "timers": []
+          },
+          "caption": "A duplicate of order 201's last update, perhaps a producer retry. It's identical to the row in state, so nothing is emitted. (ChangelogNormalize only skips duplicates when state TTL is off.)"
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "-D",
+            "row": {
+              "order_id": 201
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "order_id": 201,
+                "store_id": 7,
+                "status": "baking"
+              }
+            }
+          ],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "ChangelogNormalize finds order 201 in state, emits a delete with the full row, which the tombstone didn't have, and clears the key."
+        },
+        {
+          "from": [
+            "order_status"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 204,
+              "store_id": 9,
+              "status": "placed"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 204,
+                "store_id": 9,
+                "status": "placed"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "204"
+            ],
+            "timers": []
+          },
+          "caption": "Order 204 isn't in state, and placed passes the filter. ChangelogNormalize stores the row and emits an insert (+I)."
+        }
+      ]
+    }
+  ]
 }

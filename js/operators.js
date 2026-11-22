@@ -9,6 +9,7 @@
 //   facts(st, cfg)               -> optional: the state, as Flink would hold it, for verification
 //                                   (tools/export-replay.mjs, verification/run-state.sh):
 //                                   { state: ['key' or 'key|namespace'], timers: ['key@HH:MM:SS.mmm'] }
+//                                   (timers left out when the panel doesn't show them)
 //   say(ev, cfg)                 -> a default caption; patterns can override it
 //
 // An item is either a changelog row { t: 'rec', kind: '+I' | '-U' | '+U' | '-D', row }
@@ -136,6 +137,7 @@ const Ops = (() => {
         rows: Object.entries(st.rows).map(([key, row]) => ({ key, cells: fields.map((f) => (cfg.stateFormat?.[f] ? cfg.stateFormat[f](row[f]) : row[f])) })),
       };
     },
+    facts: (st) => ({ state: Object.keys(st.rows), timers: [] }),
     say(ev, cfg) {
       switch (ev.type) {
         case 'insert': return `First row for key ${ev.key}. ChangelogNormalize stores it and emits an insert.`;
@@ -343,6 +345,13 @@ const Ops = (() => {
         footer: `timers: ${[...new Set(st.sessions.map((s) => s.end))].sort((a, b) => a - b).map(hms).join(', ') || 'none'}`,
       };
     },
+    // One entry per key and session (Flink keeps a map from each merged session to the window
+    // that holds its accumulator; see StateCheck.state), and a session's timer is set for 1 ms
+    // before its end.
+    facts: (st) => ({
+      state: st.sessions.map((s) => `${s.k}|${hms(s.start)}–${hms(s.end)}`),
+      timers: st.sessions.map((s) => `${s.k}@${ms(s.end * 1000 - 1)}`),
+    }),
     say(ev) {
       switch (ev.type) {
         case 'new-session': return `The record starts a new session, ${ev.now}.`;
@@ -449,6 +458,11 @@ const Ops = (() => {
         footer: `sums: ${sums.join('; ') || 'none yet'}. timers: ${[...new Set(timers)].join(', ') || 'none'}`,
       };
     },
+    // Timers are at a row's event time, and the clean-up timer 1 ms after newest time + 1.5 x preceding.
+    facts: (st) => ({
+      state: Object.keys(st.keys),
+      timers: Object.entries(st.keys).flatMap(([k, s]) => s.timers.map((t) => `${k}@${ms(Math.round(t * 1000))}`)),
+    }),
     say(ev) {
       switch (ev.type) {
         case 'buffer': return `The row is buffered under its event time, ${ev.timer}, until the watermark reaches it.`;
@@ -476,6 +490,7 @@ const Ops = (() => {
     view(st, cfg) {
       return { title: `Seen, per ${cfg.key}`, cols: [cfg.key, 'seen'], rows: Object.keys(st.seen).map((k) => ({ key: k, cells: [k, 'yes'] })) };
     },
+    facts: (st) => ({ state: Object.keys(st.seen), timers: [] }),
     say(ev) {
       if (ev.type === 'wm') return 'The watermark passes through. Processing-time deduplication has no use for it.';
       if (ev.type === 'duplicate') return `Key ${ev.key} has been seen before, so this copy is dropped.`;
@@ -528,6 +543,10 @@ const Ops = (() => {
         footer: `timers: ${Object.values(st.keys).filter((s) => s.waiting).map((s) => s.waiting[cfg.timeField]).sort().join(', ') || 'none'}`,
       };
     },
+    facts: (st, cfg) => ({
+      state: Object.keys(st.keys),
+      timers: Object.entries(st.keys).filter(([, s]) => s.waiting).map(([k, s]) => `${k}@${ms(U.toSec(s.waiting[cfg.timeField]) * 1000)}`),
+    }),
     say(ev) {
       switch (ev.type) {
         case 'late': return `The row is older than the watermark, so it's late, and dropped.`;
@@ -591,6 +610,7 @@ const Ops = (() => {
         }))),
       };
     },
+    facts: (st) => ({ state: Object.keys(st.parts), timers: [] }),
     say(ev) {
       switch (ev.type) {
         case 'first': return `The first row for key ${ev.key}. Rank stores it and emits it.`;
@@ -639,6 +659,7 @@ const Ops = (() => {
         rows: Object.entries(st.rows).map(([k, r]) => ({ key: k, cells: fields.map((f) => (cfg.stateFormat?.[f] ? cfg.stateFormat[f](r[f]) : r[f])) })),
       };
     },
+    facts: (st) => ({ state: Object.keys(st.rows), timers: [] }),
     say(ev, cfg) {
       switch (ev.type) {
         case 'first': return `The first row for key ${ev.key}. Rank stores the whole row and emits it.`;
@@ -782,6 +803,8 @@ const Ops = (() => {
         footer: `watermarks in: ${cfg.leftTopic} ${st.wms.left || 'none'}, ${cfg.rightTopic} ${st.wms.right || 'none'}`,
       };
     },
+    // The panel shows no timers, so only the keys in state are compared.
+    facts: (st, cfg) => ({ state: [...st.left, ...st.right].map((b) => String(b.row[cfg.key])) }),
     say(ev) {
       if (ev.type === 'hold') return 'The watermark is recorded, but the other input is behind, so the combined watermark doesn\'t move.';
       if (ev.type === 'advance') return `The combined watermark moves to ${ev.W}.`;
@@ -861,6 +884,15 @@ const Ops = (() => {
         footer: `watermarks in: ${cfg.leftTopic} ${st.wms.left || 'none'}, ${cfg.rightTopic} ${st.wms.right || 'none'}; timers: ${timers.join(', ') || 'none'}`,
       };
     },
+    // State is per key and window (the namespace is the window end), on each side, and a window's
+    // timer is set for 1 ms before its end.
+    facts: (st) => ({
+      state: [...Object.keys(st.left), ...Object.keys(st.right)].map((id) => {
+        const [k, end] = id.split('|');
+        return `${k}|${hms(Number(end))}`;
+      }),
+      timers: Object.values(st.timers).map((t) => `${t.k}@${ms(t.end * 1000 - 1)}`),
+    }),
     say(ev) {
       switch (ev.type) {
         case 'buffer': return `The row waits in state for its window, ${ev.win}, to end.`;
@@ -927,6 +959,7 @@ const Ops = (() => {
         })))),
       };
     },
+    facts: (st) => ({ state: [...Object.keys(st.left), ...Object.keys(st.right)], timers: [] }),
     say(ev) {
       if (ev.type === 'hold' || ev.type === 'advance') return 'The join records the watermark. Its own is the minimum of both inputs.';
       if (ev.type === 'delete') return ev.other ? 'The row is removed from state, and the joined row is deleted downstream.' : 'The row is removed from state. Nothing was joined with it, so nothing is emitted.';
@@ -1036,6 +1069,10 @@ const Ops = (() => {
         footer: `watermarks in: ${cfg.leftTopic} ${st.wms.left || 'none'}, ${cfg.rightTopic} ${st.wms.right || 'none'}; timers: ${Object.entries(st.timers).sort((a, b) => a[1] - b[1]).map(([k, t]) => `${cfg.keyName || cfg.key} ${k} at ${U.fromSec(t).slice(0, 5)}`).join(', ') || 'none'}`,
       };
     },
+    facts: (st, cfg) => ({
+      state: [...st.left.map((l) => String(l.row[cfg.key])), ...Object.keys(st.versions).filter((k) => st.versions[k].length)],
+      timers: Object.entries(st.timers).map(([k, t]) => `${k}@${ms(t * 1000)}`),
+    }),
     say(ev) {
       if (ev.type === 'buffer') return 'The order waits in state until the watermark reaches its time.';
       if (ev.type === 'version') return 'A new version is added to the versioned table.';
@@ -1127,6 +1164,10 @@ const Ops = (() => {
         footer: st.phase === 'LOAD' ? `phase: LOAD, until the costs watermark reaches ${cfg.loadCompletedTime}` : 'phase: JOIN',
       };
     },
+    // The panel shows no timers, so only the keys in state are compared.
+    facts: (st, cfg) => ({
+      state: [...Object.keys(st.table), ...st.changes.map((c) => String(c.row[cfg.key])), ...st.probes.map((p) => String(p[cfg.key]))],
+    }),
     say(ev) {
       switch (ev.type) {
         case 'buffer-change': return 'The change is buffered until the build-side watermark reaches its row time.';
@@ -1209,6 +1250,11 @@ const Ops = (() => {
         footer: st.wm ? `late: at or before ${st.wm}` : 'no watermark yet',
       };
     },
+    // The panel doesn't show them, but each buffered row has a timer at its timestamp.
+    facts: (st) => ({
+      state: Object.keys(st.keys),
+      timers: Object.entries(st.keys).flatMap(([k, s]) => s.buffer.map((b) => `${k}@${ms(b.ts * 1000)}`)),
+    }),
     say(ev) {
       switch (ev.type) {
         case 'late': return `The row is at or before the watermark, so it's late, and dropped.`;
@@ -1260,6 +1306,7 @@ const Ops = (() => {
         rows: Object.entries(st.rows).map(([k, list]) => ({ key: k, cells: [k, list.map(cfg.cell).join('; ')] })),
       };
     },
+    facts: (st) => ({ state: Object.keys(st.rows), timers: [] }),
     say(ev) {
       switch (ev.type) {
         case 'add': return `The row is added to the list for key ${ev.key}, and emitted as ${ev.kind}.`;

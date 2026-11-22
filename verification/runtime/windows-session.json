@@ -200,5 +200,303 @@
       }
     }
   ],
-  "operators": []
+  "operators": [
+    {
+      "node": "win",
+      "op": "sessionWindowAggregate",
+      "title": "WindowAggregate",
+      "flink": [
+        "WindowAggregate"
+      ],
+      "upstream": [
+        "orders"
+      ],
+      "steps": [
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "total": 18,
+              "event_time": "12:01:10"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:01:10–12:11:10"
+            ],
+            "timers": [
+              "7@12:11:09.999"
+            ]
+          },
+          "caption": "Order 101 starts a session for store 7: 12:01:10–12:11:10, its own time plus the 10-minute gap. A timer is set for the session's end."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "total": 24.5,
+              "event_time": "12:02:30"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:01:10–12:11:10",
+              "9|12:02:30–12:12:30"
+            ],
+            "timers": [
+              "7@12:11:09.999",
+              "9@12:12:29.999"
+            ]
+          },
+          "caption": "Order 102 starts a session for store 9: 12:02:30–12:12:30, its own time plus the 10-minute gap. A timer is set for the session's end."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "total": 31,
+              "event_time": "12:06:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:01:10–12:16:00",
+              "9|12:02:30–12:12:30"
+            ],
+            "timers": [
+              "7@12:15:59.999",
+              "9@12:12:29.999"
+            ]
+          },
+          "caption": "Order 103's window, 12:06:00–12:16:00, overlaps store 7's session 12:01:10–12:11:10, so they merge into 12:01:10–12:16:00: 2 orders, $49.00. The timer moves to the new end."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:05:59"
+          },
+          "out": [
+            {
+              "wm": "12:05:59"
+            }
+          ],
+          "facts": {
+            "state": [
+              "7|12:01:10–12:16:00",
+              "9|12:02:30–12:12:30"
+            ],
+            "timers": [
+              "7@12:15:59.999",
+              "9@12:12:29.999"
+            ]
+          },
+          "caption": "The watermark, 12:05:59, hasn't reached any timer, so nothing fires. WindowAggregate forwards it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 104,
+              "store_id": 7,
+              "total": 13,
+              "event_time": "12:14:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:01:10–12:24:00",
+              "9|12:02:30–12:12:30"
+            ],
+            "timers": [
+              "7@12:23:59.999",
+              "9@12:12:29.999"
+            ]
+          },
+          "caption": "Order 104's window, 12:14:00–12:24:00, overlaps store 7's session 12:01:10–12:16:00, so they merge into 12:01:10–12:24:00: 3 orders, $62.00. The timer moves to the new end."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 105,
+              "store_id": 9,
+              "total": 19,
+              "event_time": "12:20:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:01:10–12:24:00",
+              "9|12:02:30–12:12:30",
+              "9|12:20:00–12:30:00"
+            ],
+            "timers": [
+              "7@12:23:59.999",
+              "9@12:12:29.999",
+              "9@12:29:59.999"
+            ]
+          },
+          "caption": "Order 105 starts a session for store 9: 12:20:00–12:30:00, its own time plus the 10-minute gap. A timer is set for the session's end."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:19:59"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:02:30",
+                "window_end": "12:12:30",
+                "store_id": 9,
+                "orders": 1,
+                "sales": 24.5
+              }
+            },
+            {
+              "wm": "12:19:59"
+            }
+          ],
+          "facts": {
+            "state": [
+              "7|12:01:10–12:24:00",
+              "9|12:20:00–12:30:00"
+            ],
+            "timers": [
+              "7@12:23:59.999",
+              "9@12:29:59.999"
+            ]
+          },
+          "caption": "The watermark reaches 12:19:59, past the end of store 9's 12:02:30–12:12:30 session (1 order, $24.50). Ten quiet minutes have passed, so it is complete. WindowAggregate emits it, and frees the state."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 106,
+              "store_id": 7,
+              "total": 27.5,
+              "event_time": "12:22:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:01:10–12:32:00",
+              "9|12:20:00–12:30:00"
+            ],
+            "timers": [
+              "7@12:31:59.999",
+              "9@12:29:59.999"
+            ]
+          },
+          "caption": "Order 106's window, 12:22:00–12:32:00, overlaps store 7's session 12:01:10–12:24:00, so they merge into 12:01:10–12:32:00: 4 orders, $89.50. The timer moves to the new end."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 107,
+              "store_id": 7,
+              "total": 21,
+              "event_time": "12:40:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:01:10–12:32:00",
+              "9|12:20:00–12:30:00",
+              "7|12:40:00–12:50:00"
+            ],
+            "timers": [
+              "7@12:31:59.999",
+              "9@12:29:59.999",
+              "7@12:49:59.999"
+            ]
+          },
+          "caption": "Order 107 starts a session for store 7: 12:40:00–12:50:00, its own time plus the 10-minute gap. A timer is set for the session's end."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:39:59"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:20:00",
+                "window_end": "12:30:00",
+                "store_id": 9,
+                "orders": 1,
+                "sales": 19
+              }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:01:10",
+                "window_end": "12:32:00",
+                "store_id": 7,
+                "orders": 4,
+                "sales": 89.5
+              }
+            },
+            {
+              "wm": "12:39:59"
+            }
+          ],
+          "facts": {
+            "state": [
+              "7|12:40:00–12:50:00"
+            ],
+            "timers": [
+              "7@12:49:59.999"
+            ]
+          },
+          "caption": "The watermark reaches 12:39:59, past the end of store 9's 12:20:00–12:30:00 session (1 order, $19.00) and store 7's 12:01:10–12:32:00 session (4 orders, $89.50). Ten quiet minutes have passed, so they are complete. WindowAggregate emits them, and frees the state."
+        }
+      ]
+    }
+  ]
 }

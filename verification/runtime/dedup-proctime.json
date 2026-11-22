@@ -227,5 +227,327 @@
       }
     }
   ],
-  "operators": []
+  "operators": [
+    {
+      "node": "dedup",
+      "op": "procTimeDedup",
+      "title": "Deduplicate",
+      "flink": [
+        "Deduplicate"
+      ],
+      "upstream": [
+        "orders"
+      ],
+      "steps": [
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "total": 18,
+              "event_time": "12:00:01"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 101,
+                "store_id": 7,
+                "total": 18,
+                "event_time": "12:00:01"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101"
+            ],
+            "timers": []
+          },
+          "caption": "Order 101 hasn't been seen before. This copy is emitted at once, and order 101 is marked as seen."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "total": 24.5,
+              "event_time": "12:00:03"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 102,
+                "store_id": 9,
+                "total": 24.5,
+                "event_time": "12:00:03"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102"
+            ],
+            "timers": []
+          },
+          "caption": "Order 102 hasn't been seen before. This copy is emitted at once, and order 102 is marked as seen."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "total": 18,
+              "event_time": "12:00:04"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "101",
+              "102"
+            ],
+            "timers": []
+          },
+          "caption": "Order 101 has been seen already, so this copy (12:00:04) is dropped, even if its event time is earlier."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:00:03"
+          },
+          "out": [
+            {
+              "wm": "12:00:03"
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102"
+            ],
+            "timers": []
+          },
+          "caption": "The watermark passes through. Deduplicating by arrival order has no use for it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "total": 31,
+              "event_time": "12:00:06"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 103,
+                "store_id": 7,
+                "total": 31,
+                "event_time": "12:00:06"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103"
+            ],
+            "timers": []
+          },
+          "caption": "Order 103 hasn't been seen before. This copy is emitted at once, and order 103 is marked as seen."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "total": 31,
+              "event_time": "12:00:05"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103"
+            ],
+            "timers": []
+          },
+          "caption": "Order 103 has been seen already, so this copy (12:00:05) is dropped, even if its event time is earlier."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "total": 24.5,
+              "event_time": "12:00:02"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103"
+            ],
+            "timers": []
+          },
+          "caption": "Order 102 has been seen already, so this copy (12:00:02) is dropped, even if its event time is earlier."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:00:05"
+          },
+          "out": [
+            {
+              "wm": "12:00:05"
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103"
+            ],
+            "timers": []
+          },
+          "caption": "The watermark passes through. Deduplicating by arrival order has no use for it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 104,
+              "store_id": 9,
+              "total": 13,
+              "event_time": "12:00:08"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 104,
+                "store_id": 9,
+                "total": 13,
+                "event_time": "12:00:08"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103",
+              "104"
+            ],
+            "timers": []
+          },
+          "caption": "Order 104 hasn't been seen before. This copy is emitted at once, and order 104 is marked as seen."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 105,
+              "store_id": 7,
+              "total": 22,
+              "event_time": "12:00:10"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 105,
+                "store_id": 7,
+                "total": 22,
+                "event_time": "12:00:10"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103",
+              "104",
+              "105"
+            ],
+            "timers": []
+          },
+          "caption": "Order 105 hasn't been seen before. This copy is emitted at once, and order 105 is marked as seen."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:00:09"
+          },
+          "out": [
+            {
+              "wm": "12:00:09"
+            }
+          ],
+          "facts": {
+            "state": [
+              "101",
+              "102",
+              "103",
+              "104",
+              "105"
+            ],
+            "timers": []
+          },
+          "caption": "The watermark passes through. Deduplicating by arrival order has no use for it."
+        }
+      ]
+    }
+  ]
 }

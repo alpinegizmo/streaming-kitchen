@@ -278,6 +278,369 @@
   ],
   "operators": [
     {
+      "node": "cn",
+      "op": "changelogNormalize",
+      "title": "ChangelogNormalize",
+      "flink": [
+        "ChangelogNormalize"
+      ],
+      "upstream": [
+        "stores"
+      ],
+      "steps": [
+        {
+          "from": [
+            "stores"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7"
+            ],
+            "timers": []
+          },
+          "caption": "ChangelogNormalize stores store 7's row, and emits an insert. The planner added it because the join needs to retract the old row when a store changes."
+        },
+        {
+          "from": [
+            "stores"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 9,
+              "city": "Fresno",
+              "manager": "Priya"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 9,
+                "city": "Fresno",
+                "manager": "Priya"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "ChangelogNormalize stores store 9's row, and emits an insert. The planner added it because the join needs to retract the old row when a store changes."
+        },
+        {
+          "from": [
+            "stores"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Alex"
+            }
+          },
+          "out": [
+            {
+              "kind": "-U",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam"
+              }
+            },
+            {
+              "kind": "+U",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Alex"
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Store 7's manager changes from Sam to Alex. ChangelogNormalize emits the pair the join needs: −U for the old row, then +U for the new one."
+        }
+      ]
+    },
+    {
+      "node": "join",
+      "op": "regularJoin",
+      "title": "Join",
+      "flink": [
+        "Join"
+      ],
+      "upstream": [
+        "orders",
+        "stores"
+      ],
+      "steps": [
+        {
+          "from": [
+            "stores"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7"
+            ],
+            "timers": []
+          },
+          "caption": "Store 7's row is stored. No orders yet, so nothing is emitted."
+        },
+        {
+          "from": [
+            "stores"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 9,
+              "city": "Fresno",
+              "manager": "Priya"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Store 9's row is stored. No orders yet, so nothing is emitted."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "total": 18
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 101,
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "total": 18
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Order 101 is added to the join's state, and joined with store 7: Sam. The join keeps every order, because orders have no unique key. That's 1 order for store 7 so far, and it never shrinks."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "total": 24.5
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 102,
+                "store_id": 9,
+                "city": "Fresno",
+                "manager": "Priya",
+                "total": 24.5
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Order 102 is added to the join's state, and joined with store 9: Priya. The join keeps every order, because orders have no unique key. That's 1 order for store 9 so far, and it never shrinks."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "total": 31
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 103,
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "total": 31
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Order 103 is added to the join's state, and joined with store 7: Sam. The join keeps every order, because orders have no unique key. That's 2 orders for store 7 so far, and it never shrinks."
+        },
+        {
+          "from": [
+            "stores"
+          ],
+          "item": {
+            "kind": "-U",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam"
+            }
+          },
+          "out": [
+            {
+              "kind": "-U",
+              "row": {
+                "order_id": 101,
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "total": 18
+              }
+            },
+            {
+              "kind": "-U",
+              "row": {
+                "order_id": 103,
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "total": 31
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The −U for Sam reaches the join. It has to retract every order it ever joined with that row: 2 retractions (−U), one per order of store 7."
+        },
+        {
+          "from": [
+            "stores"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Alex"
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "order_id": 101,
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Alex",
+                "total": 18
+              }
+            },
+            {
+              "kind": "+U",
+              "row": {
+                "order_id": 103,
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Alex",
+                "total": 31
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The +U for Alex is joined with every order of store 7 again: 2 new rows (+U). Each one has to be aggregated all over again."
+        }
+      ]
+    },
+    {
       "node": "agg",
       "op": "groupAggregate",
       "title": "GroupAggregate",
@@ -290,6 +653,10 @@
       ],
       "steps": [
         {
+          "from": [
+            "orders",
+            "stores"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -321,6 +688,10 @@
           "caption": "First row for Sam at store 7. GroupAggregate starts the group, 1 order, $18.00, and emits an insert."
         },
         {
+          "from": [
+            "orders",
+            "stores"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -353,6 +724,10 @@
           "caption": "First row for Priya at store 9. GroupAggregate starts the group, 1 order, $24.50, and emits an insert."
         },
         {
+          "from": [
+            "orders",
+            "stores"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -395,6 +770,10 @@
           "caption": "The group for Sam becomes 2 orders, $49.00. The materializer needs retractions, so GroupAggregate sends −U for the old total, then +U."
         },
         {
+          "from": [
+            "orders",
+            "stores"
+          ],
           "item": {
             "kind": "-U",
             "row": {
@@ -437,6 +816,10 @@
           "caption": "An order is taken back out of Sam's group: it drops to 1 order, $31.00. GroupAggregate sends −U, then +U."
         },
         {
+          "from": [
+            "orders",
+            "stores"
+          ],
           "item": {
             "kind": "-U",
             "row": {
@@ -468,6 +851,10 @@
           "caption": "The group for Sam at store 7 has no orders left, so GroupAggregate deletes it (−D)."
         },
         {
+          "from": [
+            "orders",
+            "stores"
+          ],
           "item": {
             "kind": "+U",
             "row": {
@@ -500,6 +887,10 @@
           "caption": "First row for Alex at store 7. GroupAggregate starts the group, 1 order, $18.00, and emits an insert."
         },
         {
+          "from": [
+            "orders",
+            "stores"
+          ],
           "item": {
             "kind": "+U",
             "row": {
@@ -540,6 +931,375 @@
             "timers": []
           },
           "caption": "The group for Alex becomes 2 orders, $49.00. The materializer needs retractions, so GroupAggregate sends −U for the old total, then +U."
+        }
+      ]
+    },
+    {
+      "node": "sum",
+      "op": "upsertMaterializer",
+      "title": "SinkUpsertMaterializer",
+      "flink": [
+        "SinkMaterializer"
+      ],
+      "upstream": [
+        "orders",
+        "stores"
+      ],
+      "steps": [
+        {
+          "from": [
+            "orders",
+            "stores"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam",
+              "orders": 1,
+              "sales": 18
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 1,
+                "sales": 18
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7"
+            ],
+            "timers": []
+          },
+          "caption": "The materializer adds Sam: 1 order, $18.00 to the list for store 7, and emits it as +I."
+        },
+        {
+          "from": [
+            "orders",
+            "stores"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 9,
+              "city": "Fresno",
+              "manager": "Priya",
+              "orders": 1,
+              "sales": 24.5
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 9,
+                "city": "Fresno",
+                "manager": "Priya",
+                "orders": 1,
+                "sales": 24.5
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The materializer adds Priya: 1 order, $24.50 to the list for store 9, and emits it as +I."
+        },
+        {
+          "from": [
+            "orders",
+            "stores"
+          ],
+          "item": {
+            "kind": "-U",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam",
+              "orders": 1,
+              "sales": 18
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 1,
+                "sales": 18
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The −U empties the materializer's list for store 7, so it emits a delete. The leaderboard will briefly have no row for store 7."
+        },
+        {
+          "from": [
+            "orders",
+            "stores"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam",
+              "orders": 2,
+              "sales": 49
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 2,
+                "sales": 49
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The materializer adds Sam: 2 orders, $49.00 to the list for store 7, and emits it as +I."
+        },
+        {
+          "from": [
+            "orders",
+            "stores"
+          ],
+          "item": {
+            "kind": "-U",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam",
+              "orders": 2,
+              "sales": 49
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 2,
+                "sales": 49
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The −U empties the materializer's list for store 7, so it emits a delete. The leaderboard will briefly have no row for store 7."
+        },
+        {
+          "from": [
+            "orders",
+            "stores"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam",
+              "orders": 1,
+              "sales": 31
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 1,
+                "sales": 31
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The materializer adds Sam: 1 order, $31.00 to the list for store 7, and emits it as +I."
+        },
+        {
+          "from": [
+            "orders",
+            "stores"
+          ],
+          "item": {
+            "kind": "-D",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam",
+              "orders": 1,
+              "sales": 31
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 1,
+                "sales": 31
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The −D empties the materializer's list for store 7, so it emits a delete. The leaderboard will briefly have no row for store 7."
+        },
+        {
+          "from": [
+            "orders",
+            "stores"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Alex",
+              "orders": 1,
+              "sales": 18
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Alex",
+                "orders": 1,
+                "sales": 18
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The materializer adds Alex: 1 order, $18.00 to the list for store 7, and emits it as +I."
+        },
+        {
+          "from": [
+            "orders",
+            "stores"
+          ],
+          "item": {
+            "kind": "-U",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Alex",
+              "orders": 1,
+              "sales": 18
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Alex",
+                "orders": 1,
+                "sales": 18
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The −U empties the materializer's list for store 7, so it emits a delete. The leaderboard will briefly have no row for store 7."
+        },
+        {
+          "from": [
+            "orders",
+            "stores"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Alex",
+              "orders": 2,
+              "sales": 49
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Alex",
+                "orders": 2,
+                "sales": 49
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The materializer adds Alex: 2 orders, $49.00 to the list for store 7, and emits it as +I."
         }
       ]
     }

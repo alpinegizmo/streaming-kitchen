@@ -112,10 +112,35 @@ matches the simulator's step model exactly.
      job has two of a kind (the window join), the one fed by the same source tables is picked.
    - Statement sets are split into their INSERTs.
    - A negative control (one timer moved by 1 ms) fails, with a readable diff.
-2. **Exporter:** write per-node traces to `verification/runtime/state/*.json`, and add `facts()` to
-   the operators.
-3. **Tier 1 for every recipe**, wired into `run-replay.sh` or a separate `run-state.sh`, plus a
-   negative control that moves one simulator timer and must fail.
+2. **Exporter: done.** The traces live in the specs themselves (`operators` in
+   `verification/runtime/*.json`), not in a separate directory. Every stateful operator except the
+   lookup join has `facts()`.
+3. **Tier 1 for every recipe: done**, in `run-state.sh`. 30 operators in 20 tabs pass on 2.3.0,
+   `dedup/byid` on the 2.3 snapshot, and LATERAL SNAPSHOT on the 2.4 snapshot. Negative controls
+   on a one-input operator (a window timer) and on two two-input operators (a temporal-join timer,
+   an interval-join key) fail. What it showed:
+   - Two-input operators run in `KeyedTwoInputStreamOperatorTestHarness`, which takes an operator
+     instance, taken from the planner's SimpleOperatorFactory (or made from a
+     CodeGenOperatorFactory's generated class). Each item goes to the input that reads from the
+     same source tables as the simulator's input edge.
+   - FastTop1Function (Rank, `dedup/byid`) also holds rows in memory: in a cache, written to state
+     only by snapshotState. So each inspection takes a full checkpoint (prepareSnapshotPreBarrier,
+     then snapshot), not just the flush.
+   - Session windows: Flink keeps a session's accumulator under the window it started as, with a
+     per-key map (MergingWindowSet) from the merged session to it. The panel shows merged sessions,
+     so the check compares the map's keys. Timers are at the merged session's end, as shown.
+   - MATCH_RECOGNIZE sets a timer at each buffered row's timestamp, as the operator comment says.
+     The panel doesn't show them, but they're compared. The interval join's cleanup timers and the
+     LATERAL SNAPSHOT join's timers aren't shown or compared; their keys are.
+   - Output rows: some Flink operators name fields themselves (OVER's `w0$o0`...), a join's output
+     carries both sides' columns (`store_id0`, ...), and the window join's simulated rows are the
+     ones after its `COALESCE`. The exporter maps the first and the last; fields the simulator never
+     models are listed, and not compared (Replay checks the sinks' full rows).
+   - Inputs: an upsert tombstone carries only its key, and some columns aren't in the simulator's
+     data (CEP's `order_id`) or aren't materialized (`proc_time`). They're given to Flink as null,
+     and listed.
+   - No differences in behaviour turned up: every difference so far was in how state is laid out,
+     or in how rows are named.
 4. **Tier 2 projectors**, riskiest first:
    - first: window aggregate, OVER, row-time dedup, Rank and Top-1, interval and window joins;
    - then: the temporal join, regular join, GroupAggregate, ChangelogNormalize, SinkMaterializer,

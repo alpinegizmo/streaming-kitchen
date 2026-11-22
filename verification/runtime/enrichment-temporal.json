@@ -239,5 +239,402 @@
       }
     }
   ],
-  "operators": []
+  "operators": [
+    {
+      "node": "join",
+      "op": "temporalJoin",
+      "title": "TemporalJoin",
+      "flink": [
+        "TemporalJoin"
+      ],
+      "upstream": [
+        "orders",
+        "pizza_costs"
+      ],
+      "steps": [
+        {
+          "from": [
+            "pizza_costs"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "pizza_id": 1,
+              "food_cost": 4,
+              "valid_from": "10:00:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "1"
+            ],
+            "timers": [
+              "1@10:00:00.000"
+            ]
+          },
+          "caption": "The cost of pizza 1 from 10:00:00 is stored as a new version, next to any older ones."
+        },
+        {
+          "from": [
+            "pizza_costs"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "pizza_id": 2,
+              "food_cost": 5.5,
+              "valid_from": "10:00:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "1",
+              "2"
+            ],
+            "timers": [
+              "1@10:00:00.000",
+              "2@10:00:00.000"
+            ]
+          },
+          "caption": "The cost of pizza 2 from 10:00:00 is stored as a new version, next to any older ones."
+        },
+        {
+          "from": [
+            "pizza_costs"
+          ],
+          "item": {
+            "wm": "09:59:59"
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "1",
+              "2"
+            ],
+            "timers": [
+              "1@10:00:00.000",
+              "2@10:00:00.000"
+            ]
+          },
+          "caption": "The join records the watermark, 09:59:59, but has none from orders yet, so its own watermark can't advance."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 1001,
+              "pizza_id": 1,
+              "total": 14,
+              "event_time": "10:02:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "1",
+              "1",
+              "2"
+            ],
+            "timers": [
+              "1@10:00:00.000",
+              "2@10:00:00.000"
+            ]
+          },
+          "caption": "Order 1001 waits in state. A cost change for pizza 1 from before 10:02:00 could still arrive, so the join can't know the right cost yet."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 1002,
+              "pizza_id": 2,
+              "total": 16,
+              "event_time": "10:04:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "1",
+              "2",
+              "1",
+              "2"
+            ],
+            "timers": [
+              "1@10:00:00.000",
+              "2@10:00:00.000"
+            ]
+          },
+          "caption": "Order 1002 waits in state. A cost change for pizza 2 from before 10:04:00 could still arrive, so the join can't know the right cost yet."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "10:03:59"
+          },
+          "out": [
+            {
+              "wm": "09:59:59"
+            }
+          ],
+          "facts": {
+            "state": [
+              "1",
+              "2",
+              "1",
+              "2"
+            ],
+            "timers": [
+              "1@10:00:00.000",
+              "2@10:00:00.000"
+            ]
+          },
+          "caption": "The join's watermark, the minimum of both inputs, moves to 09:59:59. No waiting order is at or before it yet."
+        },
+        {
+          "from": [
+            "pizza_costs"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "pizza_id": 1,
+              "food_cost": 5,
+              "valid_from": "10:05:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "1",
+              "2",
+              "1",
+              "2"
+            ],
+            "timers": [
+              "1@10:00:00.000",
+              "2@10:00:00.000"
+            ]
+          },
+          "caption": "The cost of pizza 1 from 10:05:00 is stored as a new version, next to any older ones."
+        },
+        {
+          "from": [
+            "pizza_costs"
+          ],
+          "item": {
+            "wm": "10:04:59"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 1001,
+                "pizza_id": 1,
+                "total": 14,
+                "food_cost": 4
+              }
+            },
+            {
+              "wm": "10:03:59"
+            }
+          ],
+          "facts": {
+            "state": [
+              "2",
+              "1",
+              "2"
+            ],
+            "timers": [
+              "2@10:04:00.000"
+            ]
+          },
+          "caption": "The join's watermark, the minimum of both inputs, moves to 10:03:59. Order 1001 (10:02:00) is joined with pizza 1's cost as of then: $4.00, valid from 10:00:00."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 1003,
+              "pizza_id": 1,
+              "total": 14,
+              "event_time": "10:07:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "2",
+              "1",
+              "1",
+              "2"
+            ],
+            "timers": [
+              "1@10:07:00.000",
+              "2@10:04:00.000"
+            ]
+          },
+          "caption": "Order 1003 waits in state. A cost change for pizza 1 from before 10:07:00 could still arrive, so the join can't know the right cost yet."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "10:06:59"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 1002,
+                "pizza_id": 2,
+                "total": 16,
+                "food_cost": 5.5
+              }
+            },
+            {
+              "wm": "10:04:59"
+            }
+          ],
+          "facts": {
+            "state": [
+              "1",
+              "1",
+              "2"
+            ],
+            "timers": [
+              "1@10:07:00.000"
+            ]
+          },
+          "caption": "The join's watermark, the minimum of both inputs, moves to 10:04:59. Order 1002 (10:04:00) is joined with pizza 2's cost as of then: $5.50, valid from 10:00:00."
+        },
+        {
+          "from": [
+            "pizza_costs"
+          ],
+          "item": {
+            "kind": "+U",
+            "row": {
+              "pizza_id": 2,
+              "food_cost": 6,
+              "valid_from": "10:12:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "1",
+              "1",
+              "2"
+            ],
+            "timers": [
+              "1@10:07:00.000",
+              "2@10:12:00.000"
+            ]
+          },
+          "caption": "The cost of pizza 2 from 10:12:00 is stored as a new version, next to any older ones."
+        },
+        {
+          "from": [
+            "pizza_costs"
+          ],
+          "item": {
+            "wm": "10:11:59"
+          },
+          "out": [
+            {
+              "wm": "10:06:59"
+            }
+          ],
+          "facts": {
+            "state": [
+              "1",
+              "1",
+              "2"
+            ],
+            "timers": [
+              "1@10:07:00.000",
+              "2@10:12:00.000"
+            ]
+          },
+          "caption": "The join's watermark, the minimum of both inputs, moves to 10:06:59. No waiting order is at or before it yet."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 1004,
+              "pizza_id": 2,
+              "total": 16,
+              "event_time": "10:13:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "1",
+              "2",
+              "1",
+              "2"
+            ],
+            "timers": [
+              "1@10:07:00.000",
+              "2@10:12:00.000"
+            ]
+          },
+          "caption": "Order 1004 waits in state. A cost change for pizza 2 from before 10:13:00 could still arrive, so the join can't know the right cost yet."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "10:12:59"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "order_id": 1003,
+                "pizza_id": 1,
+                "total": 14,
+                "food_cost": 5
+              }
+            },
+            {
+              "wm": "10:11:59"
+            }
+          ],
+          "facts": {
+            "state": [
+              "2",
+              "1",
+              "2"
+            ],
+            "timers": [
+              "2@10:12:00.000"
+            ]
+          },
+          "caption": "The join's watermark, the minimum of both inputs, moves to 10:11:59. Order 1003 (10:07:00) is joined with pizza 1's cost as of then: $5.00, valid from 10:05:00. Pizza 1's timer has fired, so the join also cleans up its versions: the $4.00 version is older than the latest one at or before the watermark, and can't be needed any more."
+        }
+      ]
+    }
+  ]
 }

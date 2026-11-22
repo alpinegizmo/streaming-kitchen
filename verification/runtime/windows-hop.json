@@ -233,6 +233,9 @@
       ],
       "steps": [
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -254,6 +257,9 @@
           "caption": "Order 101 belongs to three windows (11:50–12:05, 11:55–12:10 and 12:00–12:15), but it's stored once, in the 12:00–12:05 slice. That slice is new, so an accumulator is created, with a timer for 12:05."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -275,6 +281,9 @@
           "caption": "Order 103 is added to the 12:00–12:05 slice: 2 orders, $49.00."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "wm": "12:03:44"
           },
@@ -294,6 +303,9 @@
           "caption": "The watermark, 12:03:44, hasn't reached any timer, so nothing fires. WindowAggregate forwards it."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -317,6 +329,9 @@
           "caption": "Order 106 belongs to three windows (11:55–12:10, 12:00–12:15 and 12:05–12:20), but it's stored once, in the 12:05–12:10 slice. That slice is new, so an accumulator is created, with a timer for 12:10."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "wm": "12:06:19"
           },
@@ -347,6 +362,9 @@
           "caption": "The watermark, 12:06:19, passes 12:05, the end of the 11:50–12:05 window. It's assembled from the slices it spans that hold orders (12:00–12:05): 2 orders, $49.00, and emitted. A timer is set for the next window, 12:10."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -369,6 +387,9 @@
           "caption": "Order 108 is added to the 12:05–12:10 slice: 2 orders, $48.50."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -393,6 +414,9 @@
           "caption": "Order 110 belongs to three windows (12:00–12:15, 12:05–12:20 and 12:10–12:25), but it's stored once, in the 12:10–12:15 slice. That slice is new, so an accumulator is created, with a timer for 12:15."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "wm": "12:12:29"
           },
@@ -424,6 +448,9 @@
           "caption": "The watermark, 12:12:29, passes 12:10, the end of the 11:55–12:10 window. It's assembled from the slices it spans that hold orders (12:00–12:05 and 12:05–12:10): 4 orders, $97.50, and emitted. A timer is set for the next window, 12:15."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -449,6 +476,9 @@
           "caption": "Order 111 belongs to three windows (12:05–12:20, 12:10–12:25 and 12:15–12:30), but it's stored once, in the 12:15–12:20 slice. That slice is new, so an accumulator is created, with a timer for 12:20."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "wm": "12:16:39"
           },
@@ -480,6 +510,9 @@
           "caption": "The watermark, 12:16:39, passes 12:15, the end of the 12:00–12:15 window. It's assembled from the slices it spans that hold orders (12:00–12:05, 12:05–12:10 and 12:10–12:15): 5 orders, $111.50, and emitted. A timer is set for the next window, 12:20. No later window needs the 12:00–12:05 slice, so it's freed."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -505,6 +538,9 @@
           "caption": "Order 112 belongs to three windows (12:10–12:25, 12:15–12:30 and 12:20–12:35), but it's stored once, in the 12:20–12:25 slice. That slice is new, so an accumulator is created, with a timer for 12:25."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "wm": "12:21:04"
           },

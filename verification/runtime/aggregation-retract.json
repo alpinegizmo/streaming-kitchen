@@ -208,6 +208,9 @@
       ],
       "steps": [
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -235,6 +238,9 @@
           "caption": "Store 7 has no accumulator yet. GroupAggregate creates one (1 order, $18.00) and emits it as an insert (+I)."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -263,6 +269,9 @@
           "caption": "Store 9 has no accumulator yet. GroupAggregate creates one (1 order, $24.50) and emits it as an insert (+I)."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -299,6 +308,9 @@
           "caption": "Order 103 makes store 7: 2 orders, $49.00. The debezium-json sink accepts retractions, so GroupAggregate first retracts the old result (−U, 1 order, $18.00), then sends the new one (+U)."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -335,6 +347,9 @@
           "caption": "Order 104 makes store 7: 3 orders, $62.00. The debezium-json sink accepts retractions, so GroupAggregate first retracts the old result (−U, 2 orders, $49.00), then sends the new one (+U)."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {

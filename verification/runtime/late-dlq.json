@@ -289,6 +289,9 @@
       ],
       "steps": [
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -310,6 +313,9 @@
           "caption": "Order 101 falls in the 12:00–12:01 window. Store 7 has no accumulator for it yet, so one is created, with a timer for 12:01."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -333,6 +339,9 @@
           "caption": "Order 102 falls in the 12:00–12:01 window. Store 9 has no accumulator for it yet, so one is created, with a timer for 12:01."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -356,6 +365,9 @@
           "caption": "Order 103 also falls in the 12:00–12:01 window. Store 7's accumulator becomes 2 orders, $49.00."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -381,6 +393,9 @@
           "caption": "Order 104 falls in the 12:01–12:02 window. Store 7 has no accumulator for it yet, so one is created, with a timer for 12:02."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "wm": "12:01:04"
           },
@@ -420,6 +435,9 @@
           "caption": "The watermark reaches 12:01:04, so the 12:00–12:01 window is complete. WindowAggregate emits a final row for each store (store 7, 2 orders, $49.00; store 9, 1 order, $24.50), frees their state, and then forwards the watermark."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "kind": "+I",
             "row": {
@@ -443,6 +461,9 @@
           "caption": "Order 107 falls in the 12:02–12:03 window. Store 9 has no accumulator for it yet, so one is created, with a timer for 12:03."
         },
         {
+          "from": [
+            "orders"
+          ],
           "item": {
             "wm": "12:02:02"
           },
