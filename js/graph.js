@@ -381,41 +381,45 @@ const Graph = (() => {
       }
       const path = U.svg('path', { d: e.d, class: `edge mode-${e.mode}`, 'marker-end': `url(#arrow-${e.mode}-${variant.uid})` });
       edgeLayer.append(path);
-      const modeText = { append: 'append-only', upsert: 'upsert', retract: 'retract' }[e.mode];
-      const bw = U.monoWidth(modeText, 11) + 18;
+      // The chip lists the row kinds the edge can carry; its color gives the stream type, which
+      // the tooltip names.
+      const chipText = e.kinds.replace(/-/g, '−');
+      const bw = U.monoWidth(chipText, 11) + 18;
+      // The labels' width: the chip, or the exchange under it, when that's wider. Placements that
+      // keep the labels clear of something use it, so the exchange doesn't hang over an operator.
+      const lw = Math.max(bw, e.exchange ? U.monoWidth(e.exchange, 10.5) + 8 : 0);
       let bx = orient === 'h' ? e.mid.x : L.badgeRight - bw / 2;
       let by = orient === 'h' ? e.mid.y + 22 : e.badgeY;
       const intoJoin = graph.edges.filter((x) => x.to === e.to && isStream(x)).length > 1;
       if (orient === 'h' && intoJoin && L.pos[e.from].cy === L.pos[e.to].cy) {
         // Keep the straight input's badge clear of the other input curving in near the operator.
-        bx = Math.max(path.getPointAtLength(path.getTotalLength() * 0.32).x, L.pos[e.from].x + L.pos[e.from].w + bw / 2 + 6);
+        bx = Math.max(path.getPointAtLength(path.getTotalLength() * 0.32).x, L.pos[e.from].x + L.pos[e.from].w + lw / 2 + 6);
         // The other input curves in from below, so the labels go above this edge, clear of it.
         const below = graph.edges.some((x) => x.to === e.to && x !== e && isStream(x) && L.pos[x.from].cy > L.pos[e.to].cy);
-        if (below) by = e.mid.y - (e.exchange ? 60 : 44);
+        if (below) by = e.mid.y - (e.exchange ? 44 : 28);
       } else if (orient === 'h' && L.pos[e.from].cy === L.pos[e.to].cy
         && graph.edges.some((x) => x.from === e.from && x !== e && isStream(x) && L.pos[x.to].cy > L.pos[e.from].cy)) {
         // Another branch curves away below, so this edge's labels go above it, clear of the curve.
-        by = e.mid.y - (e.exchange ? 60 : 44);
+        by = e.mid.y - (e.exchange ? 44 : 28);
       } else if (orient === 'h' && L.pos[e.from].cy !== L.pos[e.to].cy && graph.edges.filter((x) => x.from === e.from && isStream(x)).length > 1) {
         // A second branch out of an operator: its badge sits left of the curve, halfway down,
         // clear of the first branch's labels and of the operator panels to the right.
         const pt = path.getPointAtLength(path.getTotalLength() * 0.5);
-        bx = pt.x - bw / 2 - 12;
+        bx = pt.x - lw / 2 - 12;
         by = pt.y - 10;
       } else if (orient === 'h' && L.pos[e.from].cy !== L.pos[e.to].cy) {
         // On a curved edge, the badge sits near the source, away from the operator's panel.
         const len = path.getTotalLength();
         const pt = path.getPointAtLength(Math.min(len * 0.22, 70));
-        bx = pt.x + bw / 2 + 6;
+        bx = pt.x + lw / 2 + 6;
         by = pt.y + (L.pos[e.from].cy > L.pos[e.to].cy ? 40 : -46);
       }
       // Vertical: the labels under the badge line up with its right end, the edge of the column.
       const [lx, anchor] = orient === 'h' ? [0, 'middle'] : [bw / 2 - 4, 'end'];
       const badge = U.svg('g', { class: `edge-badge mode-${e.mode}`, transform: `translate(${bx},${by})`, 'data-tip': edgeTip(e) },
         U.svg('rect', { x: -bw / 2, y: -10, width: bw, height: 20, rx: 10 }),
-        U.svg('text', { x: 0, y: 4, 'text-anchor': 'middle', text: modeText }),
-        U.svg('text', { class: 'edge-kinds', x: lx, y: 25, 'text-anchor': anchor, text: e.kinds.replace(/-/g, '−') }),
-        e.exchange ? U.svg('text', { class: 'edge-exchange', x: lx, y: 41, 'text-anchor': anchor, text: e.exchange }) : null);
+        U.svg('text', { x: 0, y: 4, 'text-anchor': 'middle', text: chipText }),
+        e.exchange ? U.svg('text', { class: 'edge-exchange', x: lx, y: 25, 'text-anchor': anchor, text: e.exchange }) : null);
       edgeLayer.append(badge);
       return path;
     });

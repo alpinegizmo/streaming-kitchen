@@ -431,7 +431,6 @@ pre.plan { font-size: 12.5px; padding: 14px 18px; white-space: pre; }
 .edge-badge.mode-upsert text { fill: var(--violet); }
 .edge-badge.mode-retract rect { fill: var(--orange-soft); stroke: var(--orange); }
 .edge-badge.mode-retract text { fill: var(--orange); }
-.edge-badge text.edge-kinds { fill: var(--ink-2); font-size: 11px; }
 .edge-badge text.edge-exchange { fill: var(--ink-3); font-size: 10.5px; font-weight: 400; }
 
 .node-box { fill: var(--node); stroke: var(--ink-3); stroke-width: 1.5; transition: stroke 0.2s; }

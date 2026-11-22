@@ -130,9 +130,10 @@
           <div>
             <dt>Stream types</dt>
             <dd>
-              <span class="badge mode-append">append-only</span> only inserts. Each record is a new fact.<br>
-              <span class="badge mode-upsert">upsert</span> inserts, updates and deletes, by key. An update replaces the row with the same key.<br>
-              <span class="badge mode-retract">retract</span> every update is sent as a pair: retract the old row, then add the new one.
+              Each edge's chip lists the row kinds it can carry, and its color gives the stream type.<br>
+              <span class="badge mode-append">+I</span> append-only: only inserts. Each record is a new fact.<br>
+              <span class="badge mode-upsert">+I +U −D</span> upsert: inserts, updates and deletes, by key. An update replaces the row with the same key.<br>
+              <span class="badge mode-retract">+I −U +U −D</span> retract: every update is sent as a pair: retract the old row, then add the new one.
             </dd>
           </div>
           <div>
