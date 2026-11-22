@@ -97,7 +97,35 @@ const Player = (() => {
     const fwdBtn = btn('fwd', 'Step forward', ICON.fwd, () => { pause(); forward(); });
     const scrub = U.el('input', { type: 'range', class: 'scrub', min: 0, max: N, value: 0, 'aria-label': 'Animation position' });
     scrub.addEventListener('input', () => { pause(); jump(Number(scrub.value)); });
-    const controls = U.el('div', { class: 'controls' }, restartBtn, backBtn, playBtn, fwdBtn, speedSel, counter);
+    // Help: the primer's legend, cloned so it reads the same everywhere, in a popover beside
+    // the controls. It lives outside the stage, so keys pressed in it don't step the animation.
+    const helpId = `${pattern.id}-${variant.id}-help`;
+    const helpPop = U.el('div', { class: 'help-pop', id: helpId, popover: '', 'aria-label': 'How to read the diagrams' },
+      U.el('h3', {}, 'How to read the diagrams'),
+      ...[...document.querySelectorAll('#reading > p:first-of-type, #reading > .legend')].map((n) => n.cloneNode(true)));
+    const helpBtn = U.el('button', { type: 'button', class: 'ctl help', popovertarget: helpId, title: 'How to read the diagrams' },
+      U.el('span', { class: 'help-icon', 'aria-hidden': 'true' }, '?'), 'Help');
+    // Below the button if there's room, so the diagram above stays in view; otherwise above, if
+    // there's room there, or whichever side has more. Right-aligned to the button.
+    const placeHelp = () => {
+      const r = helpBtn.getBoundingClientRect();
+      const gap = 8, margin = 16;
+      const above = r.top - gap - margin, below = innerHeight - r.bottom - gap - margin;
+      helpPop.style.maxHeight = '';
+      const h = helpPop.offsetHeight;
+      const up = h > below && (h <= above || above > below);
+      helpPop.style.maxHeight = `${Math.max(160, up ? above : below)}px`;
+      const top = up ? r.top - gap - Math.min(h, above) : r.bottom + gap;
+      const left = Math.min(Math.max(margin, r.right - helpPop.offsetWidth), innerWidth - helpPop.offsetWidth - margin);
+      helpPop.style.top = `${Math.max(margin, top)}px`;
+      helpPop.style.left = `${left}px`;
+    };
+    helpPop.addEventListener('toggle', (e) => {
+      const open = e.newState === 'open';
+      if (open) placeHelp();
+      for (const ev of ['scroll', 'resize']) (open ? addEventListener : removeEventListener)(ev, placeHelp, { passive: true });
+    });
+    const controls = U.el('div', { class: 'controls' }, restartBtn, backBtn, playBtn, fwdBtn, speedSel, counter, helpBtn);
     const topics = U.el('div', { class: 'topics' });
 
     const stage = U.el('div', {
@@ -121,7 +149,8 @@ const Player = (() => {
         U.el('div', { class: 'more-body', html: details || '' }),
         variant.explain ? U.el('div', { class: 'more-plan' },
           U.el('p', {}, 'The optimized plan from ', U.el('code', {}, 'EXPLAIN CHANGELOG_MODE'), ` on Flink ${variant.flinkVersion || '2.3'}:`),
-          U.el('pre', { class: 'code plan' }, variant.explain.trim())) : null));
+          U.el('pre', { class: 'code plan' }, variant.explain.trim())) : null),
+      helpPop);
 
     // ---------- Rendering ----------
 

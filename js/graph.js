@@ -16,6 +16,47 @@ const Graph = (() => {
   // Longest-path layering: sources in layer 0, everything else one past its deepest input.
   const isStream = (e) => e.mode !== 'lookup';
 
+  // Hover explanations for the parts of a diagram the Help popover describes (see #reading in
+  // index.html). They're shown by a tooltip of our own, not SVG <title>, which browsers only show
+  // after a second or so: one shared element, positioned over whatever has a data-tip.
+  (() => {
+    let tip = null, timer = 0, current = null;
+    const show = (target) => {
+      tip ||= document.body.appendChild(U.el('div', { class: 'tip', role: 'tooltip' }));
+      tip.textContent = target.getAttribute('data-tip');
+      tip.classList.add('show');
+      const r = target.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, gap = 8;
+      const top = r.top - h - gap >= 8 ? r.top - h - gap : r.bottom + gap;
+      tip.style.top = `${top}px`;
+      tip.style.left = `${Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8)}px`;
+    };
+    const hide = () => { clearTimeout(timer); current = null; tip?.classList.remove('show'); };
+    document.addEventListener('pointerover', (e) => {
+      const target = e.target.closest?.('[data-tip]');
+      if (target === current) return;
+      hide();
+      if (!target) return;
+      current = target;
+      timer = setTimeout(() => show(target), 500);
+    });
+    addEventListener('scroll', hide, { passive: true });
+  })();
+  const MODE_TIP = {
+    append: 'Append-only stream: only inserts. Each record is a new fact.',
+    upsert: 'Upsert stream: inserts, updates, and deletes, by key. An update replaces the row with the same key.',
+    retract: 'Retract stream: every update is sent as a pair, retracting the old row, then adding the new one.',
+  };
+  const KIND_TIP = { '+I': '+I insert', '-U': '−U retract the old version', '+U': '+U the new version', '-D': '−D delete' };
+  const edgeTip = (e) => [
+    MODE_TIP[e.mode],
+    e.kinds && `Row kinds: ${e.kinds.split(/\s+/).map((k) => KIND_TIP[k] || k).join(', ')}.`,
+    e.exchange && `${e.exchange}: the records are repartitioned by ${e.exchange.replace(/^\w+\((.*)\)$/, '$1')}, so every record for a key reaches the same parallel instance.`,
+  ].filter(Boolean).join('\n');
+  const nodeTip = (n) => [
+    n.stateful && 'Stateful: keeps keyed state, shown underneath it.',
+    n.planner && 'Added by the planner: it isn\'t in your SQL, but the planner needs it to produce correct results.',
+  ].filter(Boolean).join('\n');
+
   function layers(graph) {
     const depth = {};
     const visit = (id) => {
@@ -355,7 +396,7 @@ const Graph = (() => {
       }
       // Vertical: the labels under the badge line up with its right end, the edge of the column.
       const [lx, anchor] = orient === 'h' ? [0, 'middle'] : [bw / 2 - 4, 'end'];
-      const badge = U.svg('g', { class: `edge-badge mode-${e.mode}`, transform: `translate(${bx},${by})` },
+      const badge = U.svg('g', { class: `edge-badge mode-${e.mode}`, transform: `translate(${bx},${by})`, 'data-tip': edgeTip(e) },
         U.svg('rect', { x: -bw / 2, y: -10, width: bw, height: 20, rx: 10 }),
         U.svg('text', { x: 0, y: 4, 'text-anchor': 'middle', text: modeText }),
         U.svg('text', { class: 'edge-kinds', x: lx, y: 25, 'text-anchor': anchor, text: e.kinds.replace(/-/g, '−') }),
@@ -374,7 +415,7 @@ const Graph = (() => {
       const [tx, anchor] = orient === 'h' ? [p.w / 2, 'middle'] : [16, 'start'];
       const titleY = orient === 'h' ? (n.lines?.length > 1 ? 22 : 28) : 22;
       const lineY = orient === 'h' ? (n.lines?.length > 1 ? 40 : 46) : 39;
-      const g = U.svg('g', { class: cls, transform: `translate(${p.x},${p.y})` },
+      const g = U.svg('g', { class: cls, transform: `translate(${p.x},${p.y})`, 'data-tip': n.planner || n.stateful ? nodeTip(n) : null },
         U.svg('rect', { class: 'node-box', width: p.w, height: p.h, rx: 10 }),
         n.stateful ? U.svg('rect', { class: 'node-state-bar', x: 0, y: 8, width: 4, height: p.h - 16, rx: 2 }) : null,
         U.svg('text', { class: 'node-title', x: tx, y: titleY, 'text-anchor': anchor, text: n.title }),
@@ -451,7 +492,10 @@ const Graph = (() => {
         const planner = graph.nodes.find((n) => n.id === id).planner;
         const x = p.x + p.w - w;
         const y = orient === 'h' && planner ? p.y - 42 : p.y - 26;
-        wmLayer.append(U.svg('g', { class: 'wm-tag', transform: `translate(${x},${y})` },
+        wmLayer.append(U.svg('g', {
+          class: 'wm-tag', transform: `translate(${x},${y})`,
+          'data-tip': `Watermark ${time}: this operator has been told that no record at or before ${time} should follow.`,
+        },
           U.svg('rect', { width: w, height: 18, rx: 3 }),
           U.svg('text', { x: w / 2, y: 13, 'text-anchor': 'middle', text })));
       }
