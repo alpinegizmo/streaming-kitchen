@@ -90,7 +90,7 @@ WHERE row_num = 1;`;
   const procTime = {
     id: 'proctime',
     label: 'Processing time',
-    question: 'Count each order once, even when the app sends it twice.',
+    question: 'Keep each order once, even when the app sends it twice.',
     intro: 'The ordering app retries when it times out, so some orders arrive more than once, each copy with its own event time. Press Play, or step through with the arrow keys.',
     sql: sql('unique_orders', 'proc_time'),
     ddl: ddl('unique_orders'),
@@ -216,7 +216,7 @@ which an append-only sink can't take.</p>`,
   const byId = {
     id: 'byid',
     label: 'Ordered by order_id',
-    question: 'Count each order once, ordering the copies by order_id.',
+    question: 'Keep each order once, ordering the copies by order_id.',
     blurb: 'Same orders, but <code>ORDER BY order_id</code>, which isn\'t a time attribute. The first copy to arrive still wins, but the planner can\'t use a Deduplicate, and the job costs more.',
     intro: 'The same copies arrive in the same order. Every copy of an order has the same order_id, so none can sort ahead of another. Press Play, or step through with the arrow keys.',
     sql: sql('deduped_orders', 'order_id'),

@@ -56,7 +56,7 @@ Verified on 2.3 (`verification/dedup.sql`). Both are planned as `Rank(AppendFast
 execution plan shows as `Deduplicate(keep=[FirstRow], ..., outputInsertOnly=[true])`. Both variants use
 the same input, so the results can be compared.
 
-**a) Processing time.** Count each order once, even when the app sends it twice.
+**a) Processing time.** Keep each order once, even when the app sends it twice.
 - `ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY proc_time ASC) = 1`
 - Graph: Source `APPEND` → hash(order_id) → Deduplicate (keep first, by arrival) `APPEND` → Sink (kafka)
 - State: one "seen" flag per `order_id` (`ProcTimeDeduplicateKeepFirstRowFunction`). Takeaway: **state TTL**.
