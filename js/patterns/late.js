@@ -83,6 +83,7 @@ CREATE TABLE late_orders (
 -- Connection and format options are left out.`,
     matrix: {
       state: 'An accumulator per key and window; the filters keep none',
+      memory: 'The window aggregate buffers records in memory, and writes them to state by the next watermark or checkpoint',
       watermarks: 'Fire windows, and split orders into on-time and late',
       watermarksOut: 'Passed through, after the windows it fires',
     },

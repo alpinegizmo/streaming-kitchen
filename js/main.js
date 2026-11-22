@@ -34,7 +34,8 @@
       U.el('th', { scope: 'row' }, U.el('a', { href },
         U.el('span', { class: 'm-pattern' }, p.nav || p.title),
         p.variants.length > 1 ? U.el('span', { class: 'm-variant' }, v.label) : null)),
-      cell('State', v.matrix.state),
+      // Operators that keep rows in memory, and write them to state later, say so under the state.
+      cell('State', v.matrix.state, v.matrix.memory ? U.el('span', { class: 'm-memory' }, v.matrix.memory) : null),
       cell('Watermarks used for', v.matrix.watermarks),
       // Operators that make a new watermark, instead of forwarding the one they got, stand out.
       U.el('td', { 'data-label': 'Output watermark', class: v.matrix.watermarksOut.startsWith('Passed through') ? '' : 'm-new-wm' }, v.matrix.watermarksOut),

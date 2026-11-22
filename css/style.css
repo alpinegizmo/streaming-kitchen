@@ -491,6 +491,7 @@ pre.plan { font-size: 12.5px; padding: 14px 18px; white-space: pre; }
 .matrix tbody tr { border-bottom: 1px solid var(--rule); }
 .matrix tbody tr.group-start { border-top: 2px solid var(--rule); }
 .matrix tbody tr.shade { background: var(--panel); }
+.matrix .m-memory { display: block; margin-top: 4px; font-size: 0.86em; color: var(--ink-2); }
 .matrix tr > :first-child { padding-left: 12px; }
 .matrix tbody th { font-weight: 500; width: 14%; }
 .matrix tbody th a { color: var(--ink); text-decoration: none; display: block; }

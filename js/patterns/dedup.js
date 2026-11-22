@@ -243,7 +243,7 @@ CREATE TABLE deduped_orders (
 
 -- Connection and format options are left out.`,
     flinkVersion: '2.3-SNAPSHOT',
-    matrix: { state: 'The whole first row per key, kept until state TTL', watermarks: 'Not used', watermarksOut: 'Passed through' },
+    matrix: { state: 'The whole first row per key, kept until state TTL', memory: 'Rows are cached in memory, and written to state at each checkpoint', watermarks: 'Not used', watermarksOut: 'Passed through' },
     facts: {
       state: 'The whole first row of every order_id, so later copies can be compared with it, not just a flag that says it was seen. It\'s never cleared, so set a state TTL.',
       watermarks: 'Not used. <code>order_id</code> isn\'t a time attribute.',

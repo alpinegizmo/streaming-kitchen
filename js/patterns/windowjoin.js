@@ -69,7 +69,7 @@ CREATE TABLE kitchen_load (
 ) WITH ('connector' = 'kafka', 'topic' = 'kitchen_load');
 
 -- Connection and format options are left out.`,
-    matrix: { state: 'Rows per key and window, on each side, freed when the window fires', watermarks: 'Trigger results; the slower input holds back both', watermarksOut: 'The minimum of both inputs, after the windows it fires' },
+    matrix: { state: 'Rows per key and window, on each side, freed when the window fires', memory: 'The window aggregates buffer records in memory, and write them to state by the next watermark or checkpoint', watermarks: 'Trigger results; the slower input holds back both', watermarksOut: 'The minimum of both inputs, after the windows it fires' },
     facts: {
       state: 'Each window aggregate keeps a count per store and window. The join keeps each side\'s counts per store and window until the window fires, then joins them and frees them. Nothing grows forever, so no state TTL is needed.',
       watermarks: 'They fire the windows. The join\'s watermark is the minimum of its two inputs, so a window is only joined once both sides have finished it, and a slow topic holds everything back.',

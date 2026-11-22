@@ -162,7 +162,7 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
       const rows = ev.rows.map((x) => `store ${x.store_id}, ${result(x)}`).join('; ');
       return `The watermark reaches ${ev.time}, so the ${list(wins)} window is complete. WindowAggregate emits a final row for each store (${rows}), frees their state, and then forwards the watermark.`;
     },
-    matrix: { state: 'An accumulator per key and window, freed when the window fires', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
+    matrix: { state: 'An accumulator per key and window, freed when the window fires', memory: 'Records are buffered in memory, and written to state by the next watermark or checkpoint', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
     facts: {
       state: 'One accumulator per store and window (an order count and a running sum), and a timer at the end of each window. A window\'s state is freed as soon as it fires.',
       ...sharedFacts,
@@ -232,7 +232,7 @@ send them to a topic of their own, as the next recipe does.</p>`,
         return parts.join(' ');
       }).join(' ');
     },
-    matrix: { state: 'An accumulator per key and slice, freed when no open window needs it', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
+    matrix: { state: 'An accumulator per key and slice, freed when no open window needs it', memory: 'Records are buffered in memory, and written to state by the next watermark or checkpoint', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
     facts: {
       state: 'One accumulator per store and 5-minute slice, and a timer at the next window\'s end. Each order is stored once, though it belongs to three windows. A slice is freed when the last window that needs it has fired.',
       ...sharedFacts,
@@ -292,7 +292,7 @@ it.</p>
         return parts.join(' ');
       }).join(' ');
     },
-    matrix: { state: 'An accumulator per key and slice, freed when the hour is complete', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
+    matrix: { state: 'An accumulator per key and slice, freed when the hour is complete', memory: 'Records are buffered in memory, and written to state by the next watermark or checkpoint', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
     facts: {
       state: 'One accumulator per store and 15-minute slice, and a timer for the next step. As each step fires, its slice is merged into the window\'s first slice, which holds the running total. It\'s all freed when the hour is complete.',
       ...sharedFacts,
@@ -413,7 +413,7 @@ CREATE TABLE store_sales (
 ) WITH ('connector' = 'kafka', 'topic' = 'store_sales');
 
 -- Connection and format options are left out.`,
-    matrix: { state: 'The last row per order, and an accumulator per key and window', watermarks: 'Trigger results, and set the deadline for retractions', watermarksOut: 'Passed through, after the windows it fires' },
+    matrix: { state: 'The last row per order, and an accumulator per key and window', memory: 'The window aggregate buffers records in memory, and writes them to state by the next watermark or checkpoint', watermarks: 'Trigger results, and set the deadline for retractions', watermarksOut: 'Passed through, after the windows it fires' },
     facts: {
       state: 'ChangelogNormalize keeps the last row of every order that hasn\'t been cancelled, so it can retract it. WindowAggregate keeps an accumulator per store and window, and frees it when the window fires.',
       watermarks: 'They fire the windows, and so they set the deadline for cancellations. A cancellation counts only if it arrives before the watermark passes the end of the order\'s window.',
