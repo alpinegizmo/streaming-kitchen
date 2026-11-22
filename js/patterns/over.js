@@ -50,7 +50,7 @@ CREATE TABLE orders_with_recent_sales (
 -- Connection and format options are left out.`,
     matrix: { state: 'The rows in the range per key, and a running aggregate', watermarks: 'Trigger results; lateness is per key', watermarksOut: 'Passed through, after the rows it releases' },
     facts: {
-      state: 'For each store, every order in the last 5 minutes, the orders still waiting for the watermark, and a running count and sum. An order leaves state when it falls out of the range, and a quiet store\'s state is cleared 7½ minutes after its newest order.',
+      state: 'For each store, every order in the last 5 minutes, the orders still waiting for the watermark, and a running count and sum. An order leaves state when it falls out of the range, and a quiet store\'s state is cleared between 5 and 7½ minutes after its newest order, once the watermark gets there.',
       watermarks: 'They decide when an order\'s result can be computed: once the watermark reaches its event time, no earlier order for that store can still arrive. An order no newer than the last one its store has emitted is late, and dropped.',
       output: 'Append-only. Every order comes out once, with its result, and is never updated.',
     },
@@ -165,7 +165,8 @@ already emitted a result for 12:05:58, which can't be revised. Order 107 is behi
 as well, but store 9 has only emitted up to 12:02:30, so it's accepted. Its timer is already due,
 and fires with the next watermark.</p>
 <p>Retracting old orders keeps the state bounded by the range. When a store goes quiet, a clean-up
-timer clears all of its state, one and a half ranges (here 7½ minutes) after its newest order.</p>
+timer clears all of its state, between one and one and a half ranges (here 5 to 7½ minutes) after
+its newest order, once the watermark gets there.</p>
 <p>Every OVER aggregate in one streaming query has to use the same window, which is why it's
 written once, as <code>WINDOW w</code>. <code>ROWS BETWEEN n PRECEDING</code> counts rows instead of
 time. These semantics come from <code>RowTimeRangeBoundedPrecedingFunction</code> in Flink 2.3.</p>
