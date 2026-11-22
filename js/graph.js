@@ -435,7 +435,9 @@ const Graph = (() => {
     const wmLayer = U.svg('g', { class: 'wm-layer' });
     const pillLayer = U.svg('g', { class: 'pill-layer' });
     const flyLayer = U.svg('g', { class: 'fly-layer' });
-    svg.append(stateLayer, wmLayer, pillLayer, flyLayer);
+    // Travelling pills go under the operators, so they can slide into the next one.
+    svg.insertBefore(flyLayer, nodeLayer);
+    svg.append(stateLayer, wmLayer, pillLayer);
     container.append(svg);
 
     // Where an item waits on an edge: just past the output port, stacked if several.
@@ -518,31 +520,46 @@ const Graph = (() => {
       return el.animate(frames, { duration: ms, easing: 'ease-in-out', fill: 'forwards' }).finished.catch(() => {});
     }
 
-    // Moves an item from its parked spot along an edge into the next operator.
-    function travel(item, edgeIndex, ms) {
+    // Moves an item from its parked spot along an edge into the next operator. With `into`, it
+    // keeps going until it has slid under the operator's box, fading as it goes, so it crosses the
+    // whole gap however wide it is. A record the operator drops stops in front of it instead, so
+    // the drop can be seen.
+    function travel(item, edgeIndex, ms, { into = true } = {}) {
       const path = paths[edgeIndex];
       const len = path.getTotalLength();
       const w = pillWidth(item);
       const start = parkedPos(edgeIndex, 0, w);
       const el = pill(item, label(item));
       flyLayer.append(el);
-      const endLen = orient === 'h' ? Math.max(0, len - w / 2 - 4) : len - G.pillH / 2 - 4;
+      const half = orient === 'h' ? w / 2 : G.pillH / 2;
+      const endLen = into ? len + half + 2 : orient === 'h' ? Math.max(0, len - half - 4) : len - half - 4;
       const startLen = orient === 'h' ? Math.min(8 + w / 2, len - w / 2) : 18;
+      // Past the end of the path, carry on in the direction it arrives from.
+      const a = path.getPointAtLength(Math.max(0, len - 1)), b = path.getPointAtLength(len);
+      const at = (l) => (l <= len ? path.getPointAtLength(l) : { x: b.x + (b.x - a.x) * (l - len), y: b.y + (b.y - a.y) * (l - len) });
       const frames = [];
-      const n = 12;
+      const n = 16;
       for (let i = 0; i <= n; i++) {
         const l = startLen + (endLen - startLen) * (i / n);
-        const pt = path.getPointAtLength(l);
-        frames.push({ transform: `translate(${pt.x}px, ${pt.y}px)`, offset: i / n });
+        const pt = at(l);
+        // Fully visible until it's half under the operator, then gone by the time it's all under.
+        const opacity = into ? Math.min(1, Math.max(0, (endLen - l) / (endLen - len))) : 1;
+        frames.push({ transform: `translate(${pt.x}px, ${pt.y}px)`, opacity, offset: i / n });
       }
       frames[0].transform = `translate(${start.x}px, ${start.y}px)`;
       el.setAttribute('transform', `translate(${start.x},${start.y})`);
       el.style.transform = frames[0].transform;
-      return animate(el, frames, ms).then(() => el);
+      if (into) el.dataset.inside = '1';
+      // Keep the pace readable: at 1x, about 100 px per second on average, and never quicker
+      // than the player's own step time.
+      const dur = ms * Math.max(1, (endLen - startLen) / 70);
+      return animate(el, frames, dur).then(() => el);
     }
 
     function fade(el, ms, cls) {
       if (!el) return Promise.resolve();
+      // Already out of sight, under the operator it went into.
+      if (el.dataset.inside) { el.remove(); return Promise.resolve(); }
       el.classList.add(cls);
       const t = el.style.transform;
       return animate(el, [

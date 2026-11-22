@@ -246,7 +246,7 @@ const Player = (() => {
       if (step.via != null && ms > 0) {
         const item = prev.parked[step.via][0];
         view.render(prev, { hide: item.uid });
-        flying = await view.travel(item, step.via, ms);
+        flying = await view.travel(item, step.via, ms, { into: !step.drop });
         if (my !== gen) return false;
       }
       idx += 1;
