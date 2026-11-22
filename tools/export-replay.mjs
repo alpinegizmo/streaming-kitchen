@@ -9,6 +9,8 @@
 //   - the input sequence, in the order the simulator reads it: rows with their row kinds, and
 //     watermarks with the exact times the simulator's sources emitted
 //   - the rows each sink receives in the simulator, with their row kinds
+//   - for each operator with facts() (see operators.js), every item it handled, what it emitted,
+//     and its state and timers afterwards
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +28,15 @@ const scripts = [...html.matchAll(/<script src="(js\/[^"]+)"/g)].map((m) => m[1]
 for (const s of scripts) vm.runInContext(readFileSync(join(REPO, s), 'utf8'), ctx, { filename: s });
 const PATTERNS = vm.runInContext('window.PATTERNS', ctx);
 const Sim = vm.runInContext('Sim', ctx);
+const Ops = vm.runInContext('Ops', ctx);
+
+// The Flink operators a simulated operator stands for, in the order records pass through them,
+// by the name the planner gives their transformations. The last one holds the state.
+const FLINK_OPERATORS = {
+  groupAggregate: ['GroupAggregate'],
+  windowAggregate: ['LocalWindowAggregate', 'GlobalWindowAggregate'],
+};
+const item = (i) => (i.t === 'wm' ? { wm: i.time } : { kind: i.kind, row: i.row });
 
 // Reads CREATE TABLE statements: one column, key or watermark per line, as the patterns write them.
 function parseDdl(ddl) {
@@ -70,6 +81,30 @@ function exportOne(id) {
   const expected = steps.filter((s) => sinkIds.has(s.node) && s.item.t === 'rec')
     .map((s) => ({ sink: tableOf(byId[s.node]), kind: s.item.kind, row: s.item.row }));
 
+  const upstreamTables = (id) => {
+    const found = new Set();
+    const walk = (to) => {
+      if (byId[to].kind === 'source') found.add(tableOf(byId[to]));
+      for (const e of variant.graph.edges) if (e.to === to && e.mode !== 'lookup') walk(e.from);
+    };
+    walk(id);
+    return [...found].sort();
+  };
+  // For each operator whose state can be checked: every item it received, what it emitted, and
+  // its state afterwards (verification/run-state.sh runs the Flink operator on the same items).
+  const operators = variant.graph.nodes.filter((n) => Ops[n.op].facts && FLINK_OPERATORS[n.op]).map((n) => ({
+    node: n.id, op: n.op, title: n.title,
+    flink: n.cfg?.flinkOperators || FLINK_OPERATORS[n.op],
+    // The source tables upstream of it, to tell apart operators of the same kind.
+    upstream: upstreamTables(n.id),
+    steps: steps.filter((s) => s.node === n.id).map((s) => ({
+      item: item(s.item),
+      out: s.out.map(item),
+      facts: Ops[n.op].facts(s.snap.ops[n.id], n.cfg || {}),
+      caption: s.caption,
+    })),
+  }));
+
   const spec = {
     pattern: pid, variant: vid, label: `${pattern.title} / ${variant.label}`,
     // Tabs checked on a snapshot build say so; the replay runs them on that build.
@@ -77,7 +112,7 @@ function exportOne(id) {
     sql: variant.sql.trim(),
     sources: Object.fromEntries(sources.map((n) => [tableOf(n), tables[tableOf(n)]])),
     sinks: Object.fromEntries(sinks.map((n) => [tableOf(n), tables[tableOf(n)]])),
-    inputs, expected,
+    inputs, expected, operators,
   };
   // A LATERAL SNAPSHOT join's load phase ends when the build side's watermark reaches the time the
   // query was compiled. The simulator assumes a compile time; the replay passes it explicitly.

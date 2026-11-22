@@ -77,7 +77,25 @@ so those outputs are compared as unordered sets of rows. Tabs checked on a snaps
 skipped by a plain run, which says how to run them. The lookup join isn't replayed: it needs an
 HTTP service. For LATERAL SNAPSHOT, the replay passes `load_completed_time` with the compile time
 the tab assumes (10:00:00), since the replay's own compile time is now. Only sink output is
-compared, not the state panels or each operator's intermediate output.
+compared here; `run-state.sh` checks the state panels.
+
+### Checking state and timers
+
+```sh
+verification/run-state.sh                        # every tab with a traced operator
+verification/run-state.sh windows/tumble         # just one
+```
+
+This checks what the state panels show, operator by operator. For each operator with a `facts()`
+function in `js/operators.js` (so far GroupAggregate and the window aggregations), the exporter
+also writes every item the simulated operator received, what it emitted, and its state and timers
+afterwards. `StateCheck.java` plans the pattern's SQL, takes the operators the planner built for it
+(LocalWindowAggregate and GlobalWindowAggregate for one simulated WindowAggregate), and runs them in
+Flink's operator test harness, with the heap state backend. After each item it compares the
+emitted rows and watermarks, the keys and namespaces in state, and every timer. Window aggregations
+buffer records in memory until a watermark or a checkpoint, so the harness flushes them before each
+comparison, as a checkpoint would. The plan for the remaining operators is in
+`verification/STATE-PLAN.md`.
 
 ## Screenshots
 

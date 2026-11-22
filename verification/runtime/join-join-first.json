@@ -275,5 +275,273 @@
         "sales": 49
       }
     }
+  ],
+  "operators": [
+    {
+      "node": "agg",
+      "op": "groupAggregate",
+      "title": "GroupAggregate",
+      "flink": [
+        "GroupAggregate"
+      ],
+      "upstream": [
+        "orders",
+        "stores"
+      ],
+      "steps": [
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam",
+              "total": 18
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 1,
+                "sales": 18
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7 Oakland Sam"
+            ],
+            "timers": []
+          },
+          "caption": "First row for Sam at store 7. GroupAggregate starts the group, 1 order, $18.00, and emits an insert."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "city": "Fresno",
+              "manager": "Priya",
+              "total": 24.5
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 9,
+                "city": "Fresno",
+                "manager": "Priya",
+                "orders": 1,
+                "sales": 24.5
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7 Oakland Sam",
+              "9 Fresno Priya"
+            ],
+            "timers": []
+          },
+          "caption": "First row for Priya at store 9. GroupAggregate starts the group, 1 order, $24.50, and emits an insert."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam",
+              "total": 31
+            }
+          },
+          "out": [
+            {
+              "kind": "-U",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 1,
+                "sales": 18
+              }
+            },
+            {
+              "kind": "+U",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 2,
+                "sales": 49
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7 Oakland Sam",
+              "9 Fresno Priya"
+            ],
+            "timers": []
+          },
+          "caption": "The group for Sam becomes 2 orders, $49.00. The materializer needs retractions, so GroupAggregate sends −U for the old total, then +U."
+        },
+        {
+          "item": {
+            "kind": "-U",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam",
+              "total": 18
+            }
+          },
+          "out": [
+            {
+              "kind": "-U",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 2,
+                "sales": 49
+              }
+            },
+            {
+              "kind": "+U",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 1,
+                "sales": 31
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7 Oakland Sam",
+              "9 Fresno Priya"
+            ],
+            "timers": []
+          },
+          "caption": "An order is taken back out of Sam's group: it drops to 1 order, $31.00. GroupAggregate sends −U, then +U."
+        },
+        {
+          "item": {
+            "kind": "-U",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Sam",
+              "total": 31
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Sam",
+                "orders": 1,
+                "sales": 31
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "9 Fresno Priya"
+            ],
+            "timers": []
+          },
+          "caption": "The group for Sam at store 7 has no orders left, so GroupAggregate deletes it (−D)."
+        },
+        {
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Alex",
+              "total": 18
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Alex",
+                "orders": 1,
+                "sales": 18
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "9 Fresno Priya",
+              "7 Oakland Alex"
+            ],
+            "timers": []
+          },
+          "caption": "First row for Alex at store 7. GroupAggregate starts the group, 1 order, $18.00, and emits an insert."
+        },
+        {
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "city": "Oakland",
+              "manager": "Alex",
+              "total": 31
+            }
+          },
+          "out": [
+            {
+              "kind": "-U",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Alex",
+                "orders": 1,
+                "sales": 18
+              }
+            },
+            {
+              "kind": "+U",
+              "row": {
+                "store_id": 7,
+                "city": "Oakland",
+                "manager": "Alex",
+                "orders": 2,
+                "sales": 49
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "9 Fresno Priya",
+              "7 Oakland Alex"
+            ],
+            "timers": []
+          },
+          "caption": "The group for Alex becomes 2 orders, $49.00. The materializer needs retractions, so GroupAggregate sends −U for the old total, then +U."
+        }
+      ]
+    }
   ]
 }

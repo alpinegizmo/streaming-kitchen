@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Runs EXPLAIN statements (../run-explain.sh), and replays patterns through real Flink
-     (../run-replay.sh), against Flink jars from Maven, including unreleased snapshots. -->
+<!-- Runs EXPLAIN statements (../run-explain.sh), replays patterns through real Flink
+     (../run-replay.sh), and checks the state and timers they show (../run-state.sh), against
+     Flink jars from Maven, including unreleased snapshots. -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -36,6 +37,10 @@
     <dependency><groupId>org.apache.flink</groupId><artifactId>flink-sql-connector-kafka</artifactId><version>${kafka.connector.version}</version></dependency>
     <dependency><groupId>org.apache.flink</groupId><artifactId>flink-connector-jdbc-core</artifactId><version>${jdbc.connector.version}</version></dependency>
     <dependency><groupId>org.apache.flink</groupId><artifactId>flink-connector-jdbc-postgres</artifactId><version>${jdbc.connector.version}</version></dependency>
+    <!-- Flink's operator test harness, for checking state and timers (../run-state.sh). -->
+    <dependency><groupId>org.apache.flink</groupId><artifactId>flink-runtime</artifactId><version>${flink.version}</version><type>test-jar</type></dependency>
+    <dependency><groupId>org.apache.flink</groupId><artifactId>flink-test-utils-junit</artifactId><version>${flink.version}</version>
+      <exclusions><exclusion><groupId>org.apache.logging.log4j</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
     <dependency><groupId>org.slf4j</groupId><artifactId>slf4j-nop</artifactId><version>1.7.36</version></dependency>
   </dependencies>
 </project>

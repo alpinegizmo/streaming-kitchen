@@ -218,5 +218,324 @@
         "sales": 87.5
       }
     }
+  ],
+  "operators": [
+    {
+      "node": "win",
+      "op": "windowAggregate",
+      "title": "WindowAggregate",
+      "flink": [
+        "LocalWindowAggregate",
+        "GlobalWindowAggregate"
+      ],
+      "upstream": [
+        "orders"
+      ],
+      "steps": [
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "total": 18,
+              "event_time": "12:01:10"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:05:00"
+            ],
+            "timers": [
+              "7@12:04:59.999"
+            ]
+          },
+          "caption": "Order 101 belongs to three windows (11:50–12:05, 11:55–12:10 and 12:00–12:15), but it's stored once, in the 12:00–12:05 slice. That slice is new, so an accumulator is created, with a timer for 12:05."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "total": 31,
+              "event_time": "12:03:45"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:05:00"
+            ],
+            "timers": [
+              "7@12:04:59.999"
+            ]
+          },
+          "caption": "Order 103 is added to the 12:00–12:05 slice: 2 orders, $49.00."
+        },
+        {
+          "item": {
+            "wm": "12:03:44"
+          },
+          "out": [
+            {
+              "wm": "12:03:44"
+            }
+          ],
+          "facts": {
+            "state": [
+              "7|12:05:00"
+            ],
+            "timers": [
+              "7@12:04:59.999"
+            ]
+          },
+          "caption": "The watermark, 12:03:44, hasn't reached any timer, so nothing fires. WindowAggregate forwards it."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 106,
+              "store_id": 7,
+              "total": 27.5,
+              "event_time": "12:06:20"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:05:00",
+              "7|12:10:00"
+            ],
+            "timers": [
+              "7@12:04:59.999",
+              "7@12:09:59.999"
+            ]
+          },
+          "caption": "Order 106 belongs to three windows (11:55–12:10, 12:00–12:15 and 12:05–12:20), but it's stored once, in the 12:05–12:10 slice. That slice is new, so an accumulator is created, with a timer for 12:10."
+        },
+        {
+          "item": {
+            "wm": "12:06:19"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "11:50",
+                "window_end": "12:05",
+                "store_id": 7,
+                "orders": 2,
+                "sales": 49
+              }
+            },
+            {
+              "wm": "12:06:19"
+            }
+          ],
+          "facts": {
+            "state": [
+              "7|12:05:00",
+              "7|12:10:00"
+            ],
+            "timers": [
+              "7@12:09:59.999"
+            ]
+          },
+          "caption": "The watermark, 12:06:19, passes 12:05, the end of the 11:50–12:05 window. It's assembled from the slices it spans that hold orders (12:00–12:05): 2 orders, $49.00, and emitted. A timer is set for the next window, 12:10."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 108,
+              "store_id": 7,
+              "total": 21,
+              "event_time": "12:09:10"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:05:00",
+              "7|12:10:00"
+            ],
+            "timers": [
+              "7@12:09:59.999"
+            ]
+          },
+          "caption": "Order 108 is added to the 12:05–12:10 slice: 2 orders, $48.50."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 110,
+              "store_id": 7,
+              "total": 14,
+              "event_time": "12:12:30"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:05:00",
+              "7|12:10:00",
+              "7|12:15:00"
+            ],
+            "timers": [
+              "7@12:09:59.999",
+              "7@12:14:59.999"
+            ]
+          },
+          "caption": "Order 110 belongs to three windows (12:00–12:15, 12:05–12:20 and 12:10–12:25), but it's stored once, in the 12:10–12:15 slice. That slice is new, so an accumulator is created, with a timer for 12:15."
+        },
+        {
+          "item": {
+            "wm": "12:12:29"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "11:55",
+                "window_end": "12:10",
+                "store_id": 7,
+                "orders": 4,
+                "sales": 97.5
+              }
+            },
+            {
+              "wm": "12:12:29"
+            }
+          ],
+          "facts": {
+            "state": [
+              "7|12:05:00",
+              "7|12:10:00",
+              "7|12:15:00"
+            ],
+            "timers": [
+              "7@12:14:59.999"
+            ]
+          },
+          "caption": "The watermark, 12:12:29, passes 12:10, the end of the 11:55–12:10 window. It's assembled from the slices it spans that hold orders (12:00–12:05 and 12:05–12:10): 4 orders, $97.50, and emitted. A timer is set for the next window, 12:15."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 111,
+              "store_id": 7,
+              "total": 25,
+              "event_time": "12:16:40"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:05:00",
+              "7|12:10:00",
+              "7|12:15:00",
+              "7|12:20:00"
+            ],
+            "timers": [
+              "7@12:14:59.999",
+              "7@12:19:59.999"
+            ]
+          },
+          "caption": "Order 111 belongs to three windows (12:05–12:20, 12:10–12:25 and 12:15–12:30), but it's stored once, in the 12:15–12:20 slice. That slice is new, so an accumulator is created, with a timer for 12:20."
+        },
+        {
+          "item": {
+            "wm": "12:16:39"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:00",
+                "window_end": "12:15",
+                "store_id": 7,
+                "orders": 5,
+                "sales": 111.5
+              }
+            },
+            {
+              "wm": "12:16:39"
+            }
+          ],
+          "facts": {
+            "state": [
+              "7|12:10:00",
+              "7|12:15:00",
+              "7|12:20:00"
+            ],
+            "timers": [
+              "7@12:19:59.999"
+            ]
+          },
+          "caption": "The watermark, 12:16:39, passes 12:15, the end of the 12:00–12:15 window. It's assembled from the slices it spans that hold orders (12:00–12:05, 12:05–12:10 and 12:10–12:15): 5 orders, $111.50, and emitted. A timer is set for the next window, 12:20. No later window needs the 12:00–12:05 slice, so it's freed."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 112,
+              "store_id": 7,
+              "total": 9,
+              "event_time": "12:21:05"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:10:00",
+              "7|12:15:00",
+              "7|12:20:00",
+              "7|12:25:00"
+            ],
+            "timers": [
+              "7@12:19:59.999",
+              "7@12:24:59.999"
+            ]
+          },
+          "caption": "Order 112 belongs to three windows (12:10–12:25, 12:15–12:30 and 12:20–12:35), but it's stored once, in the 12:20–12:25 slice. That slice is new, so an accumulator is created, with a timer for 12:25."
+        },
+        {
+          "item": {
+            "wm": "12:21:04"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:05",
+                "window_end": "12:20",
+                "store_id": 7,
+                "orders": 4,
+                "sales": 87.5
+              }
+            },
+            {
+              "wm": "12:21:04"
+            }
+          ],
+          "facts": {
+            "state": [
+              "7|12:15:00",
+              "7|12:20:00",
+              "7|12:25:00"
+            ],
+            "timers": [
+              "7@12:24:59.999"
+            ]
+          },
+          "caption": "The watermark, 12:21:04, passes 12:20, the end of the 12:05–12:20 window. It's assembled from the slices it spans that hold orders (12:05–12:10, 12:10–12:15 and 12:15–12:20): 4 orders, $87.50, and emitted. A timer is set for the next window, 12:25. No later window needs the 12:05–12:10 slice, so it's freed."
+        }
+      ]
+    }
   ]
 }

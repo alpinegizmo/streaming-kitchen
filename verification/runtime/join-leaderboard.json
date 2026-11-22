@@ -283,5 +283,183 @@
         "sales": 24.5
       }
     }
+  ],
+  "operators": [
+    {
+      "node": "agg",
+      "op": "groupAggregate",
+      "title": "GroupAggregate",
+      "flink": [
+        "GroupAggregate"
+      ],
+      "upstream": [
+        "orders"
+      ],
+      "steps": [
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "total": 18,
+              "event_time": "12:00:01"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "orders": 1,
+                "sales": 18
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7"
+            ],
+            "timers": []
+          },
+          "caption": "Store 7's first order. GroupAggregate starts its totals, 1 order, $18.00, and emits an insert."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "total": 24.5,
+              "event_time": "12:00:02"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 9,
+                "orders": 1,
+                "sales": 24.5
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Store 9's first order. GroupAggregate starts its totals, 1 order, $24.50, and emits an insert."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "total": 31,
+              "event_time": "12:00:04"
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "store_id": 7,
+                "orders": 2,
+                "sales": 49
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Store 7's totals become 2 orders, $49.00. The join only needs the latest value for each store, so GroupAggregate sends +U, with no −U."
+        },
+        {
+          "item": {
+            "wm": "12:00:03"
+          },
+          "out": [
+            {
+              "wm": "12:00:03"
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "The watermark passes through GroupAggregate, which has no use for it."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 104,
+              "store_id": 7,
+              "total": 13,
+              "event_time": "12:00:06"
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "store_id": 7,
+                "orders": 3,
+                "sales": 62
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9"
+            ],
+            "timers": []
+          },
+          "caption": "Store 7's totals become 3 orders, $62.00. The join only needs the latest value for each store, so GroupAggregate sends +U, with no −U."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 105,
+              "store_id": 12,
+              "total": 22,
+              "event_time": "12:00:07"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 12,
+                "orders": 1,
+                "sales": 22
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "7",
+              "9",
+              "12"
+            ],
+            "timers": []
+          },
+          "caption": "Store 12's first order. GroupAggregate starts its totals, 1 order, $22.00, and emits an insert."
+        }
+      ]
+    }
   ]
 }

@@ -6,6 +6,9 @@
 //   record(st, item, cfg)        -> { out: [items], ev, touched }
 //   watermark(st, item, cfg)     -> { out: [items], ev }
 //   view(st, cfg)                -> the state panel drawn under the operator, or null
+//   facts(st, cfg)               -> optional: the state, as Flink would hold it, for verification
+//                                   (tools/export-replay.mjs, verification/run-state.sh):
+//                                   { state: ['key' or 'key|namespace'], timers: ['key@HH:MM:SS.mmm'] }
 //   say(ev, cfg)                 -> a default caption; patterns can override it
 //
 // An item is either a changelog row { t: 'rec', kind: '+I' | '-U' | '+U' | '-D', row }
@@ -19,6 +22,8 @@ const Ops = (() => {
   const wm = (time) => ({ t: 'wm', time });
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const pick = (row, fields) => Object.fromEntries(fields.map((f) => [f, row[f]]));
+  // A Flink timestamp (time of day, in ms) as facts() writes it.
+  const ms = (millis) => `${U.fromSec(Math.floor(millis / 1000))}.${String(millis % 1000).padStart(3, '0')}`;
 
   // Kafka source with an append-only format (connector = 'kafka').
   // Watermarks: bounded out-of-orderness, newest event time minus `delay` seconds.
@@ -271,6 +276,12 @@ const Ops = (() => {
         footer: `timers: ${timerList(st).map(hm).join(', ') || 'none'}`,
       };
     },
+    // State is per key and slice (the namespace is the slice end). A window's timer is set for
+    // 1 ms before its end, so it fires when the watermark reaches the end.
+    facts: (st) => ({
+      state: Object.values(st.slices).map((s) => `${s.k}|${hms(s.end)}`),
+      timers: Object.values(st.timers).map((t) => `${t.k}@${ms(t.t * 1000 - 1)}`),
+    }),
     say(ev) {
       switch (ev.type) {
         case 'new-slice': return `The record opens the ${ev.slice.start}–${ev.slice.end} slice, with a timer for ${ev.timer}.`;
@@ -687,6 +698,7 @@ const Ops = (() => {
         })),
       };
     },
+    facts: (st) => ({ state: Object.keys(st.acc), timers: [] }),
     say(ev) {
       switch (ev.type) {
         case 'first': return `First row for key ${ev.key}. GroupAggregate creates an accumulator and emits an insert.`;

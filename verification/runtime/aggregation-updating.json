@@ -198,5 +198,285 @@
         "orders": 2
       }
     }
+  ],
+  "operators": [
+    {
+      "node": "agg",
+      "op": "groupAggregate",
+      "title": "GroupAggregate",
+      "flink": [
+        "GroupAggregate"
+      ],
+      "upstream": [
+        "order_status"
+      ],
+      "steps": [
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 201,
+              "store_id": 7,
+              "status": "placed"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "status": "placed",
+                "orders": 1
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "placed"
+            ],
+            "timers": []
+          },
+          "caption": "There's no count for placed yet. GroupAggregate starts one at 1, and emits an insert (+I)."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 202,
+              "store_id": 7,
+              "status": "placed"
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "status": "placed",
+                "orders": 2
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "placed"
+            ],
+            "timers": []
+          },
+          "caption": "The count for placed goes up to 2. GroupAggregate emits the new count (+U). The upsert sink doesn't need the old one."
+        },
+        {
+          "item": {
+            "kind": "-U",
+            "row": {
+              "order_id": 201,
+              "store_id": 7,
+              "status": "placed"
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "status": "placed",
+                "orders": 1
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "placed"
+            ],
+            "timers": []
+          },
+          "caption": "The retraction takes the count for placed down to 1. GroupAggregate emits the new count (+U)."
+        },
+        {
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 201,
+              "store_id": 7,
+              "status": "baking"
+            }
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "status": "baking",
+                "orders": 1
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "placed",
+              "baking"
+            ],
+            "timers": []
+          },
+          "caption": "There's no count for baking yet. GroupAggregate starts one at 1, and emits an insert (+I)."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 203,
+              "store_id": 9,
+              "status": "placed"
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "status": "placed",
+                "orders": 2
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "placed",
+              "baking"
+            ],
+            "timers": []
+          },
+          "caption": "The count for placed goes up to 2. GroupAggregate emits the new count (+U). The upsert sink doesn't need the old one."
+        },
+        {
+          "item": {
+            "kind": "-U",
+            "row": {
+              "order_id": 202,
+              "store_id": 7,
+              "status": "placed"
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "status": "placed",
+                "orders": 1
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "placed",
+              "baking"
+            ],
+            "timers": []
+          },
+          "caption": "The retraction takes the count for placed down to 1. GroupAggregate emits the new count (+U)."
+        },
+        {
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 202,
+              "store_id": 7,
+              "status": "baking"
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "status": "baking",
+                "orders": 2
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "placed",
+              "baking"
+            ],
+            "timers": []
+          },
+          "caption": "The count for baking goes up to 2. GroupAggregate emits the new count (+U). The upsert sink doesn't need the old one."
+        },
+        {
+          "item": {
+            "kind": "-D",
+            "row": {
+              "order_id": 201,
+              "store_id": 7,
+              "status": "baking"
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "status": "baking",
+                "orders": 1
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "placed",
+              "baking"
+            ],
+            "timers": []
+          },
+          "caption": "The retraction takes the count for baking down to 1. GroupAggregate emits the new count (+U)."
+        },
+        {
+          "item": {
+            "kind": "-U",
+            "row": {
+              "order_id": 203,
+              "store_id": 9,
+              "status": "placed"
+            }
+          },
+          "out": [
+            {
+              "kind": "-D",
+              "row": {
+                "status": "placed",
+                "orders": 1
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "baking"
+            ],
+            "timers": []
+          },
+          "caption": "The retraction takes placed down to 0 orders, so the group is gone. GroupAggregate emits a delete (−D) for it, and clears the key."
+        },
+        {
+          "item": {
+            "kind": "+U",
+            "row": {
+              "order_id": 203,
+              "store_id": 9,
+              "status": "baking"
+            }
+          },
+          "out": [
+            {
+              "kind": "+U",
+              "row": {
+                "status": "baking",
+                "orders": 2
+              }
+            }
+          ],
+          "facts": {
+            "state": [
+              "baking"
+            ],
+            "timers": []
+          },
+          "caption": "The count for baking goes up to 2. GroupAggregate emits the new count (+U). The upsert sink doesn't need the old one."
+        }
+      ]
+    }
   ]
 }

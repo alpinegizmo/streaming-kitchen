@@ -274,5 +274,204 @@
         "event_time": "12:01:50"
       }
     }
+  ],
+  "operators": [
+    {
+      "node": "win",
+      "op": "windowAggregate",
+      "title": "WindowAggregate",
+      "flink": [
+        "LocalWindowAggregate",
+        "GlobalWindowAggregate"
+      ],
+      "upstream": [
+        "orders"
+      ],
+      "steps": [
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "total": 18,
+              "event_time": "12:00:10"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:01:00"
+            ],
+            "timers": [
+              "7@12:00:59.999"
+            ]
+          },
+          "caption": "Order 101 falls in the 12:00–12:01 window. Store 7 has no accumulator for it yet, so one is created, with a timer for 12:01."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "total": 24.5,
+              "event_time": "12:00:35"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:01:00",
+              "9|12:01:00"
+            ],
+            "timers": [
+              "7@12:00:59.999",
+              "9@12:00:59.999"
+            ]
+          },
+          "caption": "Order 102 falls in the 12:00–12:01 window. Store 9 has no accumulator for it yet, so one is created, with a timer for 12:01."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "total": 31,
+              "event_time": "12:00:52"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:01:00",
+              "9|12:01:00"
+            ],
+            "timers": [
+              "7@12:00:59.999",
+              "9@12:00:59.999"
+            ]
+          },
+          "caption": "Order 103 also falls in the 12:00–12:01 window. Store 7's accumulator becomes 2 orders, $49.00."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 104,
+              "store_id": 7,
+              "total": 13,
+              "event_time": "12:01:05"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:01:00",
+              "9|12:01:00",
+              "7|12:02:00"
+            ],
+            "timers": [
+              "7@12:00:59.999",
+              "9@12:00:59.999",
+              "7@12:01:59.999"
+            ]
+          },
+          "caption": "Order 104 falls in the 12:01–12:02 window. Store 7 has no accumulator for it yet, so one is created, with a timer for 12:02."
+        },
+        {
+          "item": {
+            "wm": "12:01:04"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:00",
+                "window_end": "12:01",
+                "store_id": 7,
+                "orders": 2,
+                "sales": 49
+              }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:00",
+                "window_end": "12:01",
+                "store_id": 9,
+                "orders": 1,
+                "sales": 24.5
+              }
+            },
+            {
+              "wm": "12:01:04"
+            }
+          ],
+          "facts": {
+            "state": [
+              "7|12:02:00"
+            ],
+            "timers": [
+              "7@12:01:59.999"
+            ]
+          },
+          "caption": "The watermark reaches 12:01:04, so the 12:00–12:01 window is complete. WindowAggregate emits a final row for each store (store 7, 2 orders, $49.00; store 9, 1 order, $24.50), frees their state, and then forwards the watermark."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 107,
+              "store_id": 9,
+              "total": 19,
+              "event_time": "12:02:03"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:02:00",
+              "9|12:03:00"
+            ],
+            "timers": [
+              "7@12:01:59.999",
+              "9@12:02:59.999"
+            ]
+          },
+          "caption": "Order 107 falls in the 12:02–12:03 window. Store 9 has no accumulator for it yet, so one is created, with a timer for 12:03."
+        },
+        {
+          "item": {
+            "wm": "12:02:02"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:01",
+                "window_end": "12:02",
+                "store_id": 7,
+                "orders": 1,
+                "sales": 13
+              }
+            },
+            {
+              "wm": "12:02:02"
+            }
+          ],
+          "facts": {
+            "state": [
+              "9|12:03:00"
+            ],
+            "timers": [
+              "9@12:02:59.999"
+            ]
+          },
+          "caption": "The watermark reaches 12:02:02, so the 12:01–12:02 window is complete. WindowAggregate emits a final row for each store (store 7, 1 order, $13.00), frees their state, and then forwards the watermark."
+        }
+      ]
+    }
   ]
 }

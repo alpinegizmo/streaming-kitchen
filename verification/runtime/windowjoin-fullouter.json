@@ -274,5 +274,399 @@
         "cooked": 1
       }
     }
+  ],
+  "operators": [
+    {
+      "node": "aggO",
+      "op": "windowAggregate",
+      "title": "WindowAggregate",
+      "flink": [
+        "LocalWindowAggregate",
+        "GlobalWindowAggregate"
+      ],
+      "upstream": [
+        "orders"
+      ],
+      "steps": [
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "total": 18,
+              "event_time": "12:02:10"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:15:00"
+            ],
+            "timers": [
+              "7@12:14:59.999"
+            ]
+          },
+          "caption": "Order 101 falls in the 12:00–12:15 window. Store 7's placed count for it starts at 1."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "total": 24.5,
+              "event_time": "12:04:30"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:15:00",
+              "9|12:15:00"
+            ],
+            "timers": [
+              "7@12:14:59.999",
+              "9@12:14:59.999"
+            ]
+          },
+          "caption": "Order 102 falls in the 12:00–12:15 window. Store 9's placed count for it starts at 1."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "total": 31,
+              "event_time": "12:09:40"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:15:00",
+              "9|12:15:00"
+            ],
+            "timers": [
+              "7@12:14:59.999",
+              "9@12:14:59.999"
+            ]
+          },
+          "caption": "Order 103 is also in the 12:00–12:15 window. Store 7's placed count becomes 2."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 104,
+              "store_id": 7,
+              "total": 13,
+              "event_time": "12:13:20"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:15:00",
+              "9|12:15:00"
+            ],
+            "timers": [
+              "7@12:14:59.999",
+              "9@12:14:59.999"
+            ]
+          },
+          "caption": "Order 104 is also in the 12:00–12:15 window. Store 7's placed count becomes 3."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 105,
+              "store_id": 7,
+              "total": 22,
+              "event_time": "12:17:05"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:15:00",
+              "9|12:15:00",
+              "7|12:30:00"
+            ],
+            "timers": [
+              "7@12:14:59.999",
+              "9@12:14:59.999",
+              "7@12:29:59.999"
+            ]
+          },
+          "caption": "Order 105 falls in the 12:15–12:30 window. Store 7's placed count for it starts at 1."
+        },
+        {
+          "item": {
+            "wm": "12:17:04"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:00",
+                "window_end": "12:15",
+                "store_id": 7,
+                "placed": 3
+              }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:00",
+                "window_end": "12:15",
+                "store_id": 9,
+                "placed": 1
+              }
+            },
+            {
+              "wm": "12:17:04"
+            }
+          ],
+          "facts": {
+            "state": [
+              "7|12:30:00"
+            ],
+            "timers": [
+              "7@12:29:59.999"
+            ]
+          },
+          "caption": "The watermark reaches 12:17:04, so the 12:00–12:15 window is complete. WindowAggregate emits a count per store (store 7, 3 placed; store 9, 1 placed), then forwards the watermark."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 106,
+              "store_id": 9,
+              "total": 19,
+              "event_time": "12:31:10"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:30:00",
+              "9|12:45:00"
+            ],
+            "timers": [
+              "7@12:29:59.999",
+              "9@12:44:59.999"
+            ]
+          },
+          "caption": "Order 106 falls in the 12:30–12:45 window. Store 9's placed count for it starts at 1."
+        },
+        {
+          "item": {
+            "wm": "12:31:09"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:15",
+                "window_end": "12:30",
+                "store_id": 7,
+                "placed": 1
+              }
+            },
+            {
+              "wm": "12:31:09"
+            }
+          ],
+          "facts": {
+            "state": [
+              "9|12:45:00"
+            ],
+            "timers": [
+              "9@12:44:59.999"
+            ]
+          },
+          "caption": "The watermark reaches 12:31:09, so the 12:15–12:30 window is complete. WindowAggregate emits a count per store (store 7, 1 placed), then forwards the watermark."
+        }
+      ]
+    },
+    {
+      "node": "aggK",
+      "op": "windowAggregate",
+      "title": "WindowAggregate",
+      "flink": [
+        "LocalWindowAggregate",
+        "GlobalWindowAggregate"
+      ],
+      "upstream": [
+        "kitchen_tickets"
+      ],
+      "steps": [
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "prep_minutes": 8,
+              "event_time": "12:10:15"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:15:00"
+            ],
+            "timers": [
+              "7@12:14:59.999"
+            ]
+          },
+          "caption": "The ticket for order 101 falls in the 12:00–12:15 window. Store 7's cooked count for it starts at 1."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "prep_minutes": 12,
+              "event_time": "12:16:40"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:15:00",
+              "9|12:30:00"
+            ],
+            "timers": [
+              "7@12:14:59.999",
+              "9@12:29:59.999"
+            ]
+          },
+          "caption": "The ticket for order 102 falls in the 12:15–12:30 window. Store 9's cooked count for it starts at 1."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "prep_minutes": 7,
+              "event_time": "12:16:50"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:15:00",
+              "9|12:30:00",
+              "7|12:30:00"
+            ],
+            "timers": [
+              "7@12:14:59.999",
+              "9@12:29:59.999",
+              "7@12:29:59.999"
+            ]
+          },
+          "caption": "The ticket for order 103 falls in the 12:15–12:30 window. Store 7's cooked count for it starts at 1."
+        },
+        {
+          "item": {
+            "wm": "12:16:49"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:00",
+                "window_end": "12:15",
+                "store_id": 7,
+                "cooked": 1
+              }
+            },
+            {
+              "wm": "12:16:49"
+            }
+          ],
+          "facts": {
+            "state": [
+              "9|12:30:00",
+              "7|12:30:00"
+            ],
+            "timers": [
+              "9@12:29:59.999",
+              "7@12:29:59.999"
+            ]
+          },
+          "caption": "The watermark reaches 12:16:49, so the 12:00–12:15 window is complete. WindowAggregate emits a count per store (store 7, 1 cooked), then forwards the watermark."
+        },
+        {
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 104,
+              "store_id": 7,
+              "prep_minutes": 9,
+              "event_time": "12:31:30"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "9|12:30:00",
+              "7|12:30:00",
+              "7|12:45:00"
+            ],
+            "timers": [
+              "9@12:29:59.999",
+              "7@12:29:59.999",
+              "7@12:44:59.999"
+            ]
+          },
+          "caption": "The ticket for order 104 falls in the 12:30–12:45 window. Store 7's cooked count for it starts at 1."
+        },
+        {
+          "item": {
+            "wm": "12:31:29"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:15",
+                "window_end": "12:30",
+                "store_id": 7,
+                "cooked": 1
+              }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "window_start": "12:15",
+                "window_end": "12:30",
+                "store_id": 9,
+                "cooked": 1
+              }
+            },
+            {
+              "wm": "12:31:29"
+            }
+          ],
+          "facts": {
+            "state": [
+              "7|12:45:00"
+            ],
+            "timers": [
+              "7@12:44:59.999"
+            ]
+          },
+          "caption": "The watermark reaches 12:31:29, so the 12:15–12:30 window is complete. WindowAggregate emits a count per store (store 7, 1 cooked; store 9, 1 cooked), then forwards the watermark."
+        }
+      ]
+    }
   ]
 }

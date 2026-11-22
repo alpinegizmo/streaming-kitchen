@@ -109,7 +109,76 @@ public class Replay {
     static boolean run(Path path) throws Exception {
         JsonNode spec = new ObjectMapper().readTree(path.toFile());
         System.out.printf("%n== %s (%s)%n", spec.get("label").asText(), path.getFileName());
+        Prepared p = prepare(spec);
+        JobClient job = p.tEnv.executeSql(p.sql).getJobClient().orElseThrow();
+        int n = p.inputs;
 
+        // Wait for every input to be read, then for the output to settle, and stop the job.
+        long start = System.currentTimeMillis();
+        long readAll = start + n * 1000L / RATE + 1500;
+        int last = -1;
+        long stableSince = System.currentTimeMillis();
+        while (System.currentTimeMillis() < start + 120_000) {
+            Thread.sleep(200);
+            int count = CaptureSinkFactory.RESULTS.values().stream().mapToInt(List::size).sum();
+            if (count != last) {
+                last = count;
+                stableSince = System.currentTimeMillis();
+            } else if (System.currentTimeMillis() > readAll && System.currentTimeMillis() - stableSince > 2000) {
+                break;
+            }
+        }
+        job.cancel().get();
+
+        // Compare, sink by sink.
+        boolean ordered = spec.get("sources").size() == 1;
+        boolean pass = true;
+        for (Iterator<Map.Entry<String, JsonNode>> it = spec.get("sinks").fields(); it.hasNext(); ) {
+            Map.Entry<String, JsonNode> entry = it.next();
+            String sink = entry.getKey();
+            List<JsonNode> cols = physical(entry.getValue());
+            List<String> expected = new ArrayList<>();
+            for (JsonNode e : spec.get("expected")) {
+                if (e.get("sink").asText().equals(sink)) {
+                    List<String> fields = new ArrayList<>();
+                    for (JsonNode c : cols) {
+                        JsonNode v = e.get("row").get(c.get("name").asText());
+                        fields.add(format(v == null || v.isNull() ? null : v.asText(), c.get("type").asText()));
+                    }
+                    expected.add(e.get("kind").asText() + fields);
+                }
+            }
+            List<String> actual = new ArrayList<>();
+            for (Object[] rec : CaptureSinkFactory.RESULTS.getOrDefault(sink, List.of())) {
+                List<String> fields = new ArrayList<>();
+                for (int i = 0; i < cols.size(); i++) {
+                    fields.add(format(rec[i + 1], cols.get(i).get("type").asText()));
+                }
+                actual.add(rec[0] + fields.toString());
+            }
+            List<String> e = new ArrayList<>(expected);
+            List<String> a = new ArrayList<>(actual);
+            if (!ordered) {
+                e.sort(null);
+                a.sort(null);
+            }
+            boolean same = e.equals(a);
+            pass &= same;
+            System.out.printf("sink %s: %s%s%n", sink, same ? "PASS" : "FAIL", ordered ? "" : " (compared unordered: two or more sources)");
+            int rows = Math.max(expected.size(), actual.size());
+            for (int i = 0; i < rows; i++) {
+                String x = i < expected.size() ? expected.get(i) : "";
+                String y = i < actual.size() ? actual.get(i) : "";
+                System.out.printf("  %s %-58s %s%n", x.equals(y) ? " " : "≠", "sim   " + x, "flink " + y);
+            }
+        }
+        return pass;
+    }
+
+    /** A table environment with the spec's sources and sinks registered, and its SQL. */
+    record Prepared(StreamExecutionEnvironment env, StreamTableEnvironment tEnv, String sql, int inputs) {}
+
+    static Prepared prepare(JsonNode spec) {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(1);
         env.setBufferTimeout(0);
@@ -229,68 +298,7 @@ public class Replay {
                     "$1, load_completed_time => CAST(TIMESTAMP '" + DAY + " " + pad(time) + "' AS TIMESTAMP_LTZ(3))");
             System.out.printf("(load_completed_time => %s added, as if the query were compiled then)%n", time);
         }
-        JobClient job = tEnv.executeSql(sql).getJobClient().orElseThrow();
-
-        // Wait for every input to be read, then for the output to settle, and stop the job.
-        long start = System.currentTimeMillis();
-        long readAll = start + n * 1000L / RATE + 1500;
-        int last = -1;
-        long stableSince = System.currentTimeMillis();
-        while (System.currentTimeMillis() < start + 120_000) {
-            Thread.sleep(200);
-            int count = CaptureSinkFactory.RESULTS.values().stream().mapToInt(List::size).sum();
-            if (count != last) {
-                last = count;
-                stableSince = System.currentTimeMillis();
-            } else if (System.currentTimeMillis() > readAll && System.currentTimeMillis() - stableSince > 2000) {
-                break;
-            }
-        }
-        job.cancel().get();
-
-        // Compare, sink by sink.
-        boolean ordered = spec.get("sources").size() == 1;
-        boolean pass = true;
-        for (Iterator<Map.Entry<String, JsonNode>> it = spec.get("sinks").fields(); it.hasNext(); ) {
-            Map.Entry<String, JsonNode> entry = it.next();
-            String sink = entry.getKey();
-            List<JsonNode> cols = physical(entry.getValue());
-            List<String> expected = new ArrayList<>();
-            for (JsonNode e : spec.get("expected")) {
-                if (e.get("sink").asText().equals(sink)) {
-                    List<String> fields = new ArrayList<>();
-                    for (JsonNode c : cols) {
-                        JsonNode v = e.get("row").get(c.get("name").asText());
-                        fields.add(format(v == null || v.isNull() ? null : v.asText(), c.get("type").asText()));
-                    }
-                    expected.add(e.get("kind").asText() + fields);
-                }
-            }
-            List<String> actual = new ArrayList<>();
-            for (Object[] rec : CaptureSinkFactory.RESULTS.getOrDefault(sink, List.of())) {
-                List<String> fields = new ArrayList<>();
-                for (int i = 0; i < cols.size(); i++) {
-                    fields.add(format(rec[i + 1], cols.get(i).get("type").asText()));
-                }
-                actual.add(rec[0] + fields.toString());
-            }
-            List<String> e = new ArrayList<>(expected);
-            List<String> a = new ArrayList<>(actual);
-            if (!ordered) {
-                e.sort(null);
-                a.sort(null);
-            }
-            boolean same = e.equals(a);
-            pass &= same;
-            System.out.printf("sink %s: %s%s%n", sink, same ? "PASS" : "FAIL", ordered ? "" : " (compared unordered: two or more sources)");
-            int rows = Math.max(expected.size(), actual.size());
-            for (int i = 0; i < rows; i++) {
-                String x = i < expected.size() ? expected.get(i) : "";
-                String y = i < actual.size() ? actual.get(i) : "";
-                System.out.printf("  %s %-58s %s%n", x.equals(y) ? " " : "≠", "sim   " + x, "flink " + y);
-            }
-        }
-        return pass;
+        return new Prepared(env, tEnv, sql, n);
     }
 
     static List<JsonNode> physical(JsonNode table) {
