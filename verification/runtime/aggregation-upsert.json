@@ -1,0 +1,171 @@
+{
+  "pattern": "aggregation",
+  "variant": "upsert",
+  "label": "Non-windowed aggregation / Upsert sink",
+  "sql": "INSERT INTO store_totals\nSELECT store_id,\n       COUNT(*) AS orders,\n       SUM(total) AS sales\nFROM orders\nGROUP BY store_id;",
+  "sources": {
+    "orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "pizza_id",
+          "type": "INT"
+        },
+        {
+          "name": "channel",
+          "type": "STRING"
+        },
+        {
+          "name": "total",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "delivery_address",
+          "type": "STRING"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": {
+        "column": "event_time",
+        "expr": "event_time - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "kafka",
+        "topic": "orders"
+      },
+      "mode": "append"
+    }
+  },
+  "sinks": {
+    "store_totals": {
+      "columns": [
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "orders",
+          "type": "BIGINT"
+        },
+        {
+          "name": "sales",
+          "type": "DECIMAL(38, 2)"
+        }
+      ],
+      "pk": [
+        "store_id"
+      ],
+      "watermark": null,
+      "options": {
+        "connector": "upsert-kafka",
+        "topic": "store_totals"
+      },
+      "mode": "upsert"
+    }
+  },
+  "inputs": [
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "store_id": 7,
+        "total": 18
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 102,
+        "store_id": 9,
+        "total": 24.5
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 7,
+        "total": 31
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 104,
+        "store_id": 7,
+        "total": 13
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 105,
+        "store_id": 9,
+        "total": 19
+      }
+    }
+  ],
+  "expected": [
+    {
+      "sink": "store_totals",
+      "kind": "+I",
+      "row": {
+        "store_id": 7,
+        "orders": 1,
+        "sales": 18
+      }
+    },
+    {
+      "sink": "store_totals",
+      "kind": "+I",
+      "row": {
+        "store_id": 9,
+        "orders": 1,
+        "sales": 24.5
+      }
+    },
+    {
+      "sink": "store_totals",
+      "kind": "+U",
+      "row": {
+        "store_id": 7,
+        "orders": 2,
+        "sales": 49
+      }
+    },
+    {
+      "sink": "store_totals",
+      "kind": "+U",
+      "row": {
+        "store_id": 7,
+        "orders": 3,
+        "sales": 62
+      }
+    },
+    {
+      "sink": "store_totals",
+      "kind": "+U",
+      "row": {
+        "store_id": 9,
+        "orders": 2,
+        "sales": 43.5
+      }
+    }
+  ]
+}

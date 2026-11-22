@@ -1,0 +1,241 @@
+{
+  "pattern": "enrichment",
+  "variant": "temporal",
+  "label": "Enrichment / Temporal join",
+  "sql": "INSERT INTO order_costs\nSELECT o.order_id, o.pizza_id, o.total, c.food_cost\nFROM orders AS o\nJOIN pizza_costs FOR SYSTEM_TIME AS OF o.event_time AS c\n  ON o.pizza_id = c.pizza_id;",
+  "sources": {
+    "orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "pizza_id",
+          "type": "INT"
+        },
+        {
+          "name": "channel",
+          "type": "STRING"
+        },
+        {
+          "name": "total",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "delivery_address",
+          "type": "STRING"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": {
+        "column": "event_time",
+        "expr": "event_time - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "kafka",
+        "topic": "orders"
+      },
+      "mode": "append"
+    },
+    "pizza_costs": {
+      "columns": [
+        {
+          "name": "pizza_id",
+          "type": "INT"
+        },
+        {
+          "name": "food_cost",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "valid_from",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [
+        "pizza_id"
+      ],
+      "watermark": {
+        "column": "valid_from",
+        "expr": "valid_from - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "upsert-kafka",
+        "topic": "pizza_costs"
+      },
+      "mode": "upsert"
+    }
+  },
+  "sinks": {
+    "order_costs": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "pizza_id",
+          "type": "INT"
+        },
+        {
+          "name": "total",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "food_cost",
+          "type": "DECIMAL(10, 2)"
+        }
+      ],
+      "pk": [],
+      "watermark": null,
+      "options": {
+        "connector": "kafka",
+        "topic": "order_costs"
+      },
+      "mode": "append"
+    }
+  },
+  "inputs": [
+    {
+      "table": "pizza_costs",
+      "kind": "+U",
+      "row": {
+        "pizza_id": 1,
+        "food_cost": 4,
+        "valid_from": "10:00:00"
+      }
+    },
+    {
+      "table": "pizza_costs",
+      "kind": "+U",
+      "row": {
+        "pizza_id": 2,
+        "food_cost": 5.5,
+        "valid_from": "10:00:00"
+      }
+    },
+    {
+      "table": "pizza_costs",
+      "wm": "09:59:59"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 1001,
+        "pizza_id": 1,
+        "total": 14,
+        "event_time": "10:02:00"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 1002,
+        "pizza_id": 2,
+        "total": 16,
+        "event_time": "10:04:00"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "10:03:59"
+    },
+    {
+      "table": "pizza_costs",
+      "kind": "+U",
+      "row": {
+        "pizza_id": 1,
+        "food_cost": 5,
+        "valid_from": "10:05:00"
+      }
+    },
+    {
+      "table": "pizza_costs",
+      "wm": "10:04:59"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 1003,
+        "pizza_id": 1,
+        "total": 14,
+        "event_time": "10:07:00"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "10:06:59"
+    },
+    {
+      "table": "pizza_costs",
+      "kind": "+U",
+      "row": {
+        "pizza_id": 2,
+        "food_cost": 6,
+        "valid_from": "10:12:00"
+      }
+    },
+    {
+      "table": "pizza_costs",
+      "wm": "10:11:59"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 1004,
+        "pizza_id": 2,
+        "total": 16,
+        "event_time": "10:13:00"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "10:12:59"
+    }
+  ],
+  "expected": [
+    {
+      "sink": "order_costs",
+      "kind": "+I",
+      "row": {
+        "order_id": 1001,
+        "pizza_id": 1,
+        "total": 14,
+        "food_cost": 4
+      }
+    },
+    {
+      "sink": "order_costs",
+      "kind": "+I",
+      "row": {
+        "order_id": 1002,
+        "pizza_id": 2,
+        "total": 16,
+        "food_cost": 5.5
+      }
+    },
+    {
+      "sink": "order_costs",
+      "kind": "+I",
+      "row": {
+        "order_id": 1003,
+        "pizza_id": 1,
+        "total": 14,
+        "food_cost": 5
+      }
+    }
+  ]
+}

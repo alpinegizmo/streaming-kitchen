@@ -1,0 +1,174 @@
+{
+  "pattern": "cep",
+  "variant": "match",
+  "label": "Complex event processing / MATCH_RECOGNIZE",
+  "sql": "INSERT INTO slow_kitchens\nSELECT *\nFROM kitchen_tickets MATCH_RECOGNIZE (\n  PARTITION BY store_id\n  ORDER BY event_time\n  MEASURES A.prep_minutes AS first_minutes,\n           C.prep_minutes AS last_minutes,\n           MATCH_ROWTIME() AS detected_at\n  ONE ROW PER MATCH\n  AFTER MATCH SKIP PAST LAST ROW\n  PATTERN (A B C)\n  DEFINE\n    B AS B.prep_minutes > A.prep_minutes,\n    C AS C.prep_minutes > B.prep_minutes\n);",
+  "sources": {
+    "kitchen_tickets": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "prep_minutes",
+          "type": "INT"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": {
+        "column": "event_time",
+        "expr": "event_time - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "kafka",
+        "topic": "kitchen_tickets"
+      },
+      "mode": "append"
+    }
+  },
+  "sinks": {
+    "slow_kitchens": {
+      "columns": [
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "first_minutes",
+          "type": "INT"
+        },
+        {
+          "name": "last_minutes",
+          "type": "INT"
+        },
+        {
+          "name": "detected_at",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": null,
+      "options": {
+        "connector": "kafka",
+        "topic": "slow_kitchens"
+      },
+      "mode": "append"
+    }
+  },
+  "inputs": [
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "store_id": 7,
+        "prep_minutes": 14,
+        "event_time": "12:20:00"
+      }
+    },
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "store_id": 9,
+        "prep_minutes": 11,
+        "event_time": "12:22:00"
+      }
+    },
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "store_id": 7,
+        "prep_minutes": 9,
+        "event_time": "12:24:00"
+      }
+    },
+    {
+      "table": "kitchen_tickets",
+      "wm": "12:23:59"
+    },
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "store_id": 9,
+        "prep_minutes": 12,
+        "event_time": "12:27:00"
+      }
+    },
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "store_id": 7,
+        "prep_minutes": 18,
+        "event_time": "12:35:00"
+      }
+    },
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "store_id": 7,
+        "prep_minutes": 13,
+        "event_time": "12:29:00"
+      }
+    },
+    {
+      "table": "kitchen_tickets",
+      "wm": "12:34:59"
+    },
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "store_id": 9,
+        "prep_minutes": 9,
+        "event_time": "12:38:00"
+      }
+    },
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "store_id": 7,
+        "prep_minutes": 10,
+        "event_time": "12:41:00"
+      }
+    },
+    {
+      "table": "kitchen_tickets",
+      "wm": "12:40:59"
+    },
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "store_id": 9,
+        "prep_minutes": 15,
+        "event_time": "12:36:00"
+      }
+    }
+  ],
+  "expected": [
+    {
+      "sink": "slow_kitchens",
+      "kind": "+I",
+      "row": {
+        "store_id": 7,
+        "first_minutes": 9,
+        "last_minutes": 18,
+        "detected_at": "12:35:00"
+      }
+    }
+  ]
+}

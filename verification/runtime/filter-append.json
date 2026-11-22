@@ -1,0 +1,176 @@
+{
+  "pattern": "filter",
+  "variant": "append",
+  "label": "Filtering and projection / Append-only source",
+  "sql": "INSERT INTO delivery_orders\nSELECT order_id,\n       store_id,\n       total * 1.08 AS total_with_tax,\n       event_time\nFROM orders\nWHERE channel = 'delivery';",
+  "sources": {
+    "orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "pizza_id",
+          "type": "INT"
+        },
+        {
+          "name": "channel",
+          "type": "STRING"
+        },
+        {
+          "name": "total",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "delivery_address",
+          "type": "STRING"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": {
+        "column": "event_time",
+        "expr": "event_time - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "kafka",
+        "topic": "orders"
+      },
+      "mode": "append"
+    }
+  },
+  "sinks": {
+    "delivery_orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "total_with_tax",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": null,
+      "options": {
+        "connector": "kafka",
+        "topic": "delivery_orders"
+      },
+      "mode": "append"
+    }
+  },
+  "inputs": [
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "store_id": 7,
+        "channel": "delivery",
+        "total": 18,
+        "event_time": "12:00:01"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 102,
+        "store_id": 7,
+        "channel": "pickup",
+        "total": 24.5,
+        "event_time": "12:00:02"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 9,
+        "channel": "delivery",
+        "total": 31,
+        "event_time": "12:00:04"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:00:03"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 104,
+        "store_id": 9,
+        "channel": "pickup",
+        "total": 22,
+        "event_time": "12:00:05"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 105,
+        "store_id": 7,
+        "channel": "delivery",
+        "total": 27.5,
+        "event_time": "12:00:07"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:00:06"
+    }
+  ],
+  "expected": [
+    {
+      "sink": "delivery_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "store_id": 7,
+        "total_with_tax": 19.44,
+        "event_time": "12:00:01"
+      }
+    },
+    {
+      "sink": "delivery_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 9,
+        "total_with_tax": 33.48,
+        "event_time": "12:00:04"
+      }
+    },
+    {
+      "sink": "delivery_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 105,
+        "store_id": 7,
+        "total_with_tax": 29.7,
+        "event_time": "12:00:07"
+      }
+    }
+  ]
+}

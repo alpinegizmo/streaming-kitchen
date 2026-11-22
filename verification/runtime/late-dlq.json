@@ -1,0 +1,277 @@
+{
+  "pattern": "late",
+  "variant": "dlq",
+  "label": "Late events to a dead letter queue / Statement set",
+  "sql": "EXECUTE STATEMENT SET\nBEGIN\n\n-- Late orders go to a dead letter queue.\nINSERT INTO late_orders\nSELECT * FROM orders\nWHERE event_time <= CURRENT_WATERMARK(event_time);\n\n-- The main query counts the rest.\nINSERT INTO store_sales\nSELECT window_start, window_end, store_id,\n       COUNT(*) AS orders,\n       SUM(total) AS sales\nFROM TUMBLE(\n  (SELECT * FROM orders\n   WHERE CURRENT_WATERMARK(event_time) IS NULL\n      OR event_time > CURRENT_WATERMARK(event_time)),\n  DESCRIPTOR(event_time),\n  INTERVAL '1' MINUTE)\nGROUP BY window_start, window_end, store_id;\n\nEND;",
+  "sources": {
+    "orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "pizza_id",
+          "type": "INT"
+        },
+        {
+          "name": "channel",
+          "type": "STRING"
+        },
+        {
+          "name": "total",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "delivery_address",
+          "type": "STRING"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": {
+        "column": "event_time",
+        "expr": "event_time - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "kafka",
+        "topic": "orders"
+      },
+      "mode": "append"
+    }
+  },
+  "sinks": {
+    "store_sales": {
+      "columns": [
+        {
+          "name": "window_start",
+          "type": "TIMESTAMP(3)"
+        },
+        {
+          "name": "window_end",
+          "type": "TIMESTAMP(3)"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "orders",
+          "type": "BIGINT"
+        },
+        {
+          "name": "sales",
+          "type": "DECIMAL(38, 2)"
+        }
+      ],
+      "pk": [],
+      "watermark": null,
+      "options": {
+        "connector": "kafka",
+        "topic": "store_sales"
+      },
+      "mode": "append"
+    },
+    "late_orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "pizza_id",
+          "type": "INT"
+        },
+        {
+          "name": "channel",
+          "type": "STRING"
+        },
+        {
+          "name": "total",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "delivery_address",
+          "type": "STRING"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": null,
+      "options": {
+        "connector": "kafka",
+        "topic": "late_orders"
+      },
+      "mode": "append"
+    }
+  },
+  "inputs": [
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "store_id": 7,
+        "total": 18,
+        "event_time": "12:00:10"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 102,
+        "store_id": 9,
+        "total": 24.5,
+        "event_time": "12:00:35"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 7,
+        "total": 31,
+        "event_time": "12:00:52"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 104,
+        "store_id": 7,
+        "total": 13,
+        "event_time": "12:01:05"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:01:04"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 105,
+        "store_id": 9,
+        "total": 16,
+        "event_time": "12:00:58"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 106,
+        "store_id": 7,
+        "total": 27.5,
+        "event_time": "12:01:02"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 107,
+        "store_id": 9,
+        "total": 19,
+        "event_time": "12:02:03"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:02:02"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 108,
+        "store_id": 7,
+        "total": 21,
+        "event_time": "12:01:50"
+      }
+    }
+  ],
+  "expected": [
+    {
+      "sink": "store_sales",
+      "kind": "+I",
+      "row": {
+        "window_start": "12:00",
+        "window_end": "12:01",
+        "store_id": 7,
+        "orders": 2,
+        "sales": 49
+      }
+    },
+    {
+      "sink": "store_sales",
+      "kind": "+I",
+      "row": {
+        "window_start": "12:00",
+        "window_end": "12:01",
+        "store_id": 9,
+        "orders": 1,
+        "sales": 24.5
+      }
+    },
+    {
+      "sink": "late_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 105,
+        "store_id": 9,
+        "total": 16,
+        "event_time": "12:00:58"
+      }
+    },
+    {
+      "sink": "late_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 106,
+        "store_id": 7,
+        "total": 27.5,
+        "event_time": "12:01:02"
+      }
+    },
+    {
+      "sink": "store_sales",
+      "kind": "+I",
+      "row": {
+        "window_start": "12:01",
+        "window_end": "12:02",
+        "store_id": 7,
+        "orders": 1,
+        "sales": 13
+      }
+    },
+    {
+      "sink": "late_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 108,
+        "store_id": 7,
+        "total": 21,
+        "event_time": "12:01:50"
+      }
+    }
+  ]
+}

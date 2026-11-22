@@ -1,0 +1,277 @@
+{
+  "pattern": "windowjoin",
+  "variant": "fullouter",
+  "label": "Window join / Full outer join",
+  "sql": "INSERT INTO kitchen_load\nSELECT COALESCE(o.store_id, k.store_id) AS store_id,\n       COALESCE(o.window_start, k.window_start) AS window_start,\n       COALESCE(o.window_end, k.window_end) AS window_end,\n       o.placed, k.cooked\nFROM (\n  SELECT store_id, window_start, window_end, COUNT(*) AS placed\n  FROM TUMBLE(TABLE orders, DESCRIPTOR(event_time), INTERVAL '15' MINUTES)\n  GROUP BY store_id, window_start, window_end) o\nFULL OUTER JOIN (\n  SELECT store_id, window_start, window_end, COUNT(*) AS cooked\n  FROM TUMBLE(TABLE kitchen_tickets, DESCRIPTOR(event_time), INTERVAL '15' MINUTES)\n  GROUP BY store_id, window_start, window_end) k\nON o.store_id = k.store_id\nAND o.window_start = k.window_start AND o.window_end = k.window_end;",
+  "sources": {
+    "orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "pizza_id",
+          "type": "INT"
+        },
+        {
+          "name": "channel",
+          "type": "STRING"
+        },
+        {
+          "name": "total",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "delivery_address",
+          "type": "STRING"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": {
+        "column": "event_time",
+        "expr": "event_time - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "kafka",
+        "topic": "orders"
+      },
+      "mode": "append"
+    },
+    "kitchen_tickets": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "prep_minutes",
+          "type": "INT"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": {
+        "column": "event_time",
+        "expr": "event_time - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "kafka",
+        "topic": "kitchen_tickets"
+      },
+      "mode": "append"
+    }
+  },
+  "sinks": {
+    "kitchen_load": {
+      "columns": [
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "window_start",
+          "type": "TIMESTAMP(3)"
+        },
+        {
+          "name": "window_end",
+          "type": "TIMESTAMP(3)"
+        },
+        {
+          "name": "placed",
+          "type": "BIGINT"
+        },
+        {
+          "name": "cooked",
+          "type": "BIGINT"
+        }
+      ],
+      "pk": [],
+      "watermark": null,
+      "options": {
+        "connector": "kafka",
+        "topic": "kitchen_load"
+      },
+      "mode": "append"
+    }
+  },
+  "inputs": [
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "store_id": 7,
+        "total": 18,
+        "event_time": "12:02:10"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 102,
+        "store_id": 9,
+        "total": 24.5,
+        "event_time": "12:04:30"
+      }
+    },
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "store_id": 7,
+        "prep_minutes": 8,
+        "event_time": "12:10:15"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 7,
+        "total": 31,
+        "event_time": "12:09:40"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 104,
+        "store_id": 7,
+        "total": 13,
+        "event_time": "12:13:20"
+      }
+    },
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "order_id": 102,
+        "store_id": 9,
+        "prep_minutes": 12,
+        "event_time": "12:16:40"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 105,
+        "store_id": 7,
+        "total": 22,
+        "event_time": "12:17:05"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:17:04"
+    },
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 7,
+        "prep_minutes": 7,
+        "event_time": "12:16:50"
+      }
+    },
+    {
+      "table": "kitchen_tickets",
+      "wm": "12:16:49"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 106,
+        "store_id": 9,
+        "total": 19,
+        "event_time": "12:31:10"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:31:09"
+    },
+    {
+      "table": "kitchen_tickets",
+      "kind": "+I",
+      "row": {
+        "order_id": 104,
+        "store_id": 7,
+        "prep_minutes": 9,
+        "event_time": "12:31:30"
+      }
+    },
+    {
+      "table": "kitchen_tickets",
+      "wm": "12:31:29"
+    }
+  ],
+  "expected": [
+    {
+      "sink": "kitchen_load",
+      "kind": "+I",
+      "row": {
+        "store_id": 7,
+        "window_start": "12:00",
+        "window_end": "12:15",
+        "placed": 3,
+        "cooked": 1
+      }
+    },
+    {
+      "sink": "kitchen_load",
+      "kind": "+I",
+      "row": {
+        "store_id": 9,
+        "window_start": "12:00",
+        "window_end": "12:15",
+        "placed": 1,
+        "cooked": null
+      }
+    },
+    {
+      "sink": "kitchen_load",
+      "kind": "+I",
+      "row": {
+        "store_id": 7,
+        "window_start": "12:15",
+        "window_end": "12:30",
+        "placed": 1,
+        "cooked": 1
+      }
+    },
+    {
+      "sink": "kitchen_load",
+      "kind": "+I",
+      "row": {
+        "store_id": 9,
+        "window_start": "12:15",
+        "window_end": "12:30",
+        "placed": null,
+        "cooked": 1
+      }
+    }
+  ]
+}

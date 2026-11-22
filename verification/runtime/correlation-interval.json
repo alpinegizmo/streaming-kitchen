@@ -1,0 +1,193 @@
+{
+  "pattern": "correlation",
+  "variant": "interval",
+  "label": "Event correlation / Interval join",
+  "sql": "INSERT INTO late_orders\nSELECT o.order_id, o.store_id, o.event_time AS ordered_at\nFROM orders o\nLEFT JOIN deliveries d\n  ON o.order_id = d.order_id\n AND d.event_time BETWEEN o.event_time\n                      AND o.event_time + INTERVAL '45' MINUTE\nWHERE d.order_id IS NULL;",
+  "sources": {
+    "orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "pizza_id",
+          "type": "INT"
+        },
+        {
+          "name": "channel",
+          "type": "STRING"
+        },
+        {
+          "name": "total",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "delivery_address",
+          "type": "STRING"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": {
+        "column": "event_time",
+        "expr": "event_time - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "kafka",
+        "topic": "orders"
+      },
+      "mode": "append"
+    },
+    "deliveries": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "driver_id",
+          "type": "INT"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": {
+        "column": "event_time",
+        "expr": "event_time - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "kafka",
+        "topic": "deliveries"
+      },
+      "mode": "append"
+    }
+  },
+  "sinks": {
+    "late_orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "ordered_at",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": null,
+      "options": {
+        "connector": "kafka",
+        "topic": "late_orders"
+      },
+      "mode": "append"
+    }
+  },
+  "inputs": [
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "store_id": 7,
+        "event_time": "12:00:00"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 102,
+        "store_id": 9,
+        "event_time": "12:05:00"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:04:59"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 7,
+        "event_time": "12:10:00"
+      }
+    },
+    {
+      "table": "deliveries",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "driver_id": 31,
+        "event_time": "12:31:00"
+      }
+    },
+    {
+      "table": "deliveries",
+      "wm": "12:30:59"
+    },
+    {
+      "table": "deliveries",
+      "kind": "+I",
+      "row": {
+        "order_id": 102,
+        "driver_id": 18,
+        "event_time": "12:40:00"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 104,
+        "store_id": 9,
+        "event_time": "12:58:00"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:57:59"
+    },
+    {
+      "table": "deliveries",
+      "kind": "+I",
+      "row": {
+        "order_id": 104,
+        "driver_id": 31,
+        "event_time": "13:20:00"
+      }
+    },
+    {
+      "table": "deliveries",
+      "wm": "13:19:59"
+    }
+  ],
+  "expected": [
+    {
+      "sink": "late_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 7,
+        "ordered_at": "12:10:00"
+      }
+    }
+  ]
+}

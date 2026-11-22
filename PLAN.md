@@ -354,9 +354,11 @@ Each milestone ends with a browser check (screenshots, light and dark, narrow wi
   `EXPLAIN CHANGELOG_MODE`. Check operator names, edge changelog modes, and whether
   ChangelogNormalize and SinkUpsertMaterializer are present. Save the output in `verification/`, and
   draw graphs only from it. Every **(verify)** item above is resolved this way.
-- For a few patterns (tumble, temporal join, event-time dedup), feed the same input events to real
-  Flink and compare its sink output with the simulator's trace. **Not done yet:** the simulators were
-  checked against the operator source code instead.
+- Feed the same input events to real Flink and compare its sink output with the simulator's trace:
+  `verification/run-replay.sh` (see the README). Done for every tab except the lookup join and LATERAL
+  SNAPSHOT: 22 of 22 match on Flink 2.3.0, row kinds included (2026-11-21). A negative control (the
+  tumble spec with one watermark removed) fails, as it should. Patterns with two sources are compared
+  unordered; only sink output is compared, not state or intermediate operators.
 - For SinkUpsertMaterializer, find a query in the set that naturally triggers it (a sink PK that
   differs from the upsert key). If none does, add a short "When does Flink add a
   SinkUpsertMaterializer?" aside to §3.3 instead of contriving a pattern.

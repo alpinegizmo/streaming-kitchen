@@ -34,6 +34,7 @@ keep the font link instead (the page then falls back to system fonts when offlin
 | `verification/` | The SQL behind every job graph, and the plans Flink produced for it |
 | `tools/shoot.mjs` | Screenshots the page in headless Chrome, and reports console errors |
 | `tools/bundle.mjs` | Bundles the site into one standalone HTML file |
+| `tools/export-replay.mjs` | Exports patterns, with the simulator's output, for `verification/run-replay.sh` |
 
 ## Checking the job graphs against Flink
 
@@ -51,6 +52,26 @@ the Apache snapshot repository, which is how features that aren't released yet a
 the optimized plans from `EXPLAIN CHANGELOG_MODE` to `verification/<name>.plan.txt`, and fails if a
 statement doesn't plan. You need Java 17 or later and Maven; no cluster or Kafka broker is needed.
 Keep the SQL in `verification/` identical to the SQL shown on the page.
+
+### Replaying patterns through real Flink
+
+```sh
+verification/run-replay.sh                       # every exported pattern, on Flink 2.3.0
+verification/run-replay.sh windows/tumble        # just one (pattern id / tab id)
+```
+
+This checks what the job graphs can't: that the simulator behind each animation produces the rows
+real Flink does. `tools/export-replay.mjs` runs the page's own simulator, and writes a spec per
+pattern to `verification/runtime/`: the SQL and tables, the inputs with the exact watermarks the
+simulator emitted, and the rows each sink received. `Replay.java` then runs the pattern's SQL on a
+local Flink mini-cluster, replaying those inputs and watermarks, into `capture` sinks that declare
+the real sinks' changelog modes, and compares the output row by row, row kinds included. Its
+source never finishes, so Flink never fires the windows the simulator leaves open.
+
+With more than one source, the order in which inputs reach an operator isn't fixed in a real job,
+so those outputs are compared as unordered sets of rows. The lookup join (it needs an HTTP
+service) and LATERAL SNAPSHOT (Flink 2.4) aren't replayed. Only sink output is compared, not
+the state panels or each operator's intermediate output.
 
 ## Screenshots
 

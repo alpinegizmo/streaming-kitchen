@@ -1,0 +1,221 @@
+{
+  "pattern": "windows",
+  "variant": "cumulate",
+  "label": "Windows / Cumulate",
+  "sql": "INSERT INTO store_sales\nSELECT window_start, window_end, store_id,\n       COUNT(*) AS orders,\n       SUM(total) AS sales\nFROM CUMULATE(\n  TABLE orders,\n  DESCRIPTOR(event_time),\n  INTERVAL '15' MINUTES,\n  INTERVAL '1' HOUR)\nGROUP BY window_start, window_end, store_id;",
+  "sources": {
+    "orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "pizza_id",
+          "type": "INT"
+        },
+        {
+          "name": "channel",
+          "type": "STRING"
+        },
+        {
+          "name": "total",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "delivery_address",
+          "type": "STRING"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": {
+        "column": "event_time",
+        "expr": "event_time - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "kafka",
+        "topic": "orders"
+      },
+      "mode": "append"
+    }
+  },
+  "sinks": {
+    "store_sales": {
+      "columns": [
+        {
+          "name": "window_start",
+          "type": "TIMESTAMP(3)"
+        },
+        {
+          "name": "window_end",
+          "type": "TIMESTAMP(3)"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "orders",
+          "type": "BIGINT"
+        },
+        {
+          "name": "sales",
+          "type": "DECIMAL(38, 2)"
+        }
+      ],
+      "pk": [],
+      "watermark": null,
+      "options": {
+        "connector": "kafka",
+        "topic": "store_sales"
+      },
+      "mode": "append"
+    }
+  },
+  "inputs": [
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "store_id": 7,
+        "total": 18,
+        "event_time": "12:05:10"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 7,
+        "total": 31,
+        "event_time": "12:11:30"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:11:29"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 106,
+        "store_id": 7,
+        "total": 27.5,
+        "event_time": "12:17:20"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:17:19"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 108,
+        "store_id": 7,
+        "total": 21,
+        "event_time": "12:24:10"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 110,
+        "store_id": 7,
+        "total": 14,
+        "event_time": "12:38:30"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:38:29"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 111,
+        "store_id": 7,
+        "total": 25,
+        "event_time": "12:52:40"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:52:39"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 112,
+        "store_id": 7,
+        "total": 9,
+        "event_time": "13:03:05"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "13:03:04"
+    }
+  ],
+  "expected": [
+    {
+      "sink": "store_sales",
+      "kind": "+I",
+      "row": {
+        "window_start": "12:00",
+        "window_end": "12:15",
+        "store_id": 7,
+        "orders": 2,
+        "sales": 49
+      }
+    },
+    {
+      "sink": "store_sales",
+      "kind": "+I",
+      "row": {
+        "window_start": "12:00",
+        "window_end": "12:30",
+        "store_id": 7,
+        "orders": 4,
+        "sales": 97.5
+      }
+    },
+    {
+      "sink": "store_sales",
+      "kind": "+I",
+      "row": {
+        "window_start": "12:00",
+        "window_end": "12:45",
+        "store_id": 7,
+        "orders": 5,
+        "sales": 111.5
+      }
+    },
+    {
+      "sink": "store_sales",
+      "kind": "+I",
+      "row": {
+        "window_start": "12:00",
+        "window_end": "13:00",
+        "store_id": 7,
+        "orders": 6,
+        "sales": 136.5
+      }
+    }
+  ]
+}

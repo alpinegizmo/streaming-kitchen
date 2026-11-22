@@ -1,0 +1,286 @@
+{
+  "pattern": "join",
+  "variant": "leaderboard",
+  "label": "Regular join / Aggregate, then join",
+  "sql": "INSERT INTO store_leaderboard\nSELECT s.store_id, s.city, s.manager, t.orders, t.sales\nFROM (\n  SELECT store_id, COUNT(*) AS orders, SUM(total) AS sales\n  FROM orders\n  GROUP BY store_id\n) AS t\nJOIN stores AS s\n  ON t.store_id = s.store_id;",
+  "sources": {
+    "orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "pizza_id",
+          "type": "INT"
+        },
+        {
+          "name": "channel",
+          "type": "STRING"
+        },
+        {
+          "name": "total",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "delivery_address",
+          "type": "STRING"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [],
+      "watermark": {
+        "column": "event_time",
+        "expr": "event_time - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "kafka",
+        "topic": "orders"
+      },
+      "mode": "append"
+    },
+    "stores": {
+      "columns": [
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "city",
+          "type": "STRING"
+        },
+        {
+          "name": "manager",
+          "type": "STRING"
+        }
+      ],
+      "pk": [
+        "store_id"
+      ],
+      "watermark": null,
+      "options": {
+        "connector": "upsert-kafka",
+        "topic": "stores"
+      },
+      "mode": "upsert"
+    }
+  },
+  "sinks": {
+    "store_leaderboard": {
+      "columns": [
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "city",
+          "type": "STRING"
+        },
+        {
+          "name": "manager",
+          "type": "STRING"
+        },
+        {
+          "name": "orders",
+          "type": "BIGINT"
+        },
+        {
+          "name": "sales",
+          "type": "DECIMAL(38, 2)"
+        }
+      ],
+      "pk": [
+        "store_id"
+      ],
+      "watermark": null,
+      "options": {
+        "connector": "upsert-kafka",
+        "topic": "store_leaderboard"
+      },
+      "mode": "upsert"
+    }
+  },
+  "inputs": [
+    {
+      "table": "stores",
+      "kind": "+U",
+      "row": {
+        "store_id": 7,
+        "city": "Oakland",
+        "manager": "Sam"
+      }
+    },
+    {
+      "table": "stores",
+      "kind": "+U",
+      "row": {
+        "store_id": 9,
+        "city": "Fresno",
+        "manager": "Priya"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "store_id": 7,
+        "total": 18,
+        "event_time": "12:00:01"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 102,
+        "store_id": 9,
+        "total": 24.5,
+        "event_time": "12:00:02"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 7,
+        "total": 31,
+        "event_time": "12:00:04"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:00:03"
+    },
+    {
+      "table": "stores",
+      "kind": "+U",
+      "row": {
+        "store_id": 7,
+        "city": "Oakland",
+        "manager": "Alex"
+      }
+    },
+    {
+      "table": "stores",
+      "kind": "+U",
+      "row": {
+        "store_id": 12,
+        "city": "San Jose",
+        "manager": "Kim"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 104,
+        "store_id": 7,
+        "total": 13,
+        "event_time": "12:00:06"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 105,
+        "store_id": 12,
+        "total": 22,
+        "event_time": "12:00:07"
+      }
+    },
+    {
+      "table": "stores",
+      "kind": "-D",
+      "row": {
+        "store_id": 9
+      }
+    }
+  ],
+  "expected": [
+    {
+      "sink": "store_leaderboard",
+      "kind": "+I",
+      "row": {
+        "store_id": 7,
+        "city": "Oakland",
+        "manager": "Sam",
+        "orders": 1,
+        "sales": 18
+      }
+    },
+    {
+      "sink": "store_leaderboard",
+      "kind": "+I",
+      "row": {
+        "store_id": 9,
+        "city": "Fresno",
+        "manager": "Priya",
+        "orders": 1,
+        "sales": 24.5
+      }
+    },
+    {
+      "sink": "store_leaderboard",
+      "kind": "+U",
+      "row": {
+        "store_id": 7,
+        "city": "Oakland",
+        "manager": "Sam",
+        "orders": 2,
+        "sales": 49
+      }
+    },
+    {
+      "sink": "store_leaderboard",
+      "kind": "+U",
+      "row": {
+        "store_id": 7,
+        "city": "Oakland",
+        "manager": "Alex",
+        "orders": 2,
+        "sales": 49
+      }
+    },
+    {
+      "sink": "store_leaderboard",
+      "kind": "+U",
+      "row": {
+        "store_id": 7,
+        "city": "Oakland",
+        "manager": "Alex",
+        "orders": 3,
+        "sales": 62
+      }
+    },
+    {
+      "sink": "store_leaderboard",
+      "kind": "+I",
+      "row": {
+        "store_id": 12,
+        "city": "San Jose",
+        "manager": "Kim",
+        "orders": 1,
+        "sales": 22
+      }
+    },
+    {
+      "sink": "store_leaderboard",
+      "kind": "-D",
+      "row": {
+        "store_id": 9,
+        "orders": 1,
+        "sales": 24.5
+      }
+    }
+  ]
+}

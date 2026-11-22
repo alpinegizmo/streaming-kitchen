@@ -1,0 +1,188 @@
+{
+  "pattern": "filter",
+  "variant": "upsert",
+  "label": "Filtering and projection / Upsert source",
+  "sql": "INSERT INTO open_orders\nSELECT order_id, store_id, status\nFROM order_status\nWHERE status <> 'cancelled';",
+  "sources": {
+    "order_status": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "status",
+          "type": "STRING"
+        }
+      ],
+      "pk": [
+        "order_id"
+      ],
+      "watermark": null,
+      "options": {
+        "connector": "upsert-kafka",
+        "topic": "order_status"
+      },
+      "mode": "upsert"
+    }
+  },
+  "sinks": {
+    "open_orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "status",
+          "type": "STRING"
+        }
+      ],
+      "pk": [
+        "order_id"
+      ],
+      "watermark": null,
+      "options": {
+        "connector": "upsert-kafka",
+        "topic": "open_orders"
+      },
+      "mode": "upsert"
+    }
+  },
+  "inputs": [
+    {
+      "table": "order_status",
+      "kind": "+U",
+      "row": {
+        "order_id": 201,
+        "store_id": 7,
+        "status": "placed"
+      }
+    },
+    {
+      "table": "order_status",
+      "kind": "+U",
+      "row": {
+        "order_id": 202,
+        "store_id": 7,
+        "status": "placed"
+      }
+    },
+    {
+      "table": "order_status",
+      "kind": "+U",
+      "row": {
+        "order_id": 201,
+        "store_id": 7,
+        "status": "baking"
+      }
+    },
+    {
+      "table": "order_status",
+      "kind": "+U",
+      "row": {
+        "order_id": 202,
+        "store_id": 7,
+        "status": "cancelled"
+      }
+    },
+    {
+      "table": "order_status",
+      "kind": "+U",
+      "row": {
+        "order_id": 203,
+        "store_id": 9,
+        "status": "cancelled"
+      }
+    },
+    {
+      "table": "order_status",
+      "kind": "+U",
+      "row": {
+        "order_id": 201,
+        "store_id": 7,
+        "status": "baking"
+      }
+    },
+    {
+      "table": "order_status",
+      "kind": "-D",
+      "row": {
+        "order_id": 201
+      }
+    },
+    {
+      "table": "order_status",
+      "kind": "+U",
+      "row": {
+        "order_id": 204,
+        "store_id": 9,
+        "status": "placed"
+      }
+    }
+  ],
+  "expected": [
+    {
+      "sink": "open_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 201,
+        "store_id": 7,
+        "status": "placed"
+      }
+    },
+    {
+      "sink": "open_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 202,
+        "store_id": 7,
+        "status": "placed"
+      }
+    },
+    {
+      "sink": "open_orders",
+      "kind": "+U",
+      "row": {
+        "order_id": 201,
+        "store_id": 7,
+        "status": "baking"
+      }
+    },
+    {
+      "sink": "open_orders",
+      "kind": "-D",
+      "row": {
+        "order_id": 202,
+        "store_id": 7,
+        "status": "placed"
+      }
+    },
+    {
+      "sink": "open_orders",
+      "kind": "-D",
+      "row": {
+        "order_id": 201,
+        "store_id": 7,
+        "status": "baking"
+      }
+    },
+    {
+      "sink": "open_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 204,
+        "store_id": 9,
+        "status": "placed"
+      }
+    }
+  ]
+}

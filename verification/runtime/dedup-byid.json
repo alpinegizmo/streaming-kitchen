@@ -1,0 +1,231 @@
+{
+  "pattern": "dedup",
+  "variant": "byid",
+  "label": "Deduplication / Ordered by order_id",
+  "sql": "INSERT INTO deduped_orders\nSELECT order_id, store_id, total, event_time\nFROM (\n  SELECT *,\n    ROW_NUMBER() OVER (PARTITION BY order_id\n                       ORDER BY order_id ASC) AS row_num\n  FROM orders)\nWHERE row_num = 1;",
+  "sources": {
+    "orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "pizza_id",
+          "type": "INT"
+        },
+        {
+          "name": "channel",
+          "type": "STRING"
+        },
+        {
+          "name": "total",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "delivery_address",
+          "type": "STRING"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        },
+        {
+          "name": "proc_time",
+          "expr": "PROCTIME()"
+        }
+      ],
+      "pk": [],
+      "watermark": {
+        "column": "event_time",
+        "expr": "event_time - INTERVAL '1' SECOND"
+      },
+      "options": {
+        "connector": "kafka",
+        "topic": "orders"
+      },
+      "mode": "append"
+    }
+  },
+  "sinks": {
+    "deduped_orders": {
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "BIGINT"
+        },
+        {
+          "name": "store_id",
+          "type": "INT"
+        },
+        {
+          "name": "total",
+          "type": "DECIMAL(10, 2)"
+        },
+        {
+          "name": "event_time",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "pk": [
+        "order_id"
+      ],
+      "watermark": null,
+      "options": {
+        "connector": "upsert-kafka",
+        "topic": "deduped_orders"
+      },
+      "mode": "upsert"
+    }
+  },
+  "inputs": [
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "store_id": 7,
+        "total": 18,
+        "event_time": "12:00:01"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 102,
+        "store_id": 9,
+        "total": 24.5,
+        "event_time": "12:00:03"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "store_id": 7,
+        "total": 18,
+        "event_time": "12:00:04"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:00:03"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 7,
+        "total": 31,
+        "event_time": "12:00:06"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 7,
+        "total": 31,
+        "event_time": "12:00:05"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 102,
+        "store_id": 9,
+        "total": 24.5,
+        "event_time": "12:00:02"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:00:05"
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 104,
+        "store_id": 9,
+        "total": 13,
+        "event_time": "12:00:08"
+      }
+    },
+    {
+      "table": "orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 105,
+        "store_id": 7,
+        "total": 22,
+        "event_time": "12:00:10"
+      }
+    },
+    {
+      "table": "orders",
+      "wm": "12:00:09"
+    }
+  ],
+  "expected": [
+    {
+      "sink": "deduped_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 101,
+        "store_id": 7,
+        "total": 18,
+        "event_time": "12:00:01"
+      }
+    },
+    {
+      "sink": "deduped_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 102,
+        "store_id": 9,
+        "total": 24.5,
+        "event_time": "12:00:03"
+      }
+    },
+    {
+      "sink": "deduped_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 103,
+        "store_id": 7,
+        "total": 31,
+        "event_time": "12:00:06"
+      }
+    },
+    {
+      "sink": "deduped_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 104,
+        "store_id": 9,
+        "total": 13,
+        "event_time": "12:00:08"
+      }
+    },
+    {
+      "sink": "deduped_orders",
+      "kind": "+I",
+      "row": {
+        "order_id": 105,
+        "store_id": 7,
+        "total": 22,
+        "event_time": "12:00:10"
+      }
+    }
+  ]
+}
