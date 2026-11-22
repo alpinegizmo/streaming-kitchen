@@ -195,9 +195,12 @@
 
   <footer class="footer">
     <p>Job graphs and changelog modes are checked with <code>EXPLAIN CHANGELOG_MODE</code> on Apache
-      Flink 2.3.0, except LATERAL SNAPSHOT, which is checked on a 2.4 snapshot build, and deduplication
-      ordered by order_id, which is checked on a 2.3 snapshot build, for a planner fix in 2.3.1. The animations
-      simplify how Flink schedules work, but not what each operator does.</p>
+      Flink 2.3.0. Every animation except the lookup join, which needs an external service, is also
+      replayed through Flink: the rows each sink receives are compared with the animation's, and each
+      stateful operator is run on the same inputs, one step at a time, to compare what it emits, what
+      it keeps in state, and its timers. LATERAL SNAPSHOT is checked on a 2.4 snapshot build, and
+      deduplication ordered by order_id on a 2.3 snapshot build, for a planner fix in 2.3.1. The
+      animations simplify how Flink schedules work, but not what each operator does.</p>
     <p class="marks">Apache®, Apache Flink®, Flink®, Apache Kafka® and Kafka® are either registered
       trademarks or trademarks of <a href="https://www.apache.org/" target="_blank" rel="noopener">The Apache Software Foundation</a>
       in the United States and/or other countries. This site is not affiliated with The Apache
