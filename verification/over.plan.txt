@@ -1,0 +1,11 @@
+# Flink 2.3.0, EXPLAIN CHANGELOG_MODE, optimized physical plans
+
+## Statement 1
+
+Sink(table=[default_catalog.default_database.orders_with_recent_sales], fields=[order_id, store_id, total, event_time, recent_orders, recent_sales], changelogMode=[NONE])
++- Calc(select=[order_id, store_id, total, event_time, w0$o0 AS recent_orders, CASE(>(w0$o1, 0:BIGINT), w0$o2, null:DECIMAL(38, 2)) AS recent_sales], changelogMode=[I])
+   +- OverAggregate(partitionBy=[store_id], orderBy=[event_time ASC], window=[ RANGE BETWEEN 300000 PRECEDING AND CURRENT ROW], select=[order_id, store_id, total, event_time, COUNT(*) AS w0$o0, COUNT(total) AS w0$o1, $SUM0(total) AS w0$o2], changelogMode=[I])
+      +- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+         +- Calc(select=[order_id, store_id, total, event_time], changelogMode=[I])
+            +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+

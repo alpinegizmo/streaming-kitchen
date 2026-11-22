@@ -244,6 +244,22 @@ NOTHING`, each of which plans the sink with `upsertMaterialize=[true]` and makes
   branch's labels in a gap above its target; on wide screens the second branch's badge sits left of
   its curve and the straight branch's labels go above its edge.
 
+### 3.10 OVER aggregation (added later; shown right after Late events)
+Each order with its store's sales in the 5 minutes up to it:
+`COUNT(*)` and `SUM(total) OVER w`, `WINDOW w AS (PARTITION BY store_id ORDER BY event_time RANGE BETWEEN
+INTERVAL '5' MINUTE PRECEDING AND CURRENT ROW)`.
+- Graph: Source → hash(store_id) → OverAggregate `APPEND` → Sink (kafka), verified on 2.3
+  (`verification/over.sql`). The graph leaves out a Calc that drops columns and one that turns `$SUM0`
+  into `SUM` (null for no rows).
+- Semantics (`RowTimeRangeBoundedPrecedingFunction`, the planner's choice for an event-time RANGE): a row
+  newer than the key's last fired timestamp is buffered under its event time with a timer; others are
+  late, and dropped, whatever the watermark. When the watermark reaches a timer, rows more than the range
+  older are retracted (an offset of exactly the range stays in), the rows at that time are added and
+  emitted with the result. A clean-up timer at newest + 1.5 × range (+1 ms) clears an idle key.
+- Inputs: 105 arrives after 104 but is computed first; 106 is late for store 7; 107 is behind the
+  watermark but accepted, because store 9 has only fired up to 12:02:30; 101 leaves 104's range; 102 is
+  exactly 5 minutes before 108 and stays in. No clean-up timer fires.
+
 ## 4. Architecture
 
 **Static site with no build step and no runtime dependencies.** Plain HTML, CSS and JS, loaded with

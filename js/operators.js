@@ -342,6 +342,111 @@ const Ops = (() => {
     },
   };
 
+  // ---------- OVER aggregation ----------
+  //
+  // OVER (PARTITION BY key ORDER BY event time RANGE BETWEEN <preceding> PRECEDING AND CURRENT
+  // ROW). Mirrors RowTimeRangeBoundedPrecedingFunction in Flink 2.3, per key:
+  //   - a row newer than the last timestamp this key has fired is buffered under its event time,
+  //     with a timer at that time; any other row is late, and dropped (whatever the watermark)
+  //   - a clean-up timer is (re)registered at newest time + 1.5 x preceding (+1 ms) when the
+  //     current one is earlier than newest time + preceding (+1 ms)
+  //   - when the watermark reaches a timer: if it's at or past the clean-up time, all of the key's
+  //     state is cleared. Otherwise, rows more than <preceding> older than the timer are retracted
+  //     from the accumulator, the rows at the timer's time are added, and each is emitted with the
+  //     result; the retracted rows leave state, and the timer's time becomes the last fired time
+  //     (also when a stale clean-up timer fires with no rows at its time)
+  // Timer times are kept in seconds; a clean-up timer's extra millisecond is kept as +0.001.
+  //   cfg: { key, keyLabel, timeField, preceding (seconds), sumField, idField, countName, sumName }
+  const overAggregate = {
+    init: () => ({ keys: {}, wm: null }),
+    record(st, item, cfg) {
+      const row = item.row;
+      const k = row[cfg.key];
+      const ts = U.toSec(row[cfg.timeField]);
+      const s = st.keys[k] || (st.keys[k] = { rows: {}, count: 0, sum: 0, last: null, cleanup: null, timers: [] });
+      if (s.last != null && ts <= s.last) return { out: [], ev: { type: 'late', key: k, row, last: hms(Math.floor(s.last)) } };
+      const fresh = !s.rows[ts];
+      (s.rows[ts] ||= []).push(row);
+      if (fresh && !s.timers.includes(ts)) s.timers.push(ts);
+      let cleanup = null;
+      if (s.cleanup == null || s.cleanup < ts + cfg.preceding + 0.001) {
+        s.cleanup = ts + cfg.preceding * 1.5 + 0.001;
+        s.timers.push(s.cleanup);
+        cleanup = hms(Math.floor(s.cleanup));
+      }
+      return { out: [], absorb: true, touched: `${k}|${row[cfg.idField]}`, ev: { type: 'buffer', key: k, row, timer: hms(ts), newTimer: fresh, cleanup, wm: st.wm, last: s.last != null ? hms(Math.floor(s.last)) : null } };
+    },
+    watermark(st, item, cfg) {
+      st.wm = item.time;
+      const now = U.toSec(item.time);
+      const out = [];
+      const firings = [];
+      for (;;) {
+        const due = Object.entries(st.keys).flatMap(([k, s]) => s.timers.filter((t) => t <= now).map((t) => ({ k, t })))
+          .sort((a, b) => a.t - b.t || a.k - b.k)[0];
+        if (!due) break;
+        const s = st.keys[due.k];
+        s.timers = s.timers.filter((t) => t !== due.t);
+        const f = { k: Number(due.k), t: hms(Math.floor(due.t)), rows: [], retracted: [] };
+        if (s.cleanup != null && s.cleanup <= due.t) {
+          f.type = 'cleanup';
+          delete st.keys[due.k];
+          firings.push(f);
+          continue;
+        }
+        const inputs = s.rows[due.t];
+        if (inputs) {
+          for (const [tsKey, rows] of Object.entries(s.rows)) {
+            if (due.t - Number(tsKey) > cfg.preceding) {
+              for (const r of rows) { s.count -= 1; s.sum = add(s.sum, -r[cfg.sumField]); f.retracted.push(r); }
+              delete s.rows[tsKey];
+            }
+          }
+          for (const r of inputs) { s.count += 1; s.sum = add(s.sum, r[cfg.sumField]); }
+          for (const r of inputs) {
+            const o = { ...r, [cfg.countName]: s.count, [cfg.sumName]: s.sum };
+            f.rows.push(o);
+            out.push(rec('+I', o));
+          }
+          f.type = 'emit';
+        } else {
+          f.type = 'stale';
+        }
+        s.last = due.t;
+        firings.push(f);
+      }
+      return { out: [...out, wm(item.time)], ev: { type: firings.length ? 'fire' : 'wm', time: item.time, firings, rows: out.map((o) => o.row) } };
+    },
+    view(st, cfg) {
+      const kl = cfg.keyLabel || cfg.key;
+      const entries = Object.entries(st.keys).sort(([a], [b]) => a - b);
+      const rows = entries.flatMap(([k, s]) => Object.entries(s.rows)
+        .sort(([a], [b]) => a - b)
+        .flatMap(([ts, rs]) => rs.map((r) => ({
+          key: `${k}|${r[cfg.idField]}`,
+          cells: [k, r[cfg.idField], r[cfg.timeField], U.money(r[cfg.sumField]), s.last != null && Number(ts) <= s.last ? 'in sum' : 'waiting'],
+        }))));
+      const sums = entries.filter(([, s]) => s.last != null)
+        .map(([k, s]) => `${kl} ${k}, ${s.count} order${s.count === 1 ? '' : 's'}, ${U.money(s.sum)}`);
+      const timers = entries.flatMap(([, s]) => s.timers.filter((t) => Number.isInteger(t))).sort((a, b) => a - b).map(hms);
+      return {
+        title: `Rows per ${kl}, within the range`,
+        cols: [kl, cfg.idField, cfg.timeField, cfg.sumField, ''],
+        rows,
+        footer: `sums: ${sums.join('; ') || 'none yet'}. timers: ${[...new Set(timers)].join(', ') || 'none'}`,
+      };
+    },
+    say(ev) {
+      switch (ev.type) {
+        case 'buffer': return `The row is buffered under its event time, ${ev.timer}, until the watermark reaches it.`;
+        case 'late': return `The row is no newer than the last time this key has emitted, ${ev.last}, so it's late, and dropped.`;
+        case 'fire': return `The watermark reaches a buffered row's time. Its result is computed and emitted.`;
+        case 'wm': return `The watermark hasn't reached any buffered row, so nothing is emitted. It's forwarded.`;
+      }
+      return '';
+    },
+  };
+
   // ---------- Deduplication ----------
 
   // ROW_NUMBER() ... ORDER BY proc_time ASC = 1: keep the first row to arrive for each key.
@@ -1138,7 +1243,7 @@ const Ops = (() => {
   };
 
   return {
-    kafkaSource, upsertKafkaSource, calc, changelogNormalize, windowAggregate, sessionWindowAggregate,
+    kafkaSource, upsertKafkaSource, calc, changelogNormalize, windowAggregate, sessionWindowAggregate, overAggregate,
     groupAggregate, procTimeDedup, rowTimeDedup, retractRank, fastTop1,
     regularJoin, intervalJoin, lookupJoin, temporalJoin, lateralSnapshotJoin, match, upsertMaterializer, external,
     kafkaSink, upsertKafkaSink, changelogKafkaSink,
