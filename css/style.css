@@ -121,7 +121,9 @@ kbd { border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4p
 .hero-inner { max-width: 1440px; margin: 0 auto; padding: 72px 24px 36px; }
 .hero h1 { font-size: clamp(2.1rem, 5.2vw, 3.6rem); letter-spacing: -0.025em; text-wrap: balance; }
 .subtitle { font-family: var(--font-display); font-weight: 500; font-size: clamp(1.15rem, 2.2vw, 1.5rem); line-height: 1.3; color: var(--ink); margin-top: 12px; }
-/* When the subtitle doesn't fit on one line, it breaks after the colon. */
+/* The subtitle breaks after the colon, and never sets the hero's width (which would push the
+   graph to the far right): each half stays together, and the whole is no wider than its second half. */
+.subtitle { max-width: 22em; }
 .subtitle span { display: inline-block; text-wrap: balance; }
 .lede { font-size: 1.15rem; color: var(--ink-2); max-width: 58ch; margin-top: 18px; }
 
