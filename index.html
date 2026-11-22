@@ -31,6 +31,67 @@
     </nav>
 
     <main id="main">
+      <section class="primer" id="start" aria-labelledby="start-h">
+        <h2 id="start-h">Before you start</h2>
+        <p>These patterns assume you know SQL well, and have some experience with Apache Kafka® and
+          stream processing. These are the topics the page relies on most.</p>
+
+        <dl class="legend">
+          <div>
+            <dt>SQL</dt>
+            <dd><code>GROUP BY</code>, joins, and window functions such as
+              <code>ROW_NUMBER() OVER (PARTITION BY … ORDER BY …)</code>, which deduplication relies on.</dd>
+          </div>
+          <div>
+            <dt>Kafka</dt>
+            <dd>Topics, keys, and partitions. For the upsert examples, how a compacted topic keeps the
+              latest value for each key, and how a null value (a tombstone) deletes it.</dd>
+          </div>
+          <div>
+            <dt>Event time and watermarks</dt>
+            <dd>Why events arrive out of order, and how a watermark decides when a time-based result,
+              such as a window, is complete.</dd>
+          </div>
+          <div>
+            <dt>Changelogs</dt>
+            <dd>A Flink SQL query over a stream produces a stream of changes, not a result set.
+              Understanding why some results are append-only, and others are updated, is the key to
+              most of these patterns.</dd>
+          </div>
+        </dl>
+
+        <div class="resources">
+          <div>
+            <h3>Watch</h3>
+            <ul>
+              <li><a href="https://www.youtube.com/watch?v=2R6ZGh6nNiA">How Streaming SQL Uses Watermarks</a>:
+                event time, watermarks, and when a window fires.</li>
+              <li><a href="https://www.youtube.com/watch?v=nlW0INe09U8">Troubleshooting Changelog Modes</a>:
+                append-only, upsert, and retract streams, and how they shape a job.</li>
+              <li><a href="https://www.youtube.com/watch?v=LOmHQvYFQdw">Using EXPLAIN for Troubleshooting</a>:
+                how to read the plans shown in each pattern's details.</li>
+            </ul>
+            <p class="resources-note">Videos from Confluent Developer.</p>
+          </div>
+          <div>
+            <h3>Read</h3>
+            <ul>
+              <li><a href="https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/table/concepts/dynamic_tables/">Dynamic Tables</a>:
+                how Flink SQL treats a stream as a changing table.</li>
+              <li><a href="https://nightlies.apache.org/flink/flink-docs-stable/docs/concepts/time/">Timely Stream Processing</a>:
+                event time and watermarks.</li>
+              <li><a href="https://nightlies.apache.org/flink/flink-docs-stable/docs/connectors/table/upsert-kafka/">Upsert Kafka connector</a>:
+                keys, upserts, and tombstones.</li>
+            </ul>
+            <p class="resources-note">From the Apache Flink® documentation.</p>
+          </div>
+        </div>
+
+        <p>If this is all new to you, start with <a href="#filter">Filtering and projection</a>, then
+          <a href="#dedup">Deduplication</a>, the <a href="#windows-tumble">tumbling window</a>, and
+          <a href="#aggregation">Non-windowed aggregation</a>. The later patterns build on these.</p>
+      </section>
+
       <section class="primer" id="reading" aria-labelledby="reading-h">
         <h2 id="reading-h">How to read the diagrams</h2>
         <p>Every pattern is a Flink job: an Apache Kafka® source on the left, a Kafka sink on the right, and the
