@@ -1,0 +1,10 @@
+# Flink 2.3-SNAPSHOT, EXPLAIN CHANGELOG_MODE, optimized physical plans
+
+## Statement 1
+
+Sink(table=[default_catalog.default_database.deduped_orders], fields=[order_id, store_id, total, event_time], changelogMode=[NONE])
++- Rank(strategy=[AppendFastStrategy], rankType=[ROW_NUMBER], rankRange=[rankStart=1, rankEnd=1], partitionBy=[order_id], orderBy=[order_id ASC], select=[order_id, store_id, total, event_time], changelogMode=[I,UA,D])
+   +- Exchange(distribution=[hash[order_id]], changelogMode=[I])
+      +- Calc(select=[order_id, store_id, total, Reinterpret(event_time) AS event_time], changelogMode=[I])
+         +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+

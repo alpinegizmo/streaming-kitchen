@@ -71,6 +71,27 @@ the same input, so the results can be compared.
   the watermark emits it and marks the key as emitted; later rows for the key are ignored.
 - Keeping the last row (`DESC`) gives an updating stream (checked).
 
+**c) Ordered by order_id** (added later). The same orders, `ORDER BY order_id ASC`.
+- Verified on a 2.3 snapshot (`verification/dedup-by-id.sql`). Not a time attribute, so no Deduplicate:
+  `Rank(AppendFastStrategy)`, run by `FastTop1Function`, which keeps the whole first row per key and
+  replaces it only with a row that sorts strictly ahead (as `+U`). Ties everywhere, so the first copy
+  wins and only `+I` is ever sent, but the plan declares `[I,UA,D]`, so the sink is upsert-kafka.
+- Flink 2.3.0 declares the Rank insert-only and accepts an append-only sink; that's the planner bug
+  fixed in 2.3.1 by FLINK-40368 (checked: 2.3 and 2.4 snapshots reject the append-only sink).
+
+**d) Updating input** (added later). Each store's first order that wasn't cancelled.
+- `order_status` (upsert-kafka) is already unique by `order_id`, so this partitions by `store_id`:
+  `ROW_NUMBER() OVER (PARTITION BY store_id ORDER BY event_time ASC) = 1`, `WHERE status <> 'cancelled'`.
+- Graph: upsert Source → hash(order_id) → ChangelogNormalize (filter pushed in) `RETRACT` →
+  hash(store_id) → `Rank(RetractStrategy)` `[I,UA,D]` → Sink (upsert-kafka). Over an updating input
+  the planner keeps the Rank instead of a Deduplicate, for every ordering (checked).
+- Semantics (`RetractableTopNFunction`, top 1 without the row number): every row per partition is kept,
+  sorted. A new first row emits `−D` for the displaced row, then `+I`; retracting the first row emits
+  `−D`, then `+I` for the next; other rows are stored or removed silently. It never emits `+U`, though
+  the plan lists `UA`. Event time is only a sort key: no watermark, nothing late.
+- Inputs: 203 and 204 are stored without output; cancelling 201 promotes 203; 205 (earlier event time,
+  later arrival) displaces 202; cancelling 204 emits nothing.
+
 ### 3.3 Non-windowed aggregation
 Three variants, all verified on 2.3 (`verification/aggregation.sql`, `upsert-materializer.sql`), with
 emit rules from `GroupAggHelper.processElement` and the debezium-json format from

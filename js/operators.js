@@ -424,6 +424,114 @@ const Ops = (() => {
     },
   };
 
+  // Rank with RetractStrategy: ROW_NUMBER() ... = 1 over an updating input, which the planner
+  // can't turn into a Deduplicate. Mirrors RetractableTopNFunction in Flink 2.3, on its path for a
+  // top-1 without the row number in the output (emitRecordsWithoutRowNumber and
+  // retractRecordWithoutRowNumber). Every row of each partition is kept, sorted, because a
+  // retraction of the first row has to promote the next:
+  //   - a row that sorts first emits -D for the row it displaces (if any), then +I for itself
+  //   - a row that doesn't sort first is stored, and nothing is emitted
+  //   - retracting the first row emits -D for it, then +I for the next row (if any)
+  //   - retracting any other row only removes it from state
+  // Rows with equal sort keys keep their arrival order. Watermarks pass through unused.
+  //   cfg: { key, keyLabel, sortField, desc, idField, stateFields, stateFormat }
+  const retractRank = {
+    init: () => ({ parts: {} }),
+    record(st, item, cfg) {
+      const row = item.row;
+      const k = row[cfg.key];
+      const rows = st.parts[k] || (st.parts[k] = []);
+      const cmp = (a, b) => (U.toSec(a[cfg.sortField]) - U.toSec(b[cfg.sortField])) * (cfg.desc ? -1 : 1);
+      const rowKey = (r) => `${k}|${r[cfg.idField]}`;
+      if (item.kind === '+I' || item.kind === '+U') {
+        const prev = rows[0];
+        let i = rows.findIndex((r) => cmp(row, r) < 0);
+        if (i < 0) i = rows.length;
+        rows.splice(i, 0, row);
+        const ev = { key: k, row, prev, rank: i + 1, size: rows.length };
+        if (i > 0) return { out: [], absorb: true, touched: rowKey(row), ev: { ...ev, type: 'store' } };
+        return { out: prev ? [rec('-D', prev), rec('+I', row)] : [rec('+I', row)], absorb: true, touched: rowKey(row), ev: { ...ev, type: prev ? 'displace' : 'first' } };
+      }
+      const i = rows.findIndex((r) => same(r, row));
+      if (i < 0) return { out: [], absorb: true, ev: { type: 'retract-missing', key: k, row } };
+      rows.splice(i, 1);
+      const next = rows[0];
+      if (!rows.length) delete st.parts[k];
+      const ev = { key: k, row, next, rank: i + 1, size: rows.length };
+      if (i > 0) return { out: [], absorb: true, ev: { ...ev, type: 'remove' } };
+      return { out: next ? [rec('-D', row), rec('+I', next)] : [rec('-D', row)], absorb: true, touched: next && rowKey(next), ev: { ...ev, type: next ? 'promote' : 'empty' } };
+    },
+    watermark: (st, item) => ({ out: [wm(item.time)], ev: { type: 'wm', time: item.time } }),
+    view(st, cfg) {
+      const fields = cfg.stateFields;
+      return {
+        title: `Every row per ${cfg.keyLabel || cfg.key}, sorted by ${cfg.sortField}`,
+        cols: [cfg.keyLabel || cfg.key, 'rank', ...fields],
+        rows: Object.entries(st.parts).sort(([a], [b]) => a - b).flatMap(([k, rows]) => rows.map((r, i) => ({
+          key: `${k}|${r[cfg.idField]}`,
+          cells: [k, i + 1, ...fields.map((f) => (cfg.stateFormat?.[f] ? cfg.stateFormat[f](r[f]) : r[f]))],
+        }))),
+      };
+    },
+    say(ev) {
+      switch (ev.type) {
+        case 'first': return `The first row for key ${ev.key}. Rank stores it and emits it.`;
+        case 'displace': return `The row sorts ahead of the current first row for key ${ev.key}, which is deleted, and the new one is inserted.`;
+        case 'store': return `The row doesn't sort first for key ${ev.key}. Rank stores it anyway, in case it's needed later, and emits nothing.`;
+        case 'promote': return `The first row for key ${ev.key} is retracted. Rank deletes it, and inserts the next row in its place.`;
+        case 'empty': return `The only row for key ${ev.key} is retracted. Rank deletes it, and the key is gone.`;
+        case 'remove': return `A row that isn't first for key ${ev.key} is retracted. Rank removes it from state, and emits nothing.`;
+        case 'wm': return `The watermark passes through. Rank doesn't use it.`;
+      }
+      return '';
+    },
+  };
+
+  // Rank with AppendFastStrategy, as a top 1 not ordered by processing time: ROW_NUMBER() ... = 1
+  // over an append-only input, ordered by something other than a time attribute, so the planner
+  // can't turn it into a Deduplicate. Mirrors FastTop1Function (FastTop1Helper) in Flink 2.3:
+  //   - the first row for a key is stored, whole, and emitted as +I
+  //   - a later row replaces it only if its sort key is strictly ahead: -U (if downstream needs
+  //     it), then +U; otherwise it's ignored
+  // Watermarks pass through unused.
+  //   cfg: { key, sortField, desc, generateUpdateBefore, stateFields, stateFormat }
+  const fastTop1 = {
+    init: () => ({ rows: {} }),
+    record(st, item, cfg) {
+      const row = item.row;
+      const k = row[cfg.key];
+      const prev = st.rows[k];
+      if (!prev) {
+        st.rows[k] = row;
+        return { out: [rec('+I', row)], touched: k, ev: { type: 'first', key: k, row } };
+      }
+      const a = row[cfg.sortField], b = prev[cfg.sortField];
+      const ahead = cfg.desc ? a > b : a < b;
+      if (!ahead) return { out: [], touched: k, ev: { type: 'not-ahead', key: k, row, prev } };
+      st.rows[k] = row;
+      const out = cfg.generateUpdateBefore ? [rec('-U', prev), rec('+U', row)] : [rec('+U', row)];
+      return { out, touched: k, ev: { type: 'replace', key: k, row, prev } };
+    },
+    watermark: (st, item) => ({ out: [wm(item.time)], ev: { type: 'wm', time: item.time } }),
+    view(st, cfg) {
+      const fields = cfg.stateFields;
+      return {
+        title: `First row per ${cfg.key}`,
+        cols: fields,
+        rows: Object.entries(st.rows).map(([k, r]) => ({ key: k, cells: fields.map((f) => (cfg.stateFormat?.[f] ? cfg.stateFormat[f](r[f]) : r[f])) })),
+      };
+    },
+    say(ev, cfg) {
+      switch (ev.type) {
+        case 'first': return `The first row for key ${ev.key}. Rank stores the whole row and emits it.`;
+        case 'not-ahead': return `Key ${ev.key} already has a row, and this one's ${cfg.sortField} doesn't sort ahead of it, so it's ignored.`;
+        case 'replace': return `This row sorts ahead of the stored row for key ${ev.key}, so it replaces it, as an update.`;
+        case 'wm': return `The watermark passes through. Rank doesn't use it.`;
+      }
+      return '';
+    },
+  };
+
   // Non-windowed GROUP BY (GroupAggregate). One accumulator per key, kept forever unless
   // state TTL is set. Mirrors GroupAggHelper.processElement in Flink 2.3:
   //   - the first row for a key emits +I
@@ -1031,7 +1139,7 @@ const Ops = (() => {
 
   return {
     kafkaSource, upsertKafkaSource, calc, changelogNormalize, windowAggregate, sessionWindowAggregate,
-    groupAggregate, procTimeDedup, rowTimeDedup,
+    groupAggregate, procTimeDedup, rowTimeDedup, retractRank, fastTop1,
     regularJoin, intervalJoin, lookupJoin, temporalJoin, lateralSnapshotJoin, match, upsertMaterializer, external,
     kafkaSink, upsertKafkaSink, changelogKafkaSink,
   };
