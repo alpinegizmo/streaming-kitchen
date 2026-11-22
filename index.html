@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Stream Processing Patterns in Apache Flink® SQL</title>
-  <meta name="description" content="Animated examples of the basic stream processing patterns in Apache Flink® SQL, with Apache Kafka® sources and sinks: job graphs, stream types, state and watermarks.">
+  <title>A streaming cookbook</title>
+  <meta name="description" content="Apache Flink® SQL recipes for a chain of pizza shops: animated job graphs, stream types, state, and watermarks, with Apache Kafka® sources and sinks.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
@@ -13,15 +13,16 @@
   <script>try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}</script>
 </head>
 <body>
-  <a class="skip" href="#main">Skip to the patterns</a>
+  <a class="skip" href="#main">Skip to the recipes</a>
 
   <header class="hero">
     <div class="hero-inner">
       <div class="hero-text">
-        <h1>Stream processing patterns in Apache&nbsp;Flink<sup class="tm">®</sup>&nbsp;SQL</h1>
-        <p class="lede">Watch records, state, and watermarks flow through the job graph of each basic
-          Apache Flink® SQL pattern. The examples follow a chain of
-          pizza shops, and the orders that are streaming in.</p>
+        <h1>A streaming cookbook</h1>
+        <p class="subtitle">Apache&nbsp;Flink® SQL recipes for a chain of pizza shops</p>
+        <p class="lede">Each recipe starts with a question the business needs answered, gives the SQL,
+          and shows the job Flink runs, step by step. The job graphs come from Flink's planner, and
+          the animations were checked against Flink itself.</p>
       </div>
       <!-- A job graph in miniature, drawn like the diagrams below; js/hero.js moves records through it. -->
       <svg class="hero-graph" viewBox="0 0 440 196" aria-hidden="true" focusable="false">
@@ -54,14 +55,14 @@
   </header>
 
   <div class="layout">
-    <nav class="toc" aria-label="Patterns">
+    <nav class="toc" aria-label="Recipes">
       <ol id="toc-list"></ol>
     </nav>
 
     <main id="main">
       <section class="primer" id="start" aria-labelledby="start-h">
         <h2 id="start-h">Before you start</h2>
-        <p>These patterns assume you know SQL well, and have some experience with Apache Kafka® and
+        <p>These recipes assume you know SQL well, and have some experience with Apache Kafka® and
           stream processing. These are the topics the page relies on most.</p>
 
         <dl class="legend">
@@ -84,7 +85,7 @@
             <dt>Changelogs</dt>
             <dd>A Flink SQL query over a stream produces a stream of changes, not a result set.
               Understanding why some results are append-only, and others are updated, is the key to
-              most of these patterns.</dd>
+              most of these recipes.</dd>
           </div>
         </dl>
 
@@ -97,7 +98,7 @@
               <li><a href="https://www.youtube.com/watch?v=nlW0INe09U8" target="_blank" rel="noopener">Troubleshooting Changelog Modes</a>:
                 append-only, upsert, and retract streams, and how they shape a job.</li>
               <li><a href="https://www.youtube.com/watch?v=LOmHQvYFQdw" target="_blank" rel="noopener">Using EXPLAIN for Troubleshooting</a>:
-                how to read the plans shown in each pattern's details.</li>
+                how to read the plans shown in each recipe's details.</li>
             </ul>
             <p class="resources-note">Videos from Confluent Developer.</p>
           </div>
@@ -117,12 +118,12 @@
 
         <p>If this is all new to you, start with <a href="#filter">Filtering and projection</a>, then
           <a href="#dedup">Deduplication</a>, the <a href="#windows-tumble">tumbling window</a>, and
-          <a href="#aggregation">Non-windowed aggregation</a>. The later patterns build on these.</p>
+          <a href="#aggregation">Non-windowed aggregation</a>. The later recipes build on these.</p>
       </section>
 
       <section class="primer" id="reading" aria-labelledby="reading-h">
         <h2 id="reading-h">How to read the diagrams</h2>
-        <p>Every pattern is a Flink job: an Apache Kafka® source on the left, a Kafka sink on the right, and the
+        <p>Every recipe is a Flink job: an Apache Kafka® source on the left, a Kafka sink on the right, and the
           operators the Flink SQL planner chose in between.</p>
 
         <dl class="legend">
@@ -170,7 +171,7 @@
 
       <section class="matrix" id="summary" aria-labelledby="summary-h">
         <h2 id="summary-h">Summary</h2>
-        <p>Every pattern at a glance: the state it keeps, what it uses watermarks for, the watermark
+        <p>Every recipe at a glance: the state it keeps, what it uses watermarks for, the watermark
           it sends downstream, the stream it writes, and the operators the planner adds. Each row
           links back to its animation.</p>
         <div class="matrix-wrap"></div>
@@ -188,7 +189,7 @@
       Contents
     </button>
   </div>
-  <nav class="toc-pop" id="toc-pop" popover aria-label="Patterns">
+  <nav class="toc-pop" id="toc-pop" popover aria-label="Recipes">
     <ol id="toc-pop-list"></ol>
   </nav>
 

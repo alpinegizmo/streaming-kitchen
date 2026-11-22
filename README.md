@@ -1,4 +1,6 @@
-# Stream processing patterns in Apache Flink® SQL
+# A streaming cookbook
+
+Apache Flink® SQL recipes for a chain of pizza shops.
 
 A single-page site with animated examples of the basic Apache Flink® SQL patterns, with Apache
 Kafka® sources and sinks. For each one it shows

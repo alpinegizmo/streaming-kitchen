@@ -41,7 +41,7 @@
       cell('Added by the planner', planner.length ? planner.join(', ') : '–'));
   }));
   document.querySelector('#summary .matrix-wrap').append(U.el('table', {},
-    U.el('thead', {}, U.el('tr', {}, ...['Pattern', 'State', 'Watermarks used for', 'Output watermark', 'Output', 'Added by the planner'].map((h) => U.el('th', { scope: 'col' }, h)))),
+    U.el('thead', {}, U.el('tr', {}, ...['Recipe', 'State', 'Watermarks used for', 'Output watermark', 'Output', 'Added by the planner'].map((h) => U.el('th', { scope: 'col' }, h)))),
     U.el('tbody', {}, ...matrixRows)));
 
   // Deep links: #windows-hop opens the Hop tab of the windows section. Any link into the page

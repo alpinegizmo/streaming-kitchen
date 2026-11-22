@@ -229,12 +229,12 @@ window's state. A store that only appears on one side still comes out, with a nu
 other side, as store 9 does twice. Because the join only emits a window once it's complete, that
 null is final. A regular outer join would emit it straight away, and retract it if a match
 turned up later.</p>
-<p>That's the difference from the regular join pattern: no updates, and no state that grows
+<p>That's the difference from the regular join recipe: no updates, and no state that grows
 forever. The price is that results only come out when a window closes.</p>
 <p>A window join can also join raw events, such as each order with its kitchen ticket, by
 <code>order_id</code>. But the two only meet if they fall in the same window. Order 103 was placed
 at 12:09:40 and came out of the oven at 12:16:50, so they'd be in different windows, and never
-match. To pair up related events, use an interval join, like the event correlation pattern.</p>
+match. To pair up related events, use an interval join, like the event correlation recipe.</p>
 <p>The graph draws each LocalWindowAggregate and GlobalWindowAggregate pair as one WindowAggregate,
 and leaves out the Calcs that only drop columns, and the one that applies <code>COALESCE</code>.
 These semantics come from <code>WindowJoinOperator</code> in Flink 2.3.</p>`,
