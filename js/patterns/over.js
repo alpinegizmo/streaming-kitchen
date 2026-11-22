@@ -50,7 +50,7 @@ CREATE TABLE orders_with_recent_sales (
 -- Connection and format options are left out.`,
     matrix: { state: 'The rows in the range per key, and a running aggregate', watermarks: 'Trigger results; lateness is per key', watermarksOut: 'Passed through, after the rows it releases' },
     facts: {
-      state: 'For each store, every order in the last 5 minutes, the orders still waiting for the watermark, and a running count and sum. An order leaves state when it falls out of the range, and a quiet store\'s state is cleared between 5 and 7½ minutes after its newest order, once the watermark gets there.',
+      state: 'For each store, every order in the last 5 minutes, the orders still waiting for the watermark, and a running count and sum. An order leaves state when it drops out of a newer order\'s range, and a quiet store\'s state is cleared between 5 and 7½ minutes after its newest order, once the watermark gets there.',
       watermarks: 'They decide when an order\'s result can be computed: once the watermark reaches its event time, no earlier order for that store can still arrive. An order no newer than the last one its store has emitted is late, and dropped.',
       output: 'Append-only. Every order comes out once, with its result, and is never updated.',
     },

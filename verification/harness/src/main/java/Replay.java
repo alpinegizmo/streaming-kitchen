@@ -184,6 +184,10 @@ public class Replay {
         env.setBufferTimeout(0);
         StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
         tEnv.getConfig().set("table.local-time-zone", "UTC");
+        // A spec can set table options, such as table.exec.state.ttl, to check how they change a plan.
+        if (spec.has("config")) {
+            spec.get("config").fields().forEachRemaining(o -> tEnv.getConfig().set(o.getKey(), o.getValue().asText()));
+        }
 
         // The inputs, in the simulator's order.
         List<Event> events = new ArrayList<>();

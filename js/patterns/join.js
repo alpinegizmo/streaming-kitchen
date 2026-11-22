@@ -235,7 +235,7 @@ ON CONFLICT DO DEDUPLICATE;`,
       watermarksOut: 'None: stores has no watermark, so the join never emits one',
     },
     facts: {
-      state: 'Four operators keep state. The join keeps <strong>every order ever placed</strong>, because orders have no unique key, so it grows forever. ChangelogNormalize keeps the latest row per store, GroupAggregate an accumulator per store and manager, and the SinkUpsertMaterializer the rows for each store.',
+      state: 'Four operators keep state. The join keeps <strong>every order ever placed</strong>, because orders have no unique key, so it grows forever. ChangelogNormalize keeps the latest row per store, GroupAggregate an accumulator per store, city, and manager, and the SinkUpsertMaterializer the rows for each store.',
       watermarks: 'Not used. As before, stores has no watermark, so none leaves the join.',
       output: 'Upsert, keyed by <code>store_id</code>, but noisy: every change to a store\'s total reaches the topic as a tombstone, then a new row. One manager change writes six records, two of them with wrong totals.',
     },

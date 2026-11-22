@@ -99,8 +99,8 @@ watermarks, the keys and namespaces in state, every timer, and the values of the
 simulator's facts name (accumulators, stored rows, buffered rows by time, and so on). Window aggregations and Rank's
 FastTop1Function hold records in memory until a checkpoint, so the harness takes one before each
 comparison. Output fields the simulator doesn't model (a join's copy of the other side's key, say)
-and input fields it leaves out are listed, not compared. The same snapshot gating as
-`run-replay.sh` applies. What the checks found, and what's left, is in
+and input fields it leaves out are listed, not compared. A spec can also set table options in a `config` field (a state TTL, say), for a one-off check
+of how they change an operator. The same snapshot gating as `run-replay.sh` applies. What the checks found, and what's left, is in
 `verification/STATE-PLAN.md`.
 
 ## Screenshots

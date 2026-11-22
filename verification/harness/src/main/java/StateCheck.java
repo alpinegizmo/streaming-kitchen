@@ -583,6 +583,12 @@ public class StateCheck {
             return "null";
         }
         try {
+            // With a state TTL, a value is wrapped with its last-access time; its serializer holds
+            // the time's serializer, then the value's.
+            if (v instanceof org.apache.flink.runtime.state.ttl.TtlValue) {
+                Object[] fs = (Object[]) field(ser, "fieldSerializers");
+                return value(((org.apache.flink.runtime.state.ttl.TtlValue<?>) v).getUserValue(), fs[1]);
+            }
             if (v instanceof RowData && ser instanceof RowDataSerializer) {
                 LogicalType[] types = (LogicalType[]) field(ser, "types");
                 RowData r = (RowData) v;

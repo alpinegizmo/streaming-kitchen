@@ -171,5 +171,21 @@ matches the simulator's step model exactly.
      now does both (`applyDue` and `applyLimit` in `js/operators.js`), the panel marks changes
      that are due but not yet applied, and the captions say when changes are applied. All values
      match on the 2.4 snapshot, and the replay still passes.
-5. **Docs:** update the README and the verification line in the footer, then do a manual pass over
-   the per-recipe `state:` prose ("never cleared" and similar) against what the harness reports.
+5. **Docs, and the recipes' state prose: done.** The README describes `run-state.sh`. Each
+   recipe's `state:` fact, its summary-table entry, and the state sentences in its details were
+   checked against the harness:
+   - Confirmed by the checks that pass: every claim about what's kept per key, slice, window, or
+     session, and when it's freed; the timers (window ends, hop and cumulate steps, OVER's clean-up
+     timer between 5 and 7½ minutes, the temporal join's one timer per pizza, event-time dedup's
+     timer moving to an earlier copy); state that's never cleared (no timers, keys only grow); the
+     interval join's bounds (each delivery leaves once the combined watermark passes its time);
+     and LATERAL SNAPSHOT's lazy changes.
+   - Checked separately: MATCH_RECOGNIZE's "never more than two partial matches" (Flink's NFA
+     holds the simulator's partial matches plus its start state); event-time dedup's "That flag
+     can expire with a state TTL. The waiting row and its timer can't" (in
+     RowTimeDeduplicateKeepFirstRowFunction only `already-emitted-state-boolean` gets a TTL);
+     ChangelogNormalize's "A row identical to the stored one is swallowed, but only when state TTL
+     is off" (with `table.exec.state.ttl` set through a spec's new `config` field, step 6 of
+     `filter/upsert` forwards the identical row, and nothing else changes).
+   - Not checked: the lookup join's "None in Flink" (it isn't replayed), and the general advice
+     about what a state TTL does to joins.

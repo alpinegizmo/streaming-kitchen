@@ -318,9 +318,9 @@ JOIN LATERAL SNAPSHOT(
        on_time => DESCRIPTOR(valid_from)) AS c
   ON o.pizza_id = c.pizza_id;`,
     ddl: ordersDdl,
-    matrix: { state: 'The current costs; while loading, buffered orders and pending changes', watermarks: 'Ends the load phase, and decides when each cost change takes effect', watermarksOut: 'The orders watermark only, held back until loading ends. The costs watermark is never forwarded' },
+    matrix: { state: 'The current costs and pending changes; while loading, buffered orders', watermarks: 'Ends the load phase, and decides when each cost change takes effect', watermarksOut: 'The orders watermark only, held back until loading ends. The costs watermark is never forwarded' },
     facts: {
-      state: 'The current cost rows, per pizza, and cost changes that haven\'t been applied yet. Orders are buffered only during the load phase. ChangelogNormalize also keeps the last row of every pizza.',
+      state: 'The current cost rows, per pizza, and cost changes that haven\'t been applied yet. Orders are buffered during the load phase, and joined at the first orders watermark after it. Until then, a new order for a pizza that still has buffered orders waits with them. ChangelogNormalize also keeps the last row of every pizza.',
       watermarks: 'The costs watermark decides when the load phase ends, and when each cost change becomes visible. Orders don\'t wait for watermarks in the join phase, and the order watermark is forwarded.',
       output: 'Append-only. Each order is joined once, with the cost that\'s current when it\'s processed. Not deterministic.',
     },
