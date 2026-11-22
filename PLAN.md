@@ -103,6 +103,7 @@ NOTHING`, each of which plans the sink with `upsertMaterialize=[true]` and makes
 | **Hop** 15 min / 5 min | Sales in the last 15 minutes, updated every 5 | State is kept per **slice**, so each event lands in one slice and each window fire merges 3 slices |
 | **Cumulate** 1 h / 15 min | Sales so far this hour, every 15 minutes | Early, growing results that are still append-only. Slices are shared |
 | **Session** 10 min gap, `PARTITION BY store_id` | How long was each store's lunch rush? | Windows **merge** when a new event bridges a gap. The end of a window isn't known until the watermark passes last event + gap |
+| **Updating input** (added later) Tumble 5 min over `order_status` (upsert-kafka), `WHERE status <> 'cancelled'` | Sales every 5 minutes, not counting cancelled orders | Window aggregation accepts updating input, and its output is still append-only. A cancellation retracts the order from its window, but only until the window fires; after that it's late, and dropped |
 
 - Graph: Source → WindowAggregate → Sink (kafka), all `[I]` (`verification/windows.sql`). Tumble, hop and
   cumulate are planned as Calc → LocalWindowAggregate → hash(store_id) → GlobalWindowAggregate → Calc,
@@ -114,6 +115,14 @@ NOTHING`, each of which plans the sink with `upsertMaterialize=[true]` and makes
   hour; sessions merge overlapping windows and fire at last event + gap.
 - State panels show slices (or sessions) and the pending timers. Hop and cumulate use store 7 only, to
   keep the output readable.
+- Updating input: upsert source → hash(order_id) → ChangelogNormalize (the filter is pushed into it as
+  `condition=`) → `[I,UB,UA,D]` → the two-phase window aggregate with `COUNT_RETRACT`/`SUM_RETRACT` →
+  `[I]`. `event_time` is when the order was placed, so ChangelogNormalize's `−D` carries the original
+  time and lands in the window that counted the order. From Flink's source: a late record is dropped
+  whether it accumulates or retracts (`AbstractSliceSyncStateWindowAggProcessor.processElement`), and a
+  window whose `COUNT(*)` is 0 isn't emitted (`WindowIsEmptySupplier`). Order 101 is cancelled in time,
+  103 too late, and 104 leaves store 7's second window empty. Window Top-N, window dedup, window join
+  and OVER reject updating input; a regular join or non-windowed GROUP BY loses the time attribute.
 
 ### 3.5 Event correlation (interval join)
 - **Question:** Which orders haven't been delivered within 45 minutes?

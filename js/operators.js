@@ -167,6 +167,9 @@ const Ops = (() => {
   //     window if it wasn't empty, and frees its first slice
   //   - cumulate: each step merges its slice into the window's first slice, which is shared,
   //     and emits it; the next step is scheduled until the window reaches its maximum size
+  //   - a retraction (-U or -D) takes its row back out of the slice (COUNT_RETRACT, SUM_RETRACT
+  //     in AggCombiner), but is late, and dropped, on exactly the same terms as an insert
+  //   - a window whose COUNT(*) is zero when it fires isn't emitted (WindowIsEmptySupplier)
   //   cfg: { kind: 'tumble' | 'hop' | 'cumulate', size, slide (hop), step (cumulate),
   //          key, keyLabel, timeField, sumField }   (all durations in seconds)
   const windowAggregate = {
@@ -181,19 +184,20 @@ const Ops = (() => {
       const lastWindowEnd = cfg.kind === 'hop' ? sliceEnd - sliceSize + cfg.size
         : cfg.kind === 'cumulate' ? winStart(sliceEnd) + cfg.size : sliceEnd;
       const slice = { start: hm(sliceEnd - sliceSize), end: hm(sliceEnd) };
+      const retract = item.kind === '-U' || item.kind === '-D';
       if (fired(st, sliceEnd)) {
-        if (fired(st, lastWindowEnd)) return { out: [], ev: { type: 'late', row, slice, wm: st.wm } };
+        if (fired(st, lastWindowEnd)) return { out: [], ev: { type: 'late', retract, row, slice, wm: st.wm } };
         throw new Error('A record for a fired slice of an unfired window: the example data should avoid this case.');
       }
       const key = `${k}|${sliceEnd}`;
       const created = !st.slices[key];
       const s = st.slices[key] || (st.slices[key] = { k, start: sliceEnd - sliceSize, end: sliceEnd, count: 0, sum: 0 });
-      s.count += 1;
-      s.sum = add(s.sum, row[cfg.sumField]);
+      s.count += retract ? -1 : 1;
+      s.sum = add(s.sum, retract ? -row[cfg.sumField] : row[cfg.sumField]);
       let timer = sliceEnd;
       while (fired(st, timer)) timer += sliceSize;
       st.timers[`${k}|${timer}`] = { k, t: timer };
-      return { out: [], absorb: true, touched: key, ev: { type: created ? 'new-slice' : 'accumulate', row, slice, acc: { ...s }, timer: hm(timer), wm: st.wm } };
+      return { out: [], absorb: true, touched: key, ev: { type: retract ? 'retract' : created ? 'new-slice' : 'accumulate', row, slice, acc: { ...s }, timer: hm(timer), wm: st.wm } };
     },
     watermark(st, item, cfg) {
       st.wm = item.time;
@@ -213,6 +217,7 @@ const Ops = (() => {
           acc = st.slices[`${k}|${end}`];
           delete st.slices[`${k}|${end}`];
           if (acc) f.freed.push(label(acc));
+          if (acc && acc.count === 0) { f.empty = true; acc = null; }
         } else if (cfg.kind === 'hop') {
           const start = end - cfg.size;
           f.start = hm(start);
@@ -268,6 +273,7 @@ const Ops = (() => {
       switch (ev.type) {
         case 'new-slice': return `The record opens the ${ev.slice.start}–${ev.slice.end} slice, with a timer for ${ev.timer}.`;
         case 'accumulate': return `The record is added to the ${ev.slice.start}–${ev.slice.end} slice.`;
+        case 'retract': return `The retraction takes the row back out of the ${ev.slice.start}–${ev.slice.end} slice.`;
         case 'late': return `Every window the record belongs to has already fired, so it's late, and dropped.`;
         case 'fire': return `The watermark passes the end of a window, which fires.`;
         case 'wm': return `The watermark hasn't reached any timer, so nothing fires. It's forwarded.`;

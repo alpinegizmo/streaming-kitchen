@@ -367,11 +367,205 @@ the other windows, sessions can't be cut into slices, so the planner doesn't spl
 into local and global phases: it's a single WindowAggregate after the hash exchange.</p>`,
   });
 
+  // ---------- Updating input ----------
+  //
+  // The tumbling window again, over order_status, an upsert-kafka table. Cancelling an order
+  // retracts it from its window, but only until that window fires.
+
+  const statusRow = (order_id, store_id, status, total, event_time) => ({ key: order_id, value: { store_id, status, total, event_time } });
+  const placed = (id, store, total, time) => statusRow(id, store, 'placed', total, time);
+  const cancelled = (id, store, total, time) => statusRow(id, store, 'cancelled', total, time);
+
+  const updating = {
+    id: 'updating',
+    label: 'Updating input',
+    question: 'How much did each store sell, every 5 minutes, not counting cancelled orders?',
+    blurb: 'Now the input is <code>order_status</code>, an <code>upsert-kafka</code> table, and a cancelled order has to come back out of its window. It can, but only until the window fires.',
+    intro: 'order_status is keyed by order_id. Its event_time is when the order was placed, and a status change keeps it. Windows are 5 minutes long, and the watermark trails the newest order by 1 second. Press Play, or step through with the arrow keys.',
+    sql: `
+INSERT INTO store_sales
+SELECT window_start, window_end, store_id,
+       COUNT(*) AS orders,
+       SUM(total) AS sales
+FROM TUMBLE(
+  TABLE order_status,
+  DESCRIPTOR(event_time),
+  INTERVAL '5' MINUTES)
+WHERE status <> 'cancelled'
+GROUP BY window_start, window_end, store_id;`,
+    ddl: `
+CREATE TABLE order_status (
+  order_id    BIGINT,
+  store_id    INT,
+  status      STRING,
+  total       DECIMAL(10, 2),
+  event_time  TIMESTAMP(3),  -- when the order was placed
+  PRIMARY KEY (order_id) NOT ENFORCED,
+  WATERMARK FOR event_time AS event_time - INTERVAL '1' SECOND
+) WITH ('connector' = 'upsert-kafka', 'topic' = 'order_status');
+
+CREATE TABLE store_sales (
+  window_start  TIMESTAMP(3),
+  window_end    TIMESTAMP(3),
+  store_id      INT,
+  orders        BIGINT,
+  sales         DECIMAL(38, 2)
+) WITH ('connector' = 'kafka', 'topic' = 'store_sales');
+
+-- Connection and format options are left out.`,
+    matrix: { state: 'The last row per order, and an accumulator per key and window', watermarks: 'Trigger results, and set the deadline for retractions', watermarksOut: 'Passed through, after the windows it fires' },
+    facts: {
+      state: 'ChangelogNormalize keeps the last row of every order that hasn\'t been cancelled, so it can retract it. WindowAggregate keeps an accumulator per store and window, and frees it when the window fires.',
+      watermarks: 'They fire the windows, and so they set the deadline for cancellations. A cancellation counts only if it arrives before the watermark passes the end of the order\'s window.',
+      output: 'Append-only, although the input is updating. Each window is still emitted once, when it fires, so a plain Kafka topic can take it.',
+    },
+    graphLabel: 'Job graph: upsert-kafka source order_status, hash partitioned by order_id into ChangelogNormalize with the filter, which emits a retract stream, hash partitioned by store_id into WindowAggregate (tumble), then Kafka sink store_sales, which is append-only.',
+    graph: {
+      nodes: [
+        {
+          id: 'src', kind: 'source', op: 'upsertKafkaSource', title: 'Kafka source', lines: ['order_status', 'upsert-kafka'], sqlLines: [6],
+          cfg: {
+            topic: 'order_status', key: 'order_id', showKey: true, delay: 1, timeField: 'event_time',
+            columns: [{ f: 'store_id', num: true }, { f: 'status' }, { f: 'total', ...money }, { f: 'event_time' }],
+          },
+        },
+        {
+          id: 'cn', kind: 'op', op: 'changelogNormalize', title: 'ChangelogNormalize', lines: ["status <> 'cancelled'"],
+          stateful: true, planner: true, sqlLines: [6, 9],
+          cfg: {
+            key: 'order_id', condition: (r) => r.status !== 'cancelled', generateUpdateBefore: true,
+            stateTitle: 'Last row per order_id',
+            stateFields: ['order_id', 'store_id', 'total', 'event_time'],
+            stateFormat: { total: U.money },
+          },
+        },
+        {
+          id: 'win', kind: 'op', op: 'windowAggregate', title: 'WindowAggregate', lines: ['TUMBLE 5 min', 'local + global'],
+          stateful: true, sqlLines: [2, 3, 4, 5, 7, 8, 10],
+          cfg: { kind: 'tumble', size: 300, key: 'store_id', keyLabel: 'store', timeField: 'event_time', sumField: 'total' },
+        },
+        {
+          id: 'sink', kind: 'sink', op: 'kafkaSink', title: 'Kafka sink', lines: ['store_sales'], sqlLines: [1],
+          cfg: {
+            topic: 'store_sales',
+            columns: [{ f: 'window_start' }, { f: 'window_end' }, { f: 'store_id', num: true }, { f: 'orders', num: true }, { f: 'sales', ...money }],
+          },
+        },
+      ],
+      edges: [
+        { from: 'src', to: 'cn', mode: 'upsert', kinds: '+U -D', exchange: 'hash(order_id)' },
+        { from: 'cn', to: 'win', mode: 'retract', kinds: '+I -U +U -D', exchange: 'hash(store_id)' },
+        { from: 'win', to: 'sink', mode: 'append', kinds: '+I' },
+      ],
+    },
+    // 101 is cancelled in time, 103 too late, after its window has fired. 104 is store 7's only
+    // order in the second window, so cancelling it leaves that window empty.
+    inputs: [
+      placed(101, 7, 18.00, '12:01:10'), placed(102, 9, 24.50, '12:02:30'), placed(103, 7, 31.00, '12:03:45'),
+      cancelled(101, 7, 18.00, '12:01:10'),
+      placed(104, 7, 13.00, '12:06:20'), WM,
+      cancelled(103, 7, 31.00, '12:03:45'),
+      placed(105, 9, 19.00, '12:08:30'), cancelled(104, 7, 13.00, '12:06:20'),
+      placed(106, 9, 22.00, '12:10:40'), WM,
+    ],
+    pill: (r) => (r.window_start
+      ? `s${r.store_id} ${r.window_start} ${U.money(r.sales)}`
+      : r.status === 'cancelled' ? `${r.order_id} cancelled` : `${r.order_id} s${r.store_id} ${r.event_time}`),
+    narrate(node, ev) {
+      if (node === 'src' && ev.type === 'read') {
+        const r = ev.row;
+        return r.status === 'cancelled'
+          ? `The source reads ${ev.key} → cancelled. It's still order ${ev.key}'s row, with the time it was placed, ${r.event_time}, so the watermark doesn't move. To the source it's just another upsert (+U).`
+          : `The source reads ${ev.key} → placed: store ${r.store_id}, ${U.money(r.total)}, at ${r.event_time}. upsert-kafka can't tell whether order ${ev.key} is new, so the planner treats every value as an upsert (+U).`;
+      }
+      if (node === 'src' && ev.type === 'wm') {
+        return `The source emits a watermark for ${ev.time}: the newest event time it has read, minus 1 second.`;
+      }
+      if (node === 'cn') {
+        switch (ev.type) {
+          case 'insert': return `Order ${ev.key} isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I).`;
+          case 'unmatched': return `Order ${ev.key} is now cancelled, so it fails the filter. ChangelogNormalize emits a delete (−D) with the row from state, which says when the order was placed (${ev.prev.event_time}) and what it cost, and clears the key.`;
+          case 'wm': return `The watermark passes through ChangelogNormalize.`;
+        }
+      }
+      if (node === 'win') {
+        const r = ev.row;
+        const win = ev.slice && `${ev.slice.start}–${ev.slice.end}`;
+        switch (ev.type) {
+          case 'new-slice': return `Order ${r.order_id} falls in the ${win} window. Store ${r.store_id} has no accumulator for it yet, so one is created, with a timer for ${ev.timer}.`;
+          case 'accumulate': return `Order ${r.order_id} also falls in the ${win} window. Store ${r.store_id}'s accumulator becomes ${result({ orders: ev.acc.count, sales: ev.acc.sum })}.`;
+          case 'retract': return ev.acc.count === 0
+            ? `The delete takes order ${r.order_id} back out of the ${win} window, which leaves store ${r.store_id} with no orders in it. The accumulator stays until its timer fires.`
+            : `The delete takes order ${r.order_id} back out of the ${win} window, which hasn't fired yet. Store ${r.store_id}'s accumulator goes down to ${result({ orders: ev.acc.count, sales: ev.acc.sum })}.`;
+          case 'late': return `The delete for order ${r.order_id} belongs to the ${win} window, but the watermark is already at ${ev.wm}. That window has fired and its state is gone, so the retraction is late, and dropped, like any late record. Store ${r.store_id}'s result in store_sales still counts order ${r.order_id}.`;
+          case 'wm': return `The watermark, ${ev.time}, hasn't reached any timer, so nothing fires. WindowAggregate forwards it.`;
+          case 'fire': {
+            const wins = [...new Set(ev.firings.map((f) => `${f.start}–${f.end}`))];
+            const rows = ev.firings.filter((f) => f.row).map((f) => `store ${f.k}, ${result(f.row)}`).join('; ');
+            const empty = ev.firings.filter((f) => f.empty).map((f) => `store ${f.k}`);
+            return `The watermark reaches ${ev.time}, so the ${list(wins)} window is complete. WindowAggregate emits a final row for ${rows}.`
+              + (empty.length ? ` The count for ${list(empty)} is 0, so nothing is emitted for it.` : '')
+              + ' It frees the window\'s state, and then forwards the watermark.';
+          }
+        }
+      }
+      if (node === 'sink' && ev.type === 'append') {
+        const r = ev.row;
+        return `The sink appends store ${r.store_id}'s result for ${r.window_start}–${r.window_end}: ${result(r)}. It's final, and will never be updated.`;
+      }
+      if (node === 'sink' && ev.type === 'wm') return `The watermark reaches the sink, which doesn't write it to Kafka.`;
+      return null;
+    },
+    explain: `
+Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sales], changelogMode=[NONE])
++- Calc(select=[window_start, window_end, store_id, orders, sales], changelogMode=[I])
+   +- GlobalWindowAggregate(groupBy=[store_id], window=[TUMBLE(slice_end=[$slice_end], size=[5 min])],
+        select=[store_id, COUNT_RETRACT(count1$0) AS orders, SUM_RETRACT((sum$1, count$2)) AS sales,
+                start('w$) AS window_start, end('w$) AS window_end], changelogMode=[I])
+      +- Exchange(distribution=[hash[store_id]], changelogMode=[I,UB,UA,D])
+         +- LocalWindowAggregate(groupBy=[store_id], window=[TUMBLE(time_col=[event_time], size=[5 min])],
+              select=[store_id, COUNT_RETRACT(*) AS count1$0, SUM_RETRACT(total) AS (sum$1, count$2),
+                      slice_end('w$) AS $slice_end], changelogMode=[I,UB,UA,D])
+            +- Calc(select=[store_id, total, event_time], changelogMode=[I,UB,UA,D])
+               +- ChangelogNormalize(key=[order_id], condition=[<>(status, 'cancelled')], changelogMode=[I,UB,UA,D])
+                  +- Exchange(distribution=[hash[order_id]], changelogMode=[UA,D])
+                     +- TableSourceScan(table=[[order_status, watermark=[-(event_time, 1000:INTERVAL SECOND)],
+                          watermarkEmitStrategy=[on-periodic]]], fields=[...], changelogMode=[UA,D])`,
+    details: `
+<p>Window aggregation accepts an updating input. When the input can retract, the planner switches
+to <code>COUNT_RETRACT</code> and <code>SUM_RETRACT</code>, so a <code>−D</code> or
+<code>−U</code> takes its row back out of the window's accumulator. The output is still
+append-only. A window emits once, when it fires, so its result can go to a plain Kafka topic.</p>
+<p>The upsert source only says what each order is now. To take a cancelled order back out of its
+window, the aggregate needs the row it counted, so the planner puts a ChangelogNormalize in front.
+It also moves the <code>WHERE</code> clause into it, which shows as <code>condition=</code> in the
+plan. When an order is cancelled, it no longer matches, and ChangelogNormalize emits a
+<code>−D</code> with the stored row, with the order's original total and event time. That's how the
+retraction finds the window the order was counted in.</p>
+<p>That's also why <code>event_time</code> has to be when the order was placed. If each status
+change carried its own time, an update would retract the order from one window, and count it
+again in a later one.</p>
+<p>Retractions have a deadline: the watermark. Once a window fires, its result is in Kafka, and
+its state is gone. A retraction that turns up later is late, and Flink drops it like any other
+late record. Order 103's cancellation is lost this way, and store 7's 12:00–12:05 result still
+counts it. If late cancellations matter, give the watermark a longer delay, at the cost of later
+results. Or use a non-windowed aggregate, whose output is an updating stream, so it can always
+be corrected.</p>
+<p>When every order in a window is cancelled, its count drops to zero, and the window emits
+nothing when it fires. Flink checks <code>COUNT(*)</code> before emitting, and nothing for that
+window was emitted before, so there's nothing downstream to correct.</p>
+<p>Only window aggregation works this way. Window Top-N, window deduplication, window joins and
+<code>OVER</code> aggregations reject an updating input. The result of a regular join, or of a
+non-windowed <code>GROUP BY</code>, can't be windowed at all, because it no longer has a time
+attribute. A Debezium source (<code>debezium-json</code>) can be windowed, and needs no
+ChangelogNormalize, because it already carries the old row in each update.</p>`,
+  };
+
   window.PATTERNS.push({
     id: 'windows',
     nav: 'Windows',
     title: 'Windows',
     summary: '<p>Group events into windows of time, and emit one final result per window when the watermark says the window is complete. The output is append-only, and each window\'s state is freed when it fires.</p>',
-    variants: [tumble, hop, cumulate, session],
+    variants: [tumble, hop, cumulate, session, updating],
   });
 })();
