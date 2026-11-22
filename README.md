@@ -5,7 +5,7 @@ Apache Flink® SQL for pizza shops: the recipes, and the science behind them.
 A single-page site with animated examples of the basic Apache Flink® SQL patterns, with Apache
 Kafka® sources and sinks. For each one it shows
 the use case, the SQL, the job graph with the stream type on every edge, the state each operator
-keeps, and what watermarks do. The examples use the pizza-chain story from the flink-intro talk.
+keeps, and what watermarks do.
 See [PLAN.md](PLAN.md) for the full plan.
 
 ## View it
@@ -119,10 +119,4 @@ The script exits non-zero if the page logged an error.
 ## Trademarks
 
 Apache®, Apache Flink®, Flink®, Apache Kafka® and Kafka® are either registered trademarks or
-trademarks of The Apache Software Foundation in the United States and/or other countries. This
-project is not affiliated with The Apache Software Foundation, and no endorsement by The Apache
-Software Foundation is implied by the use of these marks. Pages follow the
-[ASF trademark policy](https://www.apache.org/foundation/marks/): the first and most prominent
-mentions, the page title and the description use the full names with ®, and the footer carries this
-notice. The site uses no Apache project logos; don't host it on a domain name that contains "flink"
-or "kafka".
+trademarks of The Apache Software Foundation.

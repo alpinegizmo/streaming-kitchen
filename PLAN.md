@@ -1,7 +1,7 @@
 # Plan: Flink SQL design patterns, animated
 
 A single-page website. Each basic stream-processing pattern gets its own section with an animated
-job graph. The examples are about the pizza chain from `flink-intro-talk/flink-intro.html`, and
+job graph. The examples are about a pizza chain, and
 each section answers one question the chain asks of its data.
 
 ## 1. What every pattern section shows
