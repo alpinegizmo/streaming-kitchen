@@ -392,7 +392,7 @@ const Graph = (() => {
         const len = path.getTotalLength();
         const pt = path.getPointAtLength(Math.min(len * 0.22, 70));
         bx = pt.x + bw / 2 + 6;
-        by = pt.y + (L.pos[e.from].cy > L.pos[e.to].cy ? 22 : -46);
+        by = pt.y + (L.pos[e.from].cy > L.pos[e.to].cy ? 40 : -46);
       }
       // Vertical: the labels under the badge line up with its right end, the edge of the column.
       const [lx, anchor] = orient === 'h' ? [0, 'middle'] : [bw / 2 - 4, 'end'];

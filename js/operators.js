@@ -171,7 +171,8 @@ const Ops = (() => {
   //     in AggCombiner), but is late, and dropped, on exactly the same terms as an insert
   //   - a window whose COUNT(*) is zero when it fires isn't emitted (WindowIsEmptySupplier)
   //   cfg: { kind: 'tumble' | 'hop' | 'cumulate', size, slide (hop), step (cumulate),
-  //          key, keyLabel, timeField, sumField }   (all durations in seconds)
+  //          key, keyLabel, timeField, sumField, countName, sumName }   (all durations in seconds;
+  //          without a sumField there's only the count, named countName, 'orders' by default)
   const windowAggregate = {
     init: () => ({ slices: {}, timers: {}, wm: null }),
     record(st, item, cfg) {
@@ -193,7 +194,8 @@ const Ops = (() => {
       const created = !st.slices[key];
       const s = st.slices[key] || (st.slices[key] = { k, start: sliceEnd - sliceSize, end: sliceEnd, count: 0, sum: 0 });
       s.count += retract ? -1 : 1;
-      s.sum = add(s.sum, retract ? -row[cfg.sumField] : row[cfg.sumField]);
+      const v = cfg.sumField ? row[cfg.sumField] : 0;
+      s.sum = add(s.sum, retract ? -v : v);
       let timer = sliceEnd;
       while (fired(st, timer)) timer += sliceSize;
       st.timers[`${k}|${timer}`] = { k, t: timer };
@@ -251,7 +253,7 @@ const Ops = (() => {
           if (end === start + cfg.size) { delete st.slices[`${k}|${firstEnd}`]; f.freed.push(`${hm(start)}–${hm(end)}`); }
         }
         if (acc) {
-          f.row = { window_start: f.start, window_end: f.end, [cfg.key]: k, orders: acc.count, sales: acc.sum };
+          f.row = { window_start: f.start, window_end: f.end, [cfg.key]: k, [cfg.countName || 'orders']: acc.count, ...(cfg.sumField ? { [cfg.sumName || 'sales']: acc.sum } : {}) };
           out.push(rec('+I', f.row));
         }
         firings.push(f);
@@ -262,10 +264,10 @@ const Ops = (() => {
       const kl = cfg.keyLabel || cfg.key;
       return {
         title: `Accumulator per ${kl} and ${cfg.kind === 'tumble' ? 'window' : 'slice'}`,
-        cols: [kl, cfg.kind === 'tumble' ? 'window' : 'slice', 'orders', 'sales'],
+        cols: [kl, cfg.kind === 'tumble' ? 'window' : 'slice', cfg.countName || 'orders', ...(cfg.sumField ? [cfg.sumName || 'sales'] : [])],
         rows: Object.entries(st.slices)
           .sort(([, a], [, b]) => a.start - b.start || a.k - b.k)
-          .map(([key, s]) => ({ key, cells: [s.k, `${hm(s.start)}–${hm(s.cover || s.end)}`, s.count, U.money(s.sum)] })),
+          .map(([key, s]) => ({ key, cells: [s.k, `${hm(s.start)}–${hm(s.cover || s.end)}`, s.count, ...(cfg.sumField ? [U.money(s.sum)] : [])] })),
         footer: `timers: ${timerList(st).map(hm).join(', ') || 'none'}`,
       };
     },
@@ -775,6 +777,90 @@ const Ops = (() => {
     },
   };
 
+  // Window join (WindowJoin, run by WindowJoinOperator and WindowJoinHelper in Flink 2.3), as a
+  // FULL OUTER join of two inputs windowed the same way, keyed by the join key:
+  //   - a row whose window has already fired (the combined watermark has reached its end) is
+  //     late, and dropped; otherwise it's added to its side's list for its key and window, and a
+  //     timer is registered at the window's end
+  //   - watermarks: the minimum of both inputs, and nothing until both have sent one
+  //   - when the combined watermark reaches a window's end, its rows are joined: every matching
+  //     pair, then each unmatched row padded with nulls (just padding, if one side has no rows),
+  //     and both lists are cleared. The combined watermark is forwarded after the results.
+  //   cfg: { left, key, joinRow(l, r), padLeft(l), padRight(r), leftName, rightName,
+  //          leftValue(row), rightValue(row), leftTopic, rightTopic }
+  const windowJoin = {
+    init: () => ({ left: {}, right: {}, timers: {}, wms: { left: null, right: null }, W: null }),
+    record(st, item, cfg, ctx) {
+      const row = item.row;
+      const side = ctx.from === cfg.left ? 'left' : 'right';
+      const k = row[cfg.key];
+      const end = U.toSec(`${row.window_end}:00`.slice(0, 8));
+      const win = `${row.window_start}–${row.window_end}`;
+      if (st.W != null && U.toSec(st.W) >= end) return { out: [], ev: { type: 'late', side, key: k, row, win, W: st.W } };
+      const id = `${k}|${end}`;
+      (st[side][id] ||= []).push(row);
+      st.timers[id] = { k, end };
+      return { out: [], absorb: true, touched: `${side}|${id}`, ev: { type: 'buffer', side, key: k, row, win, other: (st[side === 'left' ? 'right' : 'left'][id] || []).length } };
+    },
+    watermark(st, item, cfg, ctx) {
+      const side = ctx.from === cfg.left ? 'left' : 'right';
+      st.wms[side] = item.time;
+      const W = combined(st.wms);
+      if (!W || !later(W, st.W)) return { out: [], nodeWm: st.W, ev: { type: 'hold', side, time: item.time, W: st.W, wms: { ...st.wms } } };
+      st.W = W;
+      const w = U.toSec(W);
+      const out = [];
+      const firings = [];
+      for (const [id, t] of Object.entries(st.timers).filter(([, t]) => t.end <= w).sort(([, a], [, b]) => a.end - b.end || a.k - b.k)) {
+        delete st.timers[id];
+        const ls = st.left[id], rs = st.right[id];
+        const rows = [];
+        if (ls && rs) {
+          const used = new Set();
+          for (const l of ls) {
+            // Rows in one key and window always match: the join condition is the key and the window.
+            rs.forEach((r, i) => { rows.push(cfg.joinRow(l, r)); used.add(i); });
+            if (!rs.length) rows.push(cfg.padLeft(l));
+          }
+          rs.forEach((r, i) => { if (!used.has(i)) rows.push(cfg.padRight(r)); });
+        } else if (ls) ls.forEach((l) => rows.push(cfg.padLeft(l)));
+        else if (rs) rs.forEach((r) => rows.push(cfg.padRight(r)));
+        delete st.left[id];
+        delete st.right[id];
+        rows.forEach((r) => out.push(rec('+I', r)));
+        firings.push({ k: t.k, end: U.fromSec(t.end).slice(0, 5), rows, left: !!ls, right: !!rs });
+      }
+      out.push(wm(W));
+      return { out, nodeWm: W, ev: { type: firings.length ? 'fire' : 'advance', side, time: item.time, W, firings, wms: { ...st.wms } } };
+    },
+    view(st, cfg) {
+      const rows = [];
+      for (const [side, name, value] of [['left', cfg.leftName, cfg.leftValue], ['right', cfg.rightName, cfg.rightValue]]) {
+        for (const [id, rs] of Object.entries(st[side])) {
+          rs.forEach((r, i) => rows.push({ id, key: `${side}|${id}`, i, cells: [name, r[cfg.key], `${r.window_start}–${r.window_end}`, value(r)] }));
+        }
+      }
+      rows.sort((a, b) => a.id.split('|')[1] - b.id.split('|')[1] || a.id.split('|')[0] - b.id.split('|')[0]);
+      const timers = [...new Set(Object.values(st.timers).map((t) => t.end))].sort((a, b) => a - b).map((t) => U.fromSec(t).slice(0, 5));
+      return {
+        title: `Rows per ${cfg.key} and window`,
+        cols: ['side', cfg.key, 'window', 'value'],
+        rows: rows.map(({ key, cells }) => ({ key, cells })),
+        footer: `watermarks in: ${cfg.leftTopic} ${st.wms.left || 'none'}, ${cfg.rightTopic} ${st.wms.right || 'none'}; timers: ${timers.join(', ') || 'none'}`,
+      };
+    },
+    say(ev) {
+      switch (ev.type) {
+        case 'buffer': return `The row waits in state for its window, ${ev.win}, to end.`;
+        case 'late': return `The row's window, ${ev.win}, has already fired, so it's late, and dropped.`;
+        case 'hold': return 'The watermark is recorded, but the other input is behind, so the combined watermark doesn\'t move.';
+        case 'advance': return `The combined watermark moves to ${ev.W}, but no window has ended yet.`;
+        case 'fire': return `The combined watermark passes the end of a window, which is joined and cleared.`;
+      }
+      return '';
+    },
+  };
+
   // Regular inner join (Join, run by StreamingJoinOperator). Each side's state depends on the
   // input spec the planner chose: JoinKeyContainsUniqueKey keeps one row per join key, and
   // NoUniqueKey keeps every row (a multiset per join key). Mirrors
@@ -1244,7 +1330,7 @@ const Ops = (() => {
 
   return {
     kafkaSource, upsertKafkaSource, calc, changelogNormalize, windowAggregate, sessionWindowAggregate, overAggregate,
-    groupAggregate, procTimeDedup, rowTimeDedup, retractRank, fastTop1,
+    groupAggregate, procTimeDedup, rowTimeDedup, retractRank, fastTop1, windowJoin,
     regularJoin, intervalJoin, lookupJoin, temporalJoin, lateralSnapshotJoin, match, upsertMaterializer, external,
     kafkaSink, upsertKafkaSink, changelogKafkaSink,
   };

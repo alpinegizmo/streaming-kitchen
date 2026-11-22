@@ -28,7 +28,7 @@ compact that log, which is what makes upsert vs. retract click for most people.
 | `deliveries` | Kafka, append-only | `order_id`, `event_time` | interval join |
 | `pizza_costs` | upsert-kafka / CDC, PK `pizza_id`, versioned | `valid_from` + watermark | temporal and lateral snapshot joins |
 | `routes` | HTTP lookup connector (not Kafka) | `(store_id, address)` | lookup join |
-| `kitchen_tickets` | Kafka, append-only | `store_id`, `prep_minutes`, `event_time` | MATCH_RECOGNIZE |
+| `kitchen_tickets` | Kafka, append-only | `store_id`, `prep_minutes`, `event_time` | MATCH_RECOGNIZE, window join |
 | `stores` | upsert-kafka, PK `store_id` | `city`, `manager`; no watermark | regular join |
 | `late_orders` | Kafka, append-only | same columns as `orders` | dead letter queue |
 
@@ -259,6 +259,23 @@ INTERVAL '5' MINUTE PRECEDING AND CURRENT ROW)`.
 - Inputs: 105 arrives after 104 but is computed first; 106 is late for store 7; 107 is behind the
   watermark but accepted, because store 9 has only fired up to 12:02:30; 101 leaves 104's range; 102 is
   exactly 5 minutes before 108 and stays in. No clean-up timer fires.
+
+### 3.11 Window join (added later; shown right after Event correlation)
+Orders placed against pizzas cooked, per store, every 15 minutes: two tumbling window aggregates
+(`COUNT(*) AS placed` over `orders`, `COUNT(*) AS cooked` over `kitchen_tickets`), joined with
+`FULL OUTER JOIN ... ON store_id, window_start, window_end`, with `COALESCE` for the keys.
+- Graph: two sources → hash(store_id) → WindowAggregate (each drawn as one node for Local + Global) →
+  hash(store_id) → WindowJoin (`FullOuterJoin`) `APPEND` → Sink (kafka), verified on 2.3
+  (`verification/window-join.sql`).
+- Semantics (`WindowJoinOperator`, `WindowJoinHelper`): rows are kept per key and window on each side,
+  with a timer at the window's end; a row whose window has fired is late, and dropped. The watermark is
+  the minimum of both inputs. When it passes a window's end: matching pairs, then null padding for
+  unmatched rows (only padding if one side is empty), then the window's state is cleared.
+- Inputs: the kitchen watermark lags the orders', so each window waits for it. Store 9 has orders but
+  no tickets in the first window (cooked null), and a ticket but no orders in the second (placed null).
+  Order 103 is placed at 12:09:40 and cooked at 12:16:50, which the details use to show why raw events
+  are better paired with an interval join.
+- `kitchen_tickets` is used instead of `deliveries`, which has no `store_id`.
 
 ## 4. Architecture
 

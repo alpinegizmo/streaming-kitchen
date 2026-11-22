@@ -1,0 +1,22 @@
+# Flink 2.3.0, EXPLAIN CHANGELOG_MODE, optimized physical plans
+
+## Statement 1
+
+Sink(table=[default_catalog.default_database.kitchen_load], fields=[store_id, window_start, window_end, placed, cooked], changelogMode=[NONE])
++- Calc(select=[COALESCE(store_id, store_id0) AS store_id, COALESCE(window_start, window_start0) AS window_start, COALESCE(window_end, window_end0) AS window_end, placed, cooked], changelogMode=[I])
+   +- WindowJoin(leftWindow=[TUMBLE(win_start=[window_start], win_end=[window_end], size=[15 min])], rightWindow=[TUMBLE(win_start=[window_start], win_end=[window_end], size=[15 min])], joinType=[FullOuterJoin], where=[=(store_id, store_id0)], select=[store_id, window_start, window_end, placed, store_id0, window_start0, window_end0, cooked], changelogMode=[I])
+      :- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+      :  +- Calc(select=[store_id, window_start, window_end, placed], changelogMode=[I])
+      :     +- GlobalWindowAggregate(groupBy=[store_id], window=[TUMBLE(slice_end=[$slice_end], size=[15 min])], select=[store_id, COUNT(count1$0) AS placed, start('w$) AS window_start, end('w$) AS window_end], changelogMode=[I])
+      :        +- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+      :           +- LocalWindowAggregate(groupBy=[store_id], window=[TUMBLE(time_col=[event_time], size=[15 min])], select=[store_id, COUNT(*) AS count1$0, slice_end('w$) AS $slice_end], changelogMode=[I])
+      :              +- Calc(select=[store_id, event_time], changelogMode=[I])
+      :                 +- TableSourceScan(table=[[default_catalog, default_database, orders, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, pizza_id, channel, total, delivery_address, event_time], changelogMode=[I])
+      +- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+         +- Calc(select=[store_id, window_start, window_end, cooked], changelogMode=[I])
+            +- GlobalWindowAggregate(groupBy=[store_id], window=[TUMBLE(slice_end=[$slice_end], size=[15 min])], select=[store_id, COUNT(count1$0) AS cooked, start('w$) AS window_start, end('w$) AS window_end], changelogMode=[I])
+               +- Exchange(distribution=[hash[store_id]], changelogMode=[I])
+                  +- LocalWindowAggregate(groupBy=[store_id], window=[TUMBLE(time_col=[event_time], size=[15 min])], select=[store_id, COUNT(*) AS count1$0, slice_end('w$) AS $slice_end], changelogMode=[I])
+                     +- Calc(select=[store_id, event_time], changelogMode=[I])
+                        +- TableSourceScan(table=[[default_catalog, default_database, kitchen_tickets, watermark=[-(event_time, 1000:INTERVAL SECOND)], watermarkEmitStrategy=[on-periodic]]], fields=[order_id, store_id, prep_minutes, event_time], changelogMode=[I])
+
