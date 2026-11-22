@@ -9,6 +9,7 @@
   const tocItem = (href, text, sub) => U.el('li', {}, U.el('a', { href }, text), sub);
   const tocAdd = (...args) => tocs.forEach((t) => t.append(tocItem(...args.map((a) => typeof a === 'function' ? a() : a))));
 
+  tocAdd('#top', 'Top of the page');
   tocAdd('#start', 'Before you start');
   tocAdd('#reading', 'How to read the diagrams');
   const mounted = {};
@@ -68,7 +69,7 @@
       }
     }
   }, { rootMargin: '-30% 0px -60% 0px' });
-  document.querySelectorAll('#start, #reading, .pattern, #summary').forEach((s) => io.observe(s));
+  document.querySelectorAll('#top, #start, #reading, .pattern, #summary').forEach((s) => io.observe(s));
 
   // The floating contents button: choosing a link closes the popover, and opening it brings the
   // current section into view in the list.
