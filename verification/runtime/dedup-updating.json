@@ -231,6 +231,8 @@
       "upstream": [
         "order_status"
       ],
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [
@@ -723,6 +725,8 @@
       "upstream": [
         "order_status"
       ],
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [

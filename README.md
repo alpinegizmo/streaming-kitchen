@@ -91,14 +91,16 @@ FLINK_VERSION=2.4-SNAPSHOT verification/run-state.sh enrichment/lateral
 This checks what the state panels show, operator by operator. For each operator with a `facts()`
 function in `js/operators.js` (every stateful one except the lookup join), the exporter also writes
 every item the simulated operator received, what it emitted, and its state and timers afterwards.
-`StateCheck.java` plans the pattern's SQL, takes the operators the planner built for it
-(LocalWindowAggregate and GlobalWindowAggregate for one simulated WindowAggregate), and runs them in
+`StateCheck.java` plans the pattern's SQL, takes the operator the planner built for it, and runs it in
 Flink's operator test harness, with the heap state backend; a two-input operator gets each item on
 the input that reads from the same source table. After each item it compares the emitted rows and
 watermarks, the keys and namespaces in state, every timer, and the values of the states the
-simulator's facts name (accumulators, stored rows, buffered rows by time, and so on). Window aggregations and Rank's
-FastTop1Function hold records in memory until a checkpoint, so the harness takes one before each
-comparison. Output fields the simulator doesn't model (a join's copy of the other side's key, say)
+simulator's facts name (accumulators, stored rows, buffered rows by time, and so on). Rank's FastTop1Function
+caches rows in memory until a checkpoint, so the harness takes one before each comparison. The
+window aggregations' in-memory buffers are part of the simulation instead (LocalWindowAggregate's
+partial results, and GlobalWindowAggregate's until the next watermark), so for those two the
+harness doesn't take a checkpoint, and compares each step's rows as an unordered set: partial
+results go out in hash order, and timers due at the same time fire in no defined order. Output fields the simulator doesn't model (a join's copy of the other side's key, say)
 and input fields it leaves out are listed, not compared. A spec can also set table options in a `config` field (a state TTL, say), for a one-off check
 of how they change an operator. The same snapshot gating as `run-replay.sh` applies. What the checks found, and what's left, is in
 `verification/STATE-PLAN.md`.

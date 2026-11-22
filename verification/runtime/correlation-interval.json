@@ -203,6 +203,8 @@
         "deliveries",
         "orders"
       ],
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [

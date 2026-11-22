@@ -34,7 +34,8 @@ const Ops = vm.runInContext('Ops', ctx);
 // by the name the planner gives their transformations. The last one holds the state.
 const FLINK_OPERATORS = {
   groupAggregate: ['GroupAggregate'],
-  windowAggregate: ['LocalWindowAggregate', 'GlobalWindowAggregate'],
+  localWindowAggregate: ['LocalWindowAggregate'],
+  globalWindowAggregate: ['GlobalWindowAggregate'],
   sessionWindowAggregate: ['WindowAggregate'],
   overAggregate: ['OverAggregate'],
   changelogNormalize: ['ChangelogNormalize'],
@@ -53,9 +54,25 @@ const FLINK_OPERATORS = {
 // The simulator's names for output fields the planner names itself. OVER: COUNT(*) is w0$o0, and
 // SUM(total) is computed from COUNT(total) (w0$o1, the same as the order count, since total is
 // never null) and $SUM0(total) (w0$o2).
+// Window aggregation: the partial results between the two phases are COUNT(*) as count1$0, the
+// SUM as sum$1 (with its own count as count$2, when it can retract), and $slice_end, a BIGINT.
+const windowFields = (cfg) => ({
+  count1$0: cfg.countName || 'orders',
+  ...(cfg.sumField ? { sum$1: cfg.sumName || 'sales', count$2: cfg.countName || 'orders' } : {}),
+  $slice_end: 'slice_end',
+});
 const FLINK_FIELDS = {
   overAggregate: (cfg) => ({ w0$o0: cfg.countName, w0$o1: cfg.countName, w0$o2: cfg.sumName }),
+  localWindowAggregate: windowFields,
+  globalWindowAggregate: windowFields,
 };
+// Operators whose in-memory buffers the simulator models: the harness doesn't take a checkpoint
+// before each comparison, which would flush them. LocalWindowAggregate sends its partial results
+// in hash order, and GlobalWindowAggregate fires timers that are due at the same time in no
+// defined order (and, at a higher parallelism, on different instances), so each step's rows are
+// compared as an unordered set.
+const NO_CHECKPOINT = new Set(['localWindowAggregate', 'globalWindowAggregate']);
+const UNORDERED = new Set(['localWindowAggregate', 'globalWindowAggregate']);
 // Output fields the pattern's SQL takes from either side of an outer join, with COALESCE(left,
 // right): the simulator's rows hold the coalesced value. The planner names the right side's copy
 // with a 0 suffix.
@@ -130,6 +147,8 @@ function exportOne(id) {
     upstream: upstreamTables(n.id),
     fields: FLINK_FIELDS[n.op]?.(n.cfg || {}),
     coalesce: FLINK_COALESCE[n.op],
+    checkpoint: !NO_CHECKPOINT.has(n.op),
+    unordered: UNORDERED.has(n.op),
     steps: steps.filter((s) => s.node === n.id).map((s) => ({
       // The source tables behind the edge the item came on, to pick a two-input operator's input.
       from: upstreamTables(variant.graph.edges[s.via].from),

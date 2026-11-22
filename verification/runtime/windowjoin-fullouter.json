@@ -277,16 +277,21 @@
   ],
   "operators": [
     {
-      "node": "aggO",
-      "op": "windowAggregate",
-      "title": "WindowAggregate",
+      "node": "localO",
+      "op": "localWindowAggregate",
+      "title": "LocalWindowAggregate",
       "flink": [
-        "LocalWindowAggregate",
-        "GlobalWindowAggregate"
+        "LocalWindowAggregate"
       ],
       "upstream": [
         "orders"
       ],
+      "fields": {
+        "count1$0": "placed",
+        "$slice_end": "slice_end"
+      },
+      "checkpoint": false,
+      "unordered": true,
       "steps": [
         {
           "from": [
@@ -303,23 +308,10 @@
           },
           "out": [],
           "facts": {
-            "state": [
-              "7|12:15:00"
-            ],
-            "timers": [
-              "7@12:14:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                }
-              }
-            }
+            "state": [],
+            "timers": []
           },
-          "caption": "Order 101 falls in the 12:00–12:15 window. Store 7's placed count for it starts at 1."
+          "caption": "Order 101 starts store 7's partial result for the 12:00–12:15 window: placed 1. LocalWindowAggregate keeps it in memory, not in Flink state."
         },
         {
           "from": [
@@ -336,30 +328,10 @@
           },
           "out": [],
           "facts": {
-            "state": [
-              "7|12:15:00",
-              "9|12:15:00"
-            ],
-            "timers": [
-              "7@12:14:59.999",
-              "9@12:14:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                },
-                "9|12:15:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                }
-              }
-            }
+            "state": [],
+            "timers": []
           },
-          "caption": "Order 102 falls in the 12:00–12:15 window. Store 9's placed count for it starts at 1."
+          "caption": "Order 102 starts store 9's partial result for the 12:00–12:15 window: placed 1. LocalWindowAggregate keeps it in memory, not in Flink state."
         },
         {
           "from": [
@@ -376,30 +348,10 @@
           },
           "out": [],
           "facts": {
-            "state": [
-              "7|12:15:00",
-              "9|12:15:00"
-            ],
-            "timers": [
-              "7@12:14:59.999",
-              "9@12:14:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "2"
-                  ]
-                },
-                "9|12:15:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                }
-              }
-            }
+            "state": [],
+            "timers": []
           },
-          "caption": "Order 103 is also in the 12:00–12:15 window. Store 7's placed count becomes 2."
+          "caption": "Order 103 is added to store 7's partial result for the 12:00–12:15 window: placed 2."
         },
         {
           "from": [
@@ -416,30 +368,10 @@
           },
           "out": [],
           "facts": {
-            "state": [
-              "7|12:15:00",
-              "9|12:15:00"
-            ],
-            "timers": [
-              "7@12:14:59.999",
-              "9@12:14:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "3"
-                  ]
-                },
-                "9|12:15:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                }
-              }
-            }
+            "state": [],
+            "timers": []
           },
-          "caption": "Order 104 is also in the 12:00–12:15 window. Store 7's placed count becomes 3."
+          "caption": "Order 104 is added to store 7's partial result for the 12:00–12:15 window: placed 3."
         },
         {
           "from": [
@@ -456,37 +388,334 @@
           },
           "out": [],
           "facts": {
-            "state": [
-              "7|12:15:00",
-              "9|12:15:00",
-              "7|12:30:00"
-            ],
-            "timers": [
-              "7@12:14:59.999",
-              "9@12:14:59.999",
-              "7@12:29:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "3"
-                  ]
-                },
-                "9|12:15:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                },
-                "7|12:30:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                }
+            "state": [],
+            "timers": []
+          },
+          "caption": "Order 105 starts store 7's partial result for the 12:15–12:30 window: placed 1. LocalWindowAggregate keeps it in memory, not in Flink state."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:17:04"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "placed": 3,
+                "slice_end": "12:15:00"
               }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 9,
+                "placed": 1,
+                "slice_end": "12:15:00"
+              }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "placed": 1,
+                "slice_end": "12:30:00"
+              }
+            },
+            {
+              "wm": "12:17:04"
+            }
+          ],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "The watermark, 12:17:04, has reached the end of a buffered window, so LocalWindowAggregate sends on every partial result it holds (store 7, 12:00–12:15: placed 3; store 9, 12:00–12:15: placed 1; store 7, 12:15–12:30: placed 1), even 12:15–12:30, which isn't due yet. Then it forwards the watermark. One row per store and window crosses the network, however many records went into it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 106,
+              "store_id": 9,
+              "total": 19,
+              "event_time": "12:31:10"
             }
           },
-          "caption": "Order 105 falls in the 12:15–12:30 window. Store 7's placed count for it starts at 1."
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "Order 106 starts store 9's partial result for the 12:30–12:45 window: placed 1. LocalWindowAggregate keeps it in memory, not in Flink state."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:31:09"
+          },
+          "out": [
+            {
+              "wm": "12:31:09"
+            }
+          ],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "The watermark, 12:31:09, hasn't reached the end of any buffered window, so the partial results stay in memory. LocalWindowAggregate forwards the watermark."
+        }
+      ]
+    },
+    {
+      "node": "localK",
+      "op": "localWindowAggregate",
+      "title": "LocalWindowAggregate",
+      "flink": [
+        "LocalWindowAggregate"
+      ],
+      "upstream": [
+        "kitchen_tickets"
+      ],
+      "fields": {
+        "count1$0": "cooked",
+        "$slice_end": "slice_end"
+      },
+      "checkpoint": false,
+      "unordered": true,
+      "steps": [
+        {
+          "from": [
+            "kitchen_tickets"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 101,
+              "store_id": 7,
+              "prep_minutes": 8,
+              "event_time": "12:10:15"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "The ticket for order 101 starts store 7's partial result for the 12:00–12:15 window: cooked 1. LocalWindowAggregate keeps it in memory, not in Flink state."
+        },
+        {
+          "from": [
+            "kitchen_tickets"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 102,
+              "store_id": 9,
+              "prep_minutes": 12,
+              "event_time": "12:16:40"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "The ticket for order 102 starts store 9's partial result for the 12:15–12:30 window: cooked 1. LocalWindowAggregate keeps it in memory, not in Flink state."
+        },
+        {
+          "from": [
+            "kitchen_tickets"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 103,
+              "store_id": 7,
+              "prep_minutes": 7,
+              "event_time": "12:16:50"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "The ticket for order 103 starts store 7's partial result for the 12:15–12:30 window: cooked 1. LocalWindowAggregate keeps it in memory, not in Flink state."
+        },
+        {
+          "from": [
+            "kitchen_tickets"
+          ],
+          "item": {
+            "wm": "12:16:49"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "cooked": 1,
+                "slice_end": "12:15:00"
+              }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "cooked": 1,
+                "slice_end": "12:30:00"
+              }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 9,
+                "cooked": 1,
+                "slice_end": "12:30:00"
+              }
+            },
+            {
+              "wm": "12:16:49"
+            }
+          ],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "The watermark, 12:16:49, has reached the end of a buffered window, so LocalWindowAggregate sends on every partial result it holds (store 7, 12:00–12:15: cooked 1; store 7, 12:15–12:30: cooked 1; store 9, 12:15–12:30: cooked 1), even 12:15–12:30, which isn't due yet. Then it forwards the watermark. One row per store and window crosses the network, however many records went into it."
+        },
+        {
+          "from": [
+            "kitchen_tickets"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 104,
+              "store_id": 7,
+              "prep_minutes": 9,
+              "event_time": "12:31:30"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "The ticket for order 104 starts store 7's partial result for the 12:30–12:45 window: cooked 1. LocalWindowAggregate keeps it in memory, not in Flink state."
+        },
+        {
+          "from": [
+            "kitchen_tickets"
+          ],
+          "item": {
+            "wm": "12:31:29"
+          },
+          "out": [
+            {
+              "wm": "12:31:29"
+            }
+          ],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "The watermark, 12:31:29, hasn't reached the end of any buffered window, so the partial results stay in memory. LocalWindowAggregate forwards the watermark."
+        }
+      ]
+    },
+    {
+      "node": "aggO",
+      "op": "globalWindowAggregate",
+      "title": "GlobalWindowAggregate",
+      "flink": [
+        "GlobalWindowAggregate"
+      ],
+      "upstream": [
+        "orders"
+      ],
+      "fields": {
+        "count1$0": "placed",
+        "$slice_end": "slice_end"
+      },
+      "checkpoint": false,
+      "unordered": true,
+      "steps": [
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 7,
+              "placed": 3,
+              "slice_end": "12:15:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": [],
+            "values": {
+              "window-aggs": {}
+            }
+          },
+          "caption": "Store 7's partial result for the 12:00–12:15 window arrives (placed 3). GlobalWindowAggregate holds it in memory until the watermark that follows."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 9,
+              "placed": 1,
+              "slice_end": "12:15:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": [],
+            "values": {
+              "window-aggs": {}
+            }
+          },
+          "caption": "Store 9's partial result for the 12:00–12:15 window arrives (placed 1). GlobalWindowAggregate holds it in memory until the watermark that follows."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 7,
+              "placed": 1,
+              "slice_end": "12:30:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": [],
+            "values": {
+              "window-aggs": {}
+            }
+          },
+          "caption": "Store 7's partial result for the 12:15–12:30 window arrives (placed 1). GlobalWindowAggregate holds it in memory until the watermark that follows."
         },
         {
           "from": [
@@ -535,47 +764,7 @@
               }
             }
           },
-          "caption": "The watermark reaches 12:17:04, so the 12:00–12:15 window is complete. WindowAggregate emits a count per store (store 7, 3 placed; store 9, 1 placed), then forwards the watermark."
-        },
-        {
-          "from": [
-            "orders"
-          ],
-          "item": {
-            "kind": "+I",
-            "row": {
-              "order_id": 106,
-              "store_id": 9,
-              "total": 19,
-              "event_time": "12:31:10"
-            }
-          },
-          "out": [],
-          "facts": {
-            "state": [
-              "7|12:30:00",
-              "9|12:45:00"
-            ],
-            "timers": [
-              "7@12:29:59.999",
-              "9@12:44:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "7|12:30:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                },
-                "9|12:45:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                }
-              }
-            }
-          },
-          "caption": "Order 106 falls in the 12:30–12:45 window. Store 9's placed count for it starts at 1."
+          "caption": "The watermark, 12:17:04, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:00–12:15: placed 3; store 9, 12:00–12:15: placed 1; store 7, 12:15–12:30: placed 1), with a timer for each window it hadn't seen. Then the 12:00–12:15 window is complete: GlobalWindowAggregate emits a count per store (store 7, 3 placed; store 9, 1 placed), then forwards the watermark."
         },
         {
           "from": [
@@ -599,37 +788,32 @@
             }
           ],
           "facts": {
-            "state": [
-              "9|12:45:00"
-            ],
-            "timers": [
-              "9@12:44:59.999"
-            ],
+            "state": [],
+            "timers": [],
             "values": {
-              "window-aggs": {
-                "9|12:45:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                }
-              }
+              "window-aggs": {}
             }
           },
-          "caption": "The watermark reaches 12:31:09, so the 12:15–12:30 window is complete. WindowAggregate emits a count per store (store 7, 1 placed), then forwards the watermark."
+          "caption": "The watermark, 12:31:09, arrives. Then the 12:15–12:30 window is complete: GlobalWindowAggregate emits a count per store (store 7, 1 placed), then forwards the watermark."
         }
       ]
     },
     {
       "node": "aggK",
-      "op": "windowAggregate",
-      "title": "WindowAggregate",
+      "op": "globalWindowAggregate",
+      "title": "GlobalWindowAggregate",
       "flink": [
-        "LocalWindowAggregate",
         "GlobalWindowAggregate"
       ],
       "upstream": [
         "kitchen_tickets"
       ],
+      "fields": {
+        "count1$0": "cooked",
+        "$slice_end": "slice_end"
+      },
+      "checkpoint": false,
+      "unordered": true,
       "steps": [
         {
           "from": [
@@ -638,31 +822,20 @@
           "item": {
             "kind": "+I",
             "row": {
-              "order_id": 101,
               "store_id": 7,
-              "prep_minutes": 8,
-              "event_time": "12:10:15"
+              "cooked": 1,
+              "slice_end": "12:15:00"
             }
           },
           "out": [],
           "facts": {
-            "state": [
-              "7|12:15:00"
-            ],
-            "timers": [
-              "7@12:14:59.999"
-            ],
+            "state": [],
+            "timers": [],
             "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                }
-              }
+              "window-aggs": {}
             }
           },
-          "caption": "The ticket for order 101 falls in the 12:00–12:15 window. Store 7's cooked count for it starts at 1."
+          "caption": "Store 7's partial result for the 12:00–12:15 window arrives (cooked 1). GlobalWindowAggregate holds it in memory until the watermark that follows."
         },
         {
           "from": [
@@ -671,85 +844,42 @@
           "item": {
             "kind": "+I",
             "row": {
-              "order_id": 102,
+              "store_id": 7,
+              "cooked": 1,
+              "slice_end": "12:30:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": [],
+            "values": {
+              "window-aggs": {}
+            }
+          },
+          "caption": "Store 7's partial result for the 12:15–12:30 window arrives (cooked 1). GlobalWindowAggregate holds it in memory until the watermark that follows."
+        },
+        {
+          "from": [
+            "kitchen_tickets"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
               "store_id": 9,
-              "prep_minutes": 12,
-              "event_time": "12:16:40"
+              "cooked": 1,
+              "slice_end": "12:30:00"
             }
           },
           "out": [],
           "facts": {
-            "state": [
-              "7|12:15:00",
-              "9|12:30:00"
-            ],
-            "timers": [
-              "7@12:14:59.999",
-              "9@12:29:59.999"
-            ],
+            "state": [],
+            "timers": [],
             "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                },
-                "9|12:30:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                }
-              }
+              "window-aggs": {}
             }
           },
-          "caption": "The ticket for order 102 falls in the 12:15–12:30 window. Store 9's cooked count for it starts at 1."
-        },
-        {
-          "from": [
-            "kitchen_tickets"
-          ],
-          "item": {
-            "kind": "+I",
-            "row": {
-              "order_id": 103,
-              "store_id": 7,
-              "prep_minutes": 7,
-              "event_time": "12:16:50"
-            }
-          },
-          "out": [],
-          "facts": {
-            "state": [
-              "7|12:15:00",
-              "9|12:30:00",
-              "7|12:30:00"
-            ],
-            "timers": [
-              "7@12:14:59.999",
-              "9@12:29:59.999",
-              "7@12:29:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                },
-                "9|12:30:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                },
-                "7|12:30:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                }
-              }
-            }
-          },
-          "caption": "The ticket for order 103 falls in the 12:15–12:30 window. Store 7's cooked count for it starts at 1."
+          "caption": "Store 9's partial result for the 12:15–12:30 window arrives (cooked 1). GlobalWindowAggregate holds it in memory until the watermark that follows."
         },
         {
           "from": [
@@ -774,68 +904,21 @@
           ],
           "facts": {
             "state": [
-              "9|12:30:00",
-              "7|12:30:00"
-            ],
-            "timers": [
-              "9@12:29:59.999",
-              "7@12:29:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "9|12:30:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                },
-                "7|12:30:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                }
-              }
-            }
-          },
-          "caption": "The watermark reaches 12:16:49, so the 12:00–12:15 window is complete. WindowAggregate emits a count per store (store 7, 1 cooked), then forwards the watermark."
-        },
-        {
-          "from": [
-            "kitchen_tickets"
-          ],
-          "item": {
-            "kind": "+I",
-            "row": {
-              "order_id": 104,
-              "store_id": 7,
-              "prep_minutes": 9,
-              "event_time": "12:31:30"
-            }
-          },
-          "out": [],
-          "facts": {
-            "state": [
-              "9|12:30:00",
               "7|12:30:00",
-              "7|12:45:00"
+              "9|12:30:00"
             ],
             "timers": [
-              "9@12:29:59.999",
               "7@12:29:59.999",
-              "7@12:44:59.999"
+              "9@12:29:59.999"
             ],
             "values": {
               "window-aggs": {
-                "9|12:30:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                },
                 "7|12:30:00": {
                   "tuple": [
                     "1"
                   ]
                 },
-                "7|12:45:00": {
+                "9|12:30:00": {
                   "tuple": [
                     "1"
                   ]
@@ -843,7 +926,7 @@
               }
             }
           },
-          "caption": "The ticket for order 104 falls in the 12:30–12:45 window. Store 7's cooked count for it starts at 1."
+          "caption": "The watermark, 12:16:49, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:00–12:15: cooked 1; store 7, 12:15–12:30: cooked 1; store 9, 12:15–12:30: cooked 1), with a timer for each window it hadn't seen. Then the 12:00–12:15 window is complete: GlobalWindowAggregate emits a count per store (store 7, 1 cooked), then forwards the watermark."
         },
         {
           "from": [
@@ -876,23 +959,13 @@
             }
           ],
           "facts": {
-            "state": [
-              "7|12:45:00"
-            ],
-            "timers": [
-              "7@12:44:59.999"
-            ],
+            "state": [],
+            "timers": [],
             "values": {
-              "window-aggs": {
-                "7|12:45:00": {
-                  "tuple": [
-                    "1"
-                  ]
-                }
-              }
+              "window-aggs": {}
             }
           },
-          "caption": "The watermark reaches 12:31:29, so the 12:15–12:30 window is complete. WindowAggregate emits a count per store (store 7, 1 cooked; store 9, 1 cooked), then forwards the watermark."
+          "caption": "The watermark, 12:31:29, arrives. Then the 12:15–12:30 window is complete: GlobalWindowAggregate emits a count per store (store 7, 1 cooked; store 9, 1 cooked), then forwards the watermark."
         }
       ]
     },
@@ -912,6 +985,8 @@
         "window_start": "window_start0",
         "window_end": "window_end0"
       },
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [

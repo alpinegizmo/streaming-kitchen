@@ -183,6 +183,8 @@
       "upstream": [
         "kitchen_tickets"
       ],
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [

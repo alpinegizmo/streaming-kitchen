@@ -16,7 +16,9 @@ window.PATTERNS = window.PATTERNS || [];
   const result = (r) => `${r.placed == null ? 'no orders placed' : `${plural(r.placed, 'order')} placed`}, ${r.cooked == null ? 'none cooked' : `${r.cooked} cooked`}`;
 
   // Each side counts its rows per store and window, like the tumbling window pattern.
-  const windowCfg = (countName) => ({ kind: 'tumble', size: 900, key: 'store_id', keyLabel: 'store', timeField: 'event_time', countName });
+  const windowCfg = (countName, what) => ({ kind: 'tumble', size: 900, key: 'store_id', keyLabel: 'store', timeField: 'event_time', countName, what });
+  const ordersCfg = windowCfg('placed');
+  const kitchenCfg = windowCfg('cooked', (r) => `The ticket for order ${r.order_id}`);
   const windowRow = (r) => ({ store_id: r.store_id, window_start: r.window_start, window_end: r.window_end });
 
   const fullOuter = {
@@ -69,13 +71,13 @@ CREATE TABLE kitchen_load (
 ) WITH ('connector' = 'kafka', 'topic' = 'kitchen_load');
 
 -- Connection and format options are left out.`,
-    matrix: { state: 'Rows per key and window, on each side, freed when the window fires', memory: 'The window aggregates buffer records in memory, and write them to state by the next watermark or checkpoint', watermarks: 'Trigger results; the slower input holds back both', watermarksOut: 'The minimum of both inputs, after the windows it fires' },
+    matrix: { state: 'Rows per key and window, on each side, freed when the window fires', memory: 'Each LocalWindowAggregate keeps partial results in memory, not state, until a watermark or checkpoint sends them on', watermarks: 'Trigger results; the slower input holds back both', watermarksOut: 'The minimum of both inputs, after the windows it fires' },
     facts: {
-      state: 'Each window aggregate keeps a count per store and window. The join keeps each side\'s counts per store and window until the window fires, then joins them and frees them. Nothing grows forever, so no state TTL is needed.',
+      state: 'Each GlobalWindowAggregate keeps a count per store and window; the LocalWindowAggregates keep theirs in memory. The join keeps each side\'s counts per store and window until the window fires, then joins them and frees them. Nothing grows forever, so no state TTL is needed.',
       watermarks: 'They fire the windows. The join\'s watermark is the minimum of its two inputs, so a window is only joined once both sides have finished it, and a slow topic holds everything back.',
       output: 'Append-only. Each store and window comes out once, even when one side has no rows and its count is null.',
     },
-    graphLabel: 'Job graph: Kafka sources orders and kitchen_tickets, each hash partitioned by store_id into a tumbling WindowAggregate, both hash partitioned by store_id into a WindowJoin (full outer), then Kafka sink kitchen_load. Every edge is append-only.',
+    graphLabel: 'Job graph: Kafka sources orders and kitchen_tickets, each into a tumbling LocalWindowAggregate, hash partitioned by store_id into a GlobalWindowAggregate, both hash partitioned by store_id into a WindowJoin (full outer), then Kafka sink kitchen_load. Every edge is append-only.',
     graph: {
       nodes: [
         {
@@ -93,12 +95,20 @@ CREATE TABLE kitchen_load (
           },
         },
         {
-          id: 'aggO', kind: 'op', op: 'windowAggregate', title: 'WindowAggregate', lines: ['TUMBLE 15 min', 'COUNT placed'],
-          stateful: true, sqlLines: [7, 8, 9], cfg: windowCfg('placed'),
+          id: 'localO', kind: 'op', op: 'localWindowAggregate', title: 'LocalWindowAggregate', lines: ['TUMBLE 15 min', 'COUNT placed'],
+          panel: true, sqlLines: [7, 8], cfg: ordersCfg,
         },
         {
-          id: 'aggK', kind: 'op', op: 'windowAggregate', title: 'WindowAggregate', lines: ['TUMBLE 15 min', 'COUNT cooked'],
-          stateful: true, sqlLines: [11, 12, 13], cfg: windowCfg('cooked'),
+          id: 'localK', kind: 'op', op: 'localWindowAggregate', title: 'LocalWindowAggregate', lines: ['TUMBLE 15 min', 'COUNT cooked'],
+          panel: true, sqlLines: [11, 12], cfg: kitchenCfg,
+        },
+        {
+          id: 'aggO', kind: 'op', op: 'globalWindowAggregate', title: 'GlobalWindowAggregate', lines: ['TUMBLE 15 min', 'merge, fire'],
+          stateful: true, sqlLines: [7, 9], cfg: ordersCfg,
+        },
+        {
+          id: 'aggK', kind: 'op', op: 'globalWindowAggregate', title: 'GlobalWindowAggregate', lines: ['TUMBLE 15 min', 'merge, fire'],
+          stateful: true, sqlLines: [11, 13], cfg: kitchenCfg,
         },
         {
           id: 'join', kind: 'op', op: 'windowJoin', title: 'WindowJoin', lines: ['FULL OUTER', 'store_id, window'],
@@ -121,8 +131,10 @@ CREATE TABLE kitchen_load (
         },
       ],
       edges: [
-        { from: 'src', to: 'aggO', mode: 'append', kinds: '+I', exchange: 'hash(store_id)' },
-        { from: 'ksrc', to: 'aggK', mode: 'append', kinds: '+I', exchange: 'hash(store_id)' },
+        { from: 'src', to: 'localO', mode: 'append', kinds: '+I' },
+        { from: 'ksrc', to: 'localK', mode: 'append', kinds: '+I' },
+        { from: 'localO', to: 'aggO', mode: 'append', kinds: '+I', exchange: 'hash(store_id)' },
+        { from: 'localK', to: 'aggK', mode: 'append', kinds: '+I', exchange: 'hash(store_id)' },
         { from: 'aggO', to: 'join', mode: 'append', kinds: '+I', exchange: 'hash(store_id)' },
         { from: 'aggK', to: 'join', mode: 'append', kinds: '+I', exchange: 'hash(store_id)' },
         { from: 'join', to: 'sink', mode: 'append', kinds: '+I' },
@@ -141,6 +153,7 @@ CREATE TABLE kitchen_load (
       ticket(104, 7, 9, '12:31:30'), KWM,
     ],
     pill: (r) => {
+      if (r.slice_end) return `s${r.store_id} ≤${r.slice_end.slice(0, 5)} ${r.placed != null ? `placed ${r.placed}` : `cooked ${r.cooked}`}`;
       if ('placed' in r && 'cooked' in r) return `s${r.store_id} ${r.window_start} ${count(r.placed)}/${count(r.cooked)}`;
       if (r.placed != null) return `s${r.store_id} ${r.window_start} placed ${r.placed}`;
       if (r.cooked != null) return `s${r.store_id} ${r.window_start} cooked ${r.cooked}`;
@@ -156,18 +169,12 @@ CREATE TABLE kitchen_load (
       if ((node === 'src' || node === 'ksrc') && ev.type === 'wm') {
         return `The ${node === 'src' ? 'orders' : 'kitchen_tickets'} source emits a watermark for ${ev.time}: the newest event time it has read, minus 1 second.`;
       }
-      if (node === 'aggO' || node === 'aggK') {
-        const what = node === 'aggO' ? 'placed' : 'cooked';
-        const r = ev.row;
-        switch (ev.type) {
-          case 'new-slice': return `${node === 'aggO' ? `Order ${r.order_id}` : `The ticket for order ${r.order_id}`} falls in the ${ev.slice.start}–${ev.slice.end} window. Store ${r.store_id}'s ${what} count for it starts at 1.`;
-          case 'accumulate': return `${node === 'aggO' ? `Order ${r.order_id}` : `The ticket for order ${r.order_id}`} is also in the ${ev.slice.start}–${ev.slice.end} window. Store ${r.store_id}'s ${what} count becomes ${ev.acc.count}.`;
-          case 'wm': return `The watermark, ${ev.time}, hasn't reached the end of a window. WindowAggregate forwards it.`;
-          case 'fire': {
-            const rows = ev.rows.map((x) => `store ${x.store_id}, ${x[what]} ${what}`).join('; ');
-            return `The watermark reaches ${ev.time}, so the ${ev.firings[0].start}–${ev.firings[0].end} window is complete. WindowAggregate emits a count per store (${rows}), then forwards the watermark.`;
-          }
-        }
+      if ((node === 'aggO' || node === 'aggK') && ev.type === 'fire') {
+        const cfg = node === 'aggO' ? ordersCfg : kitchenCfg;
+        const what = cfg.countName;
+        const rows = ev.rows.map((x) => `store ${x.store_id}, ${x[what]} ${what}`).join('; ');
+        const text = Ops.globalWindowAggregate.mergeText(ev, cfg);
+        return `The watermark, ${ev.time}, arrives. ${text ? `${text} ` : ''}Then the ${ev.firings[0].start}–${ev.firings[0].end} window is complete: GlobalWindowAggregate emits a count per store (${rows}), then forwards the watermark.`;
       }
       if (node === 'join') {
         const side = ev.side === 'left' ? 'orders' : 'kitchen';
@@ -235,8 +242,8 @@ forever. The price is that results only come out when a window closes.</p>
 <code>order_id</code>. But the two only meet if they fall in the same window. Order 103 was placed
 at 12:09:40 and came out of the oven at 12:16:50, so they'd be in different windows, and never
 match. To pair up related events, use an interval join, like the event correlation recipe.</p>
-<p>The graph draws each LocalWindowAggregate and GlobalWindowAggregate pair as one WindowAggregate,
-and leaves out the Calcs that only drop columns, and the one that applies <code>COALESCE</code>.
+<p>The graph leaves out the Calcs that only drop columns, and the one that applies
+<code>COALESCE</code>.
 These semantics come from <code>WindowJoinOperator</code> in Flink 2.3.</p>`,
   };
 

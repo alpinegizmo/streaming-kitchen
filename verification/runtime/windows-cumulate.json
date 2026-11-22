@@ -221,16 +221,23 @@
   ],
   "operators": [
     {
-      "node": "win",
-      "op": "windowAggregate",
-      "title": "WindowAggregate",
+      "node": "local",
+      "op": "localWindowAggregate",
+      "title": "LocalWindowAggregate",
       "flink": [
-        "LocalWindowAggregate",
-        "GlobalWindowAggregate"
+        "LocalWindowAggregate"
       ],
       "upstream": [
         "orders"
       ],
+      "fields": {
+        "count1$0": "orders",
+        "sum$1": "sales",
+        "count$2": "orders",
+        "$slice_end": "slice_end"
+      },
+      "checkpoint": false,
+      "unordered": true,
       "steps": [
         {
           "from": [
@@ -247,24 +254,10 @@
           },
           "out": [],
           "facts": {
-            "state": [
-              "7|12:15:00"
-            ],
-            "timers": [
-              "7@12:14:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "1",
-                    "18.00"
-                  ]
-                }
-              }
-            }
+            "state": [],
+            "timers": []
           },
-          "caption": "Order 101 goes into the 12:00–12:15 slice. It's the slice's first order, so an accumulator is created, with a timer for 12:15."
+          "caption": "Order 101 starts store 7's partial result for the 12:00–12:15 slice: 1 order, $18.00. LocalWindowAggregate keeps it in memory, not in Flink state."
         },
         {
           "from": [
@@ -281,24 +274,10 @@
           },
           "out": [],
           "facts": {
-            "state": [
-              "7|12:15:00"
-            ],
-            "timers": [
-              "7@12:14:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "2",
-                    "49.00"
-                  ]
-                }
-              }
-            }
+            "state": [],
+            "timers": []
           },
-          "caption": "Order 103 is added to the 12:00–12:15 slice: 2 orders, $49.00."
+          "caption": "Order 103 is added to store 7's partial result for the 12:00–12:15 slice: 2 orders, $49.00."
         },
         {
           "from": [
@@ -313,24 +292,10 @@
             }
           ],
           "facts": {
-            "state": [
-              "7|12:15:00"
-            ],
-            "timers": [
-              "7@12:14:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "2",
-                    "49.00"
-                  ]
-                }
-              }
-            }
+            "state": [],
+            "timers": []
           },
-          "caption": "The watermark, 12:11:29, hasn't reached any timer, so nothing fires. WindowAggregate forwards it."
+          "caption": "The watermark, 12:11:29, hasn't reached the end of any buffered slice, so the partial results stay in memory. LocalWindowAggregate forwards the watermark."
         },
         {
           "from": [
@@ -347,32 +312,304 @@
           },
           "out": [],
           "facts": {
-            "state": [
-              "7|12:15:00",
-              "7|12:30:00"
-            ],
-            "timers": [
-              "7@12:14:59.999",
-              "7@12:29:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "2",
-                    "49.00"
-                  ]
-                },
-                "7|12:30:00": {
-                  "tuple": [
-                    "1",
-                    "27.50"
-                  ]
-                }
+            "state": [],
+            "timers": []
+          },
+          "caption": "Order 106 starts store 7's partial result for the 12:15–12:30 slice: 1 order, $27.50. LocalWindowAggregate keeps it in memory, not in Flink state."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:17:19"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "orders": 2,
+                "sales": 49,
+                "slice_end": "12:15:00"
               }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "orders": 1,
+                "sales": 27.5,
+                "slice_end": "12:30:00"
+              }
+            },
+            {
+              "wm": "12:17:19"
+            }
+          ],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "The watermark, 12:17:19, has reached the end of a buffered slice, so LocalWindowAggregate sends on every partial result it holds (store 7, 12:00–12:15: 2 orders, $49.00; store 7, 12:15–12:30: 1 order, $27.50), even 12:15–12:30, which isn't due yet. Then it forwards the watermark. One row per store and slice crosses the network, however many records went into it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 108,
+              "store_id": 7,
+              "total": 21,
+              "event_time": "12:24:10"
             }
           },
-          "caption": "Order 106 goes into the 12:15–12:30 slice. It's the slice's first order, so an accumulator is created, with a timer for 12:30."
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "Order 108 starts store 7's partial result for the 12:15–12:30 slice: 1 order, $21.00. LocalWindowAggregate keeps it in memory, not in Flink state."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 110,
+              "store_id": 7,
+              "total": 14,
+              "event_time": "12:38:30"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "Order 110 starts store 7's partial result for the 12:30–12:45 slice: 1 order, $14.00. LocalWindowAggregate keeps it in memory, not in Flink state."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:38:29"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "orders": 1,
+                "sales": 21,
+                "slice_end": "12:30:00"
+              }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "orders": 1,
+                "sales": 14,
+                "slice_end": "12:45:00"
+              }
+            },
+            {
+              "wm": "12:38:29"
+            }
+          ],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "The watermark, 12:38:29, has reached the end of a buffered slice, so LocalWindowAggregate sends on every partial result it holds (store 7, 12:15–12:30: 1 order, $21.00; store 7, 12:30–12:45: 1 order, $14.00), even 12:30–12:45, which isn't due yet. Then it forwards the watermark. One row per store and slice crosses the network, however many records went into it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 111,
+              "store_id": 7,
+              "total": 25,
+              "event_time": "12:52:40"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "Order 111 starts store 7's partial result for the 12:45–13:00 slice: 1 order, $25.00. LocalWindowAggregate keeps it in memory, not in Flink state."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:52:39"
+          },
+          "out": [
+            {
+              "wm": "12:52:39"
+            }
+          ],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "The watermark, 12:52:39, hasn't reached the end of any buffered slice, so the partial results stay in memory. LocalWindowAggregate forwards the watermark."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "order_id": 112,
+              "store_id": 7,
+              "total": 9,
+              "event_time": "13:03:05"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "Order 112 starts store 7's partial result for the 13:00–13:15 slice: 1 order, $9.00. LocalWindowAggregate keeps it in memory, not in Flink state."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "13:03:04"
+          },
+          "out": [
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "orders": 1,
+                "sales": 25,
+                "slice_end": "13:00:00"
+              }
+            },
+            {
+              "kind": "+I",
+              "row": {
+                "store_id": 7,
+                "orders": 1,
+                "sales": 9,
+                "slice_end": "13:15:00"
+              }
+            },
+            {
+              "wm": "13:03:04"
+            }
+          ],
+          "facts": {
+            "state": [],
+            "timers": []
+          },
+          "caption": "The watermark, 13:03:04, has reached the end of a buffered slice, so LocalWindowAggregate sends on every partial result it holds (store 7, 12:45–13:00: 1 order, $25.00; store 7, 13:00–13:15: 1 order, $9.00), even 13:00–13:15, which isn't due yet. Then it forwards the watermark. One row per store and slice crosses the network, however many records went into it."
+        }
+      ]
+    },
+    {
+      "node": "win",
+      "op": "globalWindowAggregate",
+      "title": "GlobalWindowAggregate",
+      "flink": [
+        "GlobalWindowAggregate"
+      ],
+      "upstream": [
+        "orders"
+      ],
+      "fields": {
+        "count1$0": "orders",
+        "sum$1": "sales",
+        "count$2": "orders",
+        "$slice_end": "slice_end"
+      },
+      "checkpoint": false,
+      "unordered": true,
+      "steps": [
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "wm": "12:11:29"
+          },
+          "out": [
+            {
+              "wm": "12:11:29"
+            }
+          ],
+          "facts": {
+            "state": [],
+            "timers": [],
+            "values": {
+              "window-aggs": {}
+            }
+          },
+          "caption": "The watermark, 12:11:29, hasn't reached any timer, so nothing fires. GlobalWindowAggregate forwards it."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 7,
+              "orders": 2,
+              "sales": 49,
+              "slice_end": "12:15:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": [],
+            "values": {
+              "window-aggs": {}
+            }
+          },
+          "caption": "Store 7's partial result for the 12:00–12:15 slice arrives (2 orders, $49.00). GlobalWindowAggregate holds it in memory until the watermark that follows."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 7,
+              "orders": 1,
+              "sales": 27.5,
+              "slice_end": "12:30:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [],
+            "timers": [],
+            "values": {
+              "window-aggs": {}
+            }
+          },
+          "caption": "Store 7's partial result for the 12:15–12:30 slice arrives (1 order, $27.50). GlobalWindowAggregate holds it in memory until the watermark that follows."
         },
         {
           "from": [
@@ -421,7 +658,7 @@
               }
             }
           },
-          "caption": "The watermark, 12:17:19, passes 12:15. The 12:00–12:15 window fires: 2 orders, $49.00. Its slice is the window's first slice, which every later step shares. A timer is set for the next step, 12:30."
+          "caption": "The watermark, 12:17:19, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:00–12:15: 2 orders, $49.00; store 7, 12:15–12:30: 1 order, $27.50), with a timer for each slice it hadn't seen. The watermark passes 12:15. The 12:00–12:15 window fires: 2 orders, $49.00. Its slice is the window's first slice, which every later step shares. A timer is set for the next step, 12:30."
         },
         {
           "from": [
@@ -430,10 +667,10 @@
           "item": {
             "kind": "+I",
             "row": {
-              "order_id": 108,
               "store_id": 7,
-              "total": 21,
-              "event_time": "12:24:10"
+              "orders": 1,
+              "sales": 21,
+              "slice_end": "12:30:00"
             }
           },
           "out": [],
@@ -455,14 +692,14 @@
                 },
                 "7|12:30:00": {
                   "tuple": [
-                    "2",
-                    "48.50"
+                    "1",
+                    "27.50"
                   ]
                 }
               }
             }
           },
-          "caption": "Order 108 is added to the 12:15–12:30 slice: 2 orders, $48.50."
+          "caption": "Store 7's partial result for the 12:15–12:30 slice arrives (1 order, $21.00). GlobalWindowAggregate holds it in memory until the watermark that follows."
         },
         {
           "from": [
@@ -471,22 +708,20 @@
           "item": {
             "kind": "+I",
             "row": {
-              "order_id": 110,
               "store_id": 7,
-              "total": 14,
-              "event_time": "12:38:30"
+              "orders": 1,
+              "sales": 14,
+              "slice_end": "12:45:00"
             }
           },
           "out": [],
           "facts": {
             "state": [
               "7|12:15:00",
-              "7|12:30:00",
-              "7|12:45:00"
+              "7|12:30:00"
             ],
             "timers": [
-              "7@12:29:59.999",
-              "7@12:44:59.999"
+              "7@12:29:59.999"
             ],
             "values": {
               "window-aggs": {
@@ -498,20 +733,14 @@
                 },
                 "7|12:30:00": {
                   "tuple": [
-                    "2",
-                    "48.50"
-                  ]
-                },
-                "7|12:45:00": {
-                  "tuple": [
                     "1",
-                    "14.00"
+                    "27.50"
                   ]
                 }
               }
             }
           },
-          "caption": "Order 110 goes into the 12:30–12:45 slice. It's the slice's first order, so an accumulator is created, with a timer for 12:45."
+          "caption": "Store 7's partial result for the 12:30–12:45 slice arrives (1 order, $14.00). GlobalWindowAggregate holds it in memory until the watermark that follows."
         },
         {
           "from": [
@@ -560,56 +789,7 @@
               }
             }
           },
-          "caption": "The watermark, 12:38:29, passes 12:30. The 12:15–12:30 slice is merged into the shared first slice, which now covers 12:00–12:30: 4 orders, $97.50. That's emitted as the 12:00–12:30 window. A timer is set for the next step, 12:45."
-        },
-        {
-          "from": [
-            "orders"
-          ],
-          "item": {
-            "kind": "+I",
-            "row": {
-              "order_id": 111,
-              "store_id": 7,
-              "total": 25,
-              "event_time": "12:52:40"
-            }
-          },
-          "out": [],
-          "facts": {
-            "state": [
-              "7|12:15:00",
-              "7|12:45:00",
-              "7|13:00:00"
-            ],
-            "timers": [
-              "7@12:44:59.999",
-              "7@12:59:59.999"
-            ],
-            "values": {
-              "window-aggs": {
-                "7|12:15:00": {
-                  "tuple": [
-                    "4",
-                    "97.50"
-                  ]
-                },
-                "7|12:45:00": {
-                  "tuple": [
-                    "1",
-                    "14.00"
-                  ]
-                },
-                "7|13:00:00": {
-                  "tuple": [
-                    "1",
-                    "25.00"
-                  ]
-                }
-              }
-            }
-          },
-          "caption": "Order 111 goes into the 12:45–13:00 slice. It's the slice's first order, so an accumulator is created, with a timer for 13:00."
+          "caption": "The watermark, 12:38:29, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:15–12:30: now 2 orders, $48.50; store 7, 12:30–12:45: 1 order, $14.00), with a timer for each slice it hadn't seen. The watermark passes 12:30. The 12:15–12:30 slice is merged into the shared first slice, which now covers 12:00–12:30: 4 orders, $97.50. That's emitted as the 12:00–12:30 window. A timer is set for the next step, 12:45."
         },
         {
           "from": [
@@ -635,8 +815,7 @@
           ],
           "facts": {
             "state": [
-              "7|12:15:00",
-              "7|13:00:00"
+              "7|12:15:00"
             ],
             "timers": [
               "7@12:59:59.999"
@@ -648,17 +827,11 @@
                     "5",
                     "111.50"
                   ]
-                },
-                "7|13:00:00": {
-                  "tuple": [
-                    "1",
-                    "25.00"
-                  ]
                 }
               }
             }
           },
-          "caption": "The watermark, 12:52:39, passes 12:45. The 12:30–12:45 slice is merged into the shared first slice, which now covers 12:00–12:45: 5 orders, $111.50. That's emitted as the 12:00–12:45 window. A timer is set for the next step, 13:00."
+          "caption": "The watermark, 12:52:39, arrives. The watermark passes 12:45. The 12:30–12:45 slice is merged into the shared first slice, which now covers 12:00–12:45: 5 orders, $111.50. That's emitted as the 12:00–12:45 window. A timer is set for the next step, 13:00."
         },
         {
           "from": [
@@ -667,22 +840,19 @@
           "item": {
             "kind": "+I",
             "row": {
-              "order_id": 112,
               "store_id": 7,
-              "total": 9,
-              "event_time": "13:03:05"
+              "orders": 1,
+              "sales": 25,
+              "slice_end": "13:00:00"
             }
           },
           "out": [],
           "facts": {
             "state": [
-              "7|12:15:00",
-              "7|13:00:00",
-              "7|13:15:00"
+              "7|12:15:00"
             ],
             "timers": [
-              "7@12:59:59.999",
-              "7@13:14:59.999"
+              "7@12:59:59.999"
             ],
             "values": {
               "window-aggs": {
@@ -691,23 +861,45 @@
                     "5",
                     "111.50"
                   ]
-                },
-                "7|13:00:00": {
+                }
+              }
+            }
+          },
+          "caption": "Store 7's partial result for the 12:45–13:00 slice arrives (1 order, $25.00). GlobalWindowAggregate holds it in memory until the watermark that follows."
+        },
+        {
+          "from": [
+            "orders"
+          ],
+          "item": {
+            "kind": "+I",
+            "row": {
+              "store_id": 7,
+              "orders": 1,
+              "sales": 9,
+              "slice_end": "13:15:00"
+            }
+          },
+          "out": [],
+          "facts": {
+            "state": [
+              "7|12:15:00"
+            ],
+            "timers": [
+              "7@12:59:59.999"
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:15:00": {
                   "tuple": [
-                    "1",
-                    "25.00"
-                  ]
-                },
-                "7|13:15:00": {
-                  "tuple": [
-                    "1",
-                    "9.00"
+                    "5",
+                    "111.50"
                   ]
                 }
               }
             }
           },
-          "caption": "Order 112 goes into the 13:00–13:15 slice. It's the slice's first order, so an accumulator is created, with a timer for 13:15."
+          "caption": "Store 7's partial result for the 13:00–13:15 slice arrives (1 order, $9.00). GlobalWindowAggregate holds it in memory until the watermark that follows."
         },
         {
           "from": [
@@ -749,7 +941,7 @@
               }
             }
           },
-          "caption": "The watermark, 13:03:04, passes 13:00. The 12:45–13:00 slice is merged into the shared first slice, which now covers 12:00–13:00: 6 orders, $136.50. That's emitted as the 12:00–13:00 window. The window has reached its full hour, so its state is freed."
+          "caption": "The watermark, 13:03:04, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:45–13:00: 1 order, $25.00; store 7, 13:00–13:15: 1 order, $9.00), with a timer for each slice it hadn't seen. The watermark passes 13:00. The 12:45–13:00 slice is merged into the shared first slice, which now covers 12:00–13:00: 6 orders, $136.50. That's emitted as the 12:00–13:00 window. The window has reached its full hour, so its state is freed."
         }
       ]
     }

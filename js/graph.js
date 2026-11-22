@@ -166,16 +166,31 @@ const Graph = (() => {
     // size each column to its own labels, instead of giving every operator the widest one's width.
     const nLayers = Math.max(...Object.values(depth)) + 1;
     if (nLayers >= 4) G.gapH = 156;
-    const long = nLayers >= 6;
-    if (long) G.gapH = 110;
+    const long = nLayers >= 5;
+    if (long) G.gapH = nLayers === 5 ? 140 : 110;
     const labelW = (n) => Math.ceil(Math.max(140, n.title.length * 8.2 + 28, ...(n.lines || []).map((t) => t.length * 6.9 + 24)));
     const colW = [];
     for (const n of graph.nodes.filter((x) => x.kind !== 'external')) {
       colW[depth[n.id]] = Math.max(colW[depth[n.id]] || 0, long ? labelW(n) : G.nodeW);
     }
-    const colX = colW.reduce((xs, w) => [...xs, xs[xs.length - 1] + w + G.gapH], [G.pad]);
     const hasPanel = (n) => n.stateful || n.panel;
     const multiInput = (n) => graph.edges.filter((e) => e.to === n.id && isStream(e)).length > 1;
+    // How far each column's panels reach left and right of its centre: centred under the
+    // operator, or hanging to the right under one with several inputs (see below).
+    const reach = colW.map(() => ({ left: 0, right: 0 }));
+    for (const n of graph.nodes.filter((x) => x.kind !== 'external' && hasPanel(x))) {
+      const c = depth[n.id];
+      const w = fits[n.id].width;
+      const [l, r] = multiInput(n) ? [colW[c] / 2, w - colW[c] / 2] : [w / 2, w / 2];
+      reach[c] = { left: Math.max(reach[c].left, l), right: Math.max(reach[c].right, r) };
+    }
+    // Columns are G.gapH apart, or further, so that neighbouring panels don't overlap.
+    const colX = colW.reduce((xs, w, i) => {
+      const x = xs[xs.length - 1];
+      if (i === colW.length - 1) return [...xs, x + w + G.gapH];
+      const apart = reach[i].right && reach[i + 1].left ? reach[i].right + reach[i + 1].left + 24 : 0;
+      return [...xs, Math.max(x + w + G.gapH, x + w / 2 + apart - colW[i + 1] / 2)];
+    }, [G.pad]);
     const tallest = Math.max(0, ...graph.nodes.map((n) => (hasPanel(n) ? panelHeight(fits[n.id]) : 0)));
     // An external system (the lookup join's service) sits above the operator that calls it.
     const externals = graph.nodes.filter((n) => n.kind === 'external');

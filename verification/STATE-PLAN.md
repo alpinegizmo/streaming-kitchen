@@ -107,9 +107,11 @@ matches the simulator's step model exactly.
      works on the binary layout.
    - The buffering pitfall is real: without the flush, a window's state and timers don't exist
      until a watermark arrives.
-   - A simulated operator can stand for several Flink operators (LocalWindowAggregate, then
-     GlobalWindowAggregate); the exporter lists them, and they run as a chain of harnesses. When a
-     job has two of a kind (the window join), the one fed by the same source tables is picked.
+   - A simulated operator can stand for several Flink operators; the exporter lists them, and
+     they run as a chain of harnesses. (The window aggregations were drawn as one operator then;
+     they're now two, LocalWindowAggregate and GlobalWindowAggregate, each checked on its own,
+     with their in-memory buffers simulated and no checkpoint before each comparison.) When a job
+     has two of a kind (the window join), the one fed by the same source tables is picked.
    - Statement sets are split into their INSERTs.
    - A negative control (one timer moved by 1 ms) fails, with a readable diff.
 2. **Exporter: done.** The traces live in the specs themselves (`operators` in

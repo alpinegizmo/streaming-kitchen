@@ -287,6 +287,8 @@
       "upstream": [
         "stores"
       ],
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [
@@ -453,6 +455,8 @@
         "orders",
         "stores"
       ],
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [
@@ -1007,6 +1011,8 @@
         "orders",
         "stores"
       ],
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [
@@ -1413,6 +1419,8 @@
         "orders",
         "stores"
       ],
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [

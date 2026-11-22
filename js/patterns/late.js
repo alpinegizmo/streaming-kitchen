@@ -21,6 +21,8 @@ window.PATTERNS = window.PATTERNS || [];
   const windowEnd = (r) => Math.floor(U.toSec(r.event_time) / SIZE) * SIZE + SIZE;
   const hm = (sec) => U.fromSec(sec).slice(0, 5);
 
+  const windowCfg = { kind: 'tumble', size: SIZE, key: 'store_id', keyLabel: 'store', timeField: 'event_time', sumField: 'total' };
+
   const late = {
     id: 'dlq',
     label: 'Statement set',
@@ -83,12 +85,12 @@ CREATE TABLE late_orders (
 -- Connection and format options are left out.`,
     matrix: {
       state: 'An accumulator per key and window; the filters keep none',
-      memory: 'The window aggregate buffers records in memory, and writes them to state by the next watermark or checkpoint',
+      memory: 'LocalWindowAggregate keeps partial results in memory, not state, until a watermark or checkpoint sends them on',
       watermarks: 'Fire windows, and split orders into on-time and late',
       watermarksOut: 'Passed through, after the windows it fires',
     },
     facts: {
-      state: 'The window keeps one accumulator per store and window, freed when the window fires. The two filters keep nothing: <code>CURRENT_WATERMARK</code> reads the watermark each Calc already has.',
+      state: 'GlobalWindowAggregate keeps one accumulator per store and window, freed when the window fires, and LocalWindowAggregate\'s partial results are in memory. The two filters keep nothing: <code>CURRENT_WATERMARK</code> reads the watermark each Calc already has.',
       watermarks: 'They fire the windows, and they define late: an order at or behind the watermark goes to the dead letter queue, and every other order goes to the window. Until the first watermark arrives, nothing is late.',
       output: 'Two append-only topics: one final row per store and window in store_sales, and every late order in late_orders. Each order lands in exactly one of them.',
     },
@@ -107,9 +109,12 @@ CREATE TABLE late_orders (
           cfg: { where: onTime },
         },
         {
-          id: 'win', kind: 'op', op: 'windowAggregate', title: 'WindowAggregate', lines: ['TUMBLE 1 min', 'local + global'],
-          stateful: true, sqlLines: [11, 12, 13, 14, 18, 19, 20],
-          cfg: { kind: 'tumble', size: SIZE, key: 'store_id', keyLabel: 'store', timeField: 'event_time', sumField: 'total' },
+          id: 'local', kind: 'op', op: 'localWindowAggregate', title: 'LocalWindowAggregate', lines: ['TUMBLE 1 min', 'pre-aggregate'],
+          panel: true, sqlLines: [12, 13, 14, 18, 19], cfg: windowCfg,
+        },
+        {
+          id: 'win', kind: 'op', op: 'globalWindowAggregate', title: 'GlobalWindowAggregate', lines: ['TUMBLE 1 min', 'merge, fire'],
+          stateful: true, sqlLines: [11, 12, 13, 20], cfg: windowCfg,
         },
         {
           id: 'sales', kind: 'sink', op: 'kafkaSink', title: 'Kafka sink', lines: ['store_sales'], sqlLines: [10],
@@ -132,7 +137,8 @@ CREATE TABLE late_orders (
       ],
       edges: [
         { from: 'src', to: 'ontime', mode: 'append', kinds: '+I' },
-        { from: 'ontime', to: 'win', mode: 'append', kinds: '+I', exchange: 'hash(store_id)' },
+        { from: 'ontime', to: 'local', mode: 'append', kinds: '+I' },
+        { from: 'local', to: 'win', mode: 'append', kinds: '+I', exchange: 'hash(store_id)' },
         { from: 'win', to: 'sales', mode: 'append', kinds: '+I' },
         { from: 'src', to: 'late', mode: 'append', kinds: '+I' },
         { from: 'late', to: 'dlq', mode: 'append', kinds: '+I' },
@@ -144,9 +150,11 @@ CREATE TABLE late_orders (
       order(105, 9, 16.00, '12:00:58'), order(106, 7, 27.50, '12:01:02'), order(107, 9, 19.00, '12:02:03'), WM,
       order(108, 7, 21.00, '12:01:50'),
     ],
-    pill: (r) => (r.window_start
-      ? `s${r.store_id} ${r.window_start} ${U.money(r.sales)}`
-      : `${r.order_id} s${r.store_id} ${r.event_time}`),
+    pill: (r) => {
+      if (r.window_start) return `s${r.store_id} ${r.window_start} ${U.money(r.sales)}`;
+      if (r.slice_end) return `s${r.store_id} ≤${r.slice_end.slice(0, 5)} ${r.sales < 0 ? `−${U.money(-r.sales)}` : U.money(r.sales)}`;
+      return `${r.order_id} s${r.store_id} ${r.event_time}`;
+    },
     narrate(node, ev) {
       const r = ev.row;
       if (node === 'src') {
@@ -154,15 +162,11 @@ CREATE TABLE late_orders (
         const read = `The source reads order ${r.order_id}: store ${r.store_id}, ${U.money(r.total)}, placed at ${r.event_time}.`;
         return r.order_id === 101 ? `${read} Both INSERTs read this one source, so every order goes down both branches.` : read;
       }
-      if (node === 'win') {
-        if (ev.type === 'fire') {
-          const wins = [...new Set(ev.firings.map((f) => `${f.start}–${f.end}`))];
-          const rows = ev.rows.map((x) => `store ${x.store_id}, ${result(x)}`).join('; ');
-          return `The watermark reaches ${ev.time}, so the ${list(wins)} window is complete. WindowAggregate emits a final row for each store (${rows}), frees their state, and then forwards the watermark.`;
-        }
-        if (ev.type === 'wm') return `The watermark, ${ev.time}, hasn't reached any timer, so nothing fires. It's forwarded.`;
-        if (ev.type === 'new-slice') return `Order ${r.order_id} falls in the ${ev.slice.start}–${ev.slice.end} window. Store ${r.store_id} has no accumulator for it yet, so one is created, with a timer for ${ev.timer}.`;
-        return `Order ${r.order_id} also falls in the ${ev.slice.start}–${ev.slice.end} window. Store ${r.store_id}'s accumulator becomes ${result({ orders: ev.acc.count, sales: ev.acc.sum })}.`;
+      if (node === 'win' && ev.type === 'fire') {
+        const wins = [...new Set(ev.firings.map((f) => `${f.start}–${f.end}`))];
+        const rows = ev.rows.map((x) => `store ${x.store_id}, ${result(x)}`).join('; ');
+        const text = Ops.globalWindowAggregate.mergeText(ev, windowCfg);
+        return `The watermark, ${ev.time}, arrives. ${text ? `${text} ` : ''}Then the ${list(wins)} window is complete: GlobalWindowAggregate emits a final row for each store (${rows}), frees their state, and forwards the watermark.`;
       }
       if (node === 'ontime') {
         if (ev.type === 'wm') return `The watermark reaches the main query's filter. From now on, CURRENT_WATERMARK returns ${ev.time}, and orders at or before it are late.`;

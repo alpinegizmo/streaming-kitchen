@@ -275,6 +275,8 @@
       "upstream": [
         "pizza_costs"
       ],
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [
@@ -720,6 +722,8 @@
         "orders",
         "pizza_costs"
       ],
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [

@@ -315,9 +315,11 @@ public class StateCheck {
          * it emitted. Window aggregations buffer records until prepareSnapshotPreBarrier; Rank's
          * FastTop1Function caches rows until snapshotState.
          */
-        List<Object> drain(long checkpoint) throws Exception {
-            harness.prepareSnapshotPreBarrier(checkpoint);
-            harness.snapshot(checkpoint, checkpoint);
+        List<Object> drain(long checkpoint, boolean takeCheckpoint) throws Exception {
+            if (takeCheckpoint) {
+                harness.prepareSnapshotPreBarrier(checkpoint);
+                harness.snapshot(checkpoint, checkpoint);
+            }
             List<Object> items = new ArrayList<>();
             for (Object o : harness.getOutput()) {
                 if (o instanceof StreamRecord || o instanceof Watermark) {
@@ -343,6 +345,10 @@ public class StateCheck {
             op.get("fields").fields().forEachRemaining(f -> fields.put(f.getKey(), f.getValue().asText()));
         }
         Set<String> nulls = new TreeSet<>();
+        // Operators whose in-memory buffers the simulator models aren't checkpointed before each
+        // comparison: that would flush the buffers. Some send rows in hash order.
+        boolean takeCheckpoint = !op.has("checkpoint") || op.get("checkpoint").asBoolean();
+        boolean unordered = op.path("unordered").asBoolean(false);
         // Fields the simulator shows coalesced from both sides of an outer join (see the exporter).
         Map<String, String> coalesce = new java.util.HashMap<>();
         if (op.has("coalesce")) {
@@ -376,18 +382,22 @@ public class StateCheck {
             // A two-input operator: the input that reads from the same source tables as the
             // simulator's input edge.
             int input = first.input(strings(step.get("from")));
-            List<Object> items = List.of(toItem(step.get("item"), first.ins.get(input), nulls));
+            List<Object> items = List.of(toItem(step.get("item"), first.ins.get(input), nulls, fields));
             for (Stage s : stages) {
                 for (Object item : items) {
                     s.push(item, s == first ? input : 0);
                 }
-                items = s.drain(++checkpoint);
+                items = s.drain(++checkpoint, takeCheckpoint);
             }
 
             List<String> simOut = new ArrayList<>();
             step.get("out").forEach(o -> simOut.add(describeSim(o, last.out, fields, unmodelled)));
             List<String> flinkOut = new ArrayList<>();
             items.forEach(o -> flinkOut.add(describe(o, last.out, unmodelled, coalesce)));
+            if (unordered) {
+                sortRows(simOut);
+                sortRows(flinkOut);
+            }
 
             Set<String> simState = strings(step.get("facts").get("state"));
             // An operator whose panel shows no timers leaves them out of its facts.
@@ -456,6 +466,14 @@ public class StateCheck {
             System.out.printf("  (fields the simulator doesn't model, given to Flink as null: %s)%n", String.join(", ", nulls));
         }
         return pass;
+    }
+
+    /** Sorts the rows of one step's output, keeping its watermarks after them, in order. */
+    static void sortRows(List<String> items) {
+        List<String> rows = new ArrayList<>(items.stream().filter(i -> !i.startsWith("wm ")).sorted().toList());
+        items.stream().filter(i -> i.startsWith("wm ")).forEach(rows::add);
+        items.clear();
+        items.addAll(rows);
     }
 
     static void row(String what, java.util.Collection<String> sim, java.util.Collection<String> flink) {
@@ -654,7 +672,7 @@ public class StateCheck {
     // ---- Converting rows ---------------------------------------------------------------------
 
     /** A simulator item as a StreamRecord (with the operator's input type) or a Watermark. */
-    static Object toItem(JsonNode item, RowType type, Set<String> nulls) {
+    static Object toItem(JsonNode item, RowType type, Set<String> nulls, Map<String, String> fields) {
         if (item.has("wm")) {
             return new Watermark(Replay.millis(item.get("wm").asText()));
         }
@@ -663,7 +681,7 @@ public class StateCheck {
         long ts = Long.MIN_VALUE;
         for (int i = 0; i < type.getFieldCount(); i++) {
             String name = type.getFieldNames().get(i);
-            JsonNode v = row.get(name);
+            JsonNode v = row.get(fields.getOrDefault(name, name));
             // A delete from an upsert source carries only its key; a column the pattern doesn't
             // use may be left out of its data, and a processing-time attribute isn't
             // materialized. Those are null.
@@ -671,7 +689,10 @@ public class StateCheck {
                 nulls.add(name);
             }
             LogicalType ft = type.getTypeAt(i);
-            Object internal = internal(v == null || v.isNull() ? null : v.asText(), ft);
+            // A window's $slice_end is epoch millis, as a BIGINT; the simulator writes it as a time.
+            Object internal = name.equals("$slice_end") && v != null && !v.isNull()
+                    ? Replay.millis(v.asText())
+                    : internal(v == null || v.isNull() ? null : v.asText(), ft);
             r.setField(i, internal);
             if (internal instanceof TimestampData && ts == Long.MIN_VALUE) {
                 ts = ((TimestampData) internal).getMillisecond();
@@ -742,7 +763,8 @@ public class StateCheck {
             if (r.isNullAt(i) && coalesce.containsKey(name)) {
                 j = type.getFieldIndex(coalesce.get(name));
             }
-            parts.add(name + "=" + text(RowData.createFieldGetter(type.getTypeAt(j), j).getFieldOrNull(r), type.getTypeAt(j)));
+            Object value = RowData.createFieldGetter(type.getTypeAt(j), j).getFieldOrNull(r);
+            parts.add(name + "=" + (name.equals("$slice_end") && value != null ? time((Long) value, false) : text(value, type.getTypeAt(j))));
         }
         return r.getRowKind().shortString() + "[" + String.join(", ", parts) + "]";
     }
@@ -759,7 +781,9 @@ public class StateCheck {
                 continue;
             }
             JsonNode v = o.get("row").get(fields.getOrDefault(name, name));
-            parts.add(name + "=" + Replay.format(v == null || v.isNull() ? null : v.asText(), type.getTypeAt(i).asSummaryString()));
+            parts.add(name + "=" + (name.equals("$slice_end") && v != null && !v.isNull()
+                    ? Replay.pad(v.asText())
+                    : Replay.format(v == null || v.isNull() ? null : v.asText(), type.getTypeAt(i).asSummaryString())));
         }
         return o.get("kind").asText() + "[" + String.join(", ", parts) + "]";
     }

@@ -228,6 +228,8 @@
       "upstream": [
         "orders"
       ],
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [

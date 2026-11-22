@@ -295,6 +295,8 @@
         "w0$o1": "recent_orders",
         "w0$o2": "recent_sales"
       },
+      "checkpoint": true,
+      "unordered": false,
       "steps": [
         {
           "from": [

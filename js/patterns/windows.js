@@ -60,7 +60,19 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
               select=[store_id, COUNT(*) AS count1$0, SUM(total) AS sum$1, slice_end('w$) AS $slice_end],
               changelogMode=[I])${explainTail}`;
 
-  // Builds one window variant. `fire` narrates a watermark that fires windows.
+  // A partial result from LocalWindowAggregate: store, the end of its slice, and its total.
+  const pill = (r) => {
+    if (r.window_start) return `s${r.store_id} ${r.window_start} ${U.money(r.sales)}`;
+    if (r.slice_end) return `s${r.store_id} ≤${r.slice_end.slice(0, 5)} ${r.sales < 0 ? `−${U.money(-r.sales)}` : U.money(r.sales)}`;
+    return r.status === 'cancelled' ? `${r.order_id} cancelled` : `${r.order_id} s${r.store_id} ${r.event_time}`;
+  };
+  // What GlobalWindowAggregate merges into state, before it fires, as the start of a caption.
+  const merged = (ev, cfg) => {
+    const text = Ops.globalWindowAggregate.mergeText(ev, { ...cfg, key: 'store_id', keyLabel: 'store', sumField: 'total' });
+    return text ? `${text} ` : '';
+  };
+
+  // Builds one window variant. `fire` narrates the windows that a watermark fires.
   function variant(v) {
     const lines = v.tvf.length;
     return {
@@ -73,7 +85,9 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
       ddl,
       facts: v.facts,
       matrix: v.matrix,
-      graphLabel: `Job graph: Kafka source orders, hash partitioned by store_id into WindowAggregate (${v.label.toLowerCase()}), then Kafka sink store_sales. Both edges are append-only.`,
+      graphLabel: v.op === 'sessionWindowAggregate'
+        ? `Job graph: Kafka source orders, hash partitioned by store_id into WindowAggregate (${v.label.toLowerCase()}), then Kafka sink store_sales. Both edges are append-only.`
+        : `Job graph: Kafka source orders into LocalWindowAggregate (${v.label.toLowerCase()}), hash partitioned by store_id into GlobalWindowAggregate, then Kafka sink store_sales. Every edge is append-only.`,
       graph: {
         nodes: [
           {
@@ -83,11 +97,25 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
               columns: [{ f: 'order_id' }, { f: 'store_id', num: true }, { f: 'total', ...money }, { f: 'event_time' }],
             },
           },
-          {
-            id: 'win', kind: 'op', op: v.op, title: 'WindowAggregate', lines: v.nodeLines,
-            stateful: true, sqlLines: [2, 3, 4, 5, ...Array.from({ length: lines - 2 }, (_, i) => 7 + i), 5 + lines],
-            cfg: { ...v.cfg, key: 'store_id', keyLabel: 'store', timeField: 'event_time', sumField: 'total' },
-          },
+          // Session windows are planned as one WindowAggregate; the others in two phases.
+          ...(v.op === 'sessionWindowAggregate' ? [
+            {
+              id: 'win', kind: 'op', op: v.op, title: 'WindowAggregate', lines: [v.nodeLine],
+              stateful: true, sqlLines: [2, 3, 4, 5, ...Array.from({ length: lines - 2 }, (_, i) => 7 + i), 5 + lines],
+              cfg: { ...v.cfg, key: 'store_id', keyLabel: 'store', timeField: 'event_time', sumField: 'total' },
+            },
+          ] : [
+            {
+              id: 'local', kind: 'op', op: 'localWindowAggregate', title: 'LocalWindowAggregate', lines: [v.nodeLine, 'pre-aggregate'],
+              panel: true, sqlLines: [3, 4, 5, ...Array.from({ length: lines - 2 }, (_, i) => 7 + i)],
+              cfg: { ...v.cfg, key: 'store_id', keyLabel: 'store', timeField: 'event_time', sumField: 'total' },
+            },
+            {
+              id: 'win', kind: 'op', op: 'globalWindowAggregate', title: 'GlobalWindowAggregate', lines: [v.nodeLine, 'merge, fire'],
+              stateful: true, sqlLines: [2, 3, 4, 5 + lines],
+              cfg: { ...v.cfg, key: 'store_id', keyLabel: 'store', timeField: 'event_time', sumField: 'total' },
+            },
+          ]),
           {
             id: 'sink', kind: 'sink', op: 'kafkaSink', title: 'Kafka sink', lines: ['store_sales'], sqlLines: [1],
             cfg: {
@@ -97,14 +125,14 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
           },
         ],
         edges: [
-          { from: 'src', to: 'win', mode: 'append', kinds: '+I', exchange: 'hash(store_id)' },
+          ...(v.op === 'sessionWindowAggregate'
+            ? [{ from: 'src', to: 'win', mode: 'append', kinds: '+I', exchange: 'hash(store_id)' }]
+            : [{ from: 'src', to: 'local', mode: 'append', kinds: '+I' }, { from: 'local', to: 'win', mode: 'append', kinds: '+I', exchange: 'hash(store_id)' }]),
           { from: 'win', to: 'sink', mode: 'append', kinds: '+I' },
         ],
       },
       inputs: v.inputs,
-      pill: (r) => (r.window_start
-        ? `s${r.store_id} ${r.window_start} ${U.money(r.sales)}`
-        : `${r.order_id} s${r.store_id} ${r.event_time}`),
+      pill,
       narrate(node, ev) {
         if (node === 'src' && ev.type === 'read') {
           const r = ev.row;
@@ -113,11 +141,17 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
         if (node === 'src' && ev.type === 'wm') {
           return `The source emits a watermark for ${ev.time}: the newest event time it has read, minus 1 second.`;
         }
-        if (node === 'win') {
-          if (ev.type === 'wm') return `The watermark, ${ev.time}, hasn't reached any timer, so nothing fires. WindowAggregate forwards it.`;
-          if (ev.type === 'fire') return v.fire(ev);
-          return v.record(ev);
+        // LocalWindowAggregate's own captions describe the partial results; the watermark that
+        // fires windows says what it merged first, then what fires.
+        if (node === 'local' && v.local) {
+          const text = v.local(ev);
+          if (text) return text;
         }
+        if (node === 'win' && v.op === 'sessionWindowAggregate') {
+          if (ev.type === 'wm') return `The watermark, ${ev.time}, hasn't reached any timer, so nothing fires. WindowAggregate forwards it.`;
+          return ev.type === 'fire' ? v.fire(ev) : v.record(ev);
+        }
+        if (node === 'win' && ev.type === 'fire') return `The watermark, ${ev.time}, arrives. ${merged(ev, v.cfg)}${v.fire(ev)}`;
         if (node === 'sink' && ev.type === 'append') {
           const r = ev.row;
           return `The sink appends store ${r.store_id}'s result for ${r.window_start}–${r.window_end}: ${result(r)}. It's final, and will never be updated.`;
@@ -142,8 +176,7 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
     question: 'How much did each store sell, every 5 minutes?',
     intro: 'Stores 7 and 9 send orders. Windows are 5 minutes long, and the watermark trails the newest order by 1 second. Press Play, or step through with the arrow keys.',
     tvf: ['TUMBLE(', '  TABLE orders,', '  DESCRIPTOR(event_time),', "  INTERVAL '5' MINUTES)"],
-    op: 'windowAggregate',
-    nodeLines: ['TUMBLE 5 min', 'local + global'],
+    nodeLine: 'TUMBLE 5 min',
     cfg: { kind: 'tumble', size: 300 },
     inputs: [
       order(101, 7, 18.00, '12:01:10'), order(102, 9, 24.50, '12:02:30'), order(103, 7, 31.00, '12:03:45'), WM,
@@ -151,20 +184,14 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
       order(105, 7, 16.00, '12:04:58'), order(107, 9, 19.00, '12:07:30'), order(108, 7, 21.00, '12:09:10'), WM,
       order(109, 9, 30.00, '12:10:20'), WM,
     ],
-    record(ev) {
-      const r = ev.row;
-      if (ev.type === 'new-slice') return `Order ${r.order_id} falls in the ${ev.slice.start}–${ev.slice.end} window. Store ${r.store_id} has no accumulator for it yet, so one is created, with a timer for ${ev.timer}.`;
-      if (ev.type === 'accumulate') return `Order ${r.order_id} also falls in the ${ev.slice.start}–${ev.slice.end} window. Store ${r.store_id}'s accumulator becomes ${result({ orders: ev.acc.count, sales: ev.acc.sum })}.`;
-      return `Order ${r.order_id} was placed at ${r.event_time}, but the watermark is already at ${ev.wm}. Its ${ev.slice.start}–${ev.slice.end} window has fired and its state is gone, so the order is late, and dropped.`;
-    },
     fire(ev) {
       const wins = [...new Set(ev.firings.map((f) => `${f.start}–${f.end}`))];
       const rows = ev.rows.map((x) => `store ${x.store_id}, ${result(x)}`).join('; ');
-      return `The watermark reaches ${ev.time}, so the ${list(wins)} window is complete. WindowAggregate emits a final row for each store (${rows}), frees their state, and then forwards the watermark.`;
+      return `Then the ${list(wins)} window is complete: GlobalWindowAggregate emits a final row for each store (${rows}), frees their state, and forwards the watermark.`;
     },
-    matrix: { state: 'An accumulator per key and window, freed when the window fires', memory: 'Records are buffered in memory, and written to state by the next watermark or checkpoint', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
+    matrix: { state: 'An accumulator per key and window, freed when the window fires', memory: 'LocalWindowAggregate keeps partial results in memory, not state, until a watermark or checkpoint sends them on', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
     facts: {
-      state: 'One accumulator per store and window (an order count and a running sum), and a timer at the end of each window. A window\'s state is freed as soon as it fires.',
+      state: 'GlobalWindowAggregate keeps one accumulator per store and window (an order count and a running sum), and a timer at the end of each window. A window\'s state is freed as soon as it fires. LocalWindowAggregate\'s partial results are in memory, not in state.',
       ...sharedFacts,
       output: 'Append-only. Each window is emitted once, when it\'s final, so a plain Kafka topic can take it.',
     },
@@ -182,10 +209,13 @@ least the 1-second out-of-orderness delay later, and only once a later order has
 watermark along. A non-windowed <code>GROUP BY</code> is fresher, but its output is an updating
 stream, and its state never goes away.</p>
 <p>The planner splits the aggregation in two. LocalWindowAggregate pre-aggregates each window
-before the shuffle, so only one partial result per store and window crosses the network.
-GlobalWindowAggregate, after the hash exchange on <code>store_id</code>, merges them in keyed
-state and fires the timers. The graph draws them as one operator. It also leaves out two Calcs that
-only drop columns.</p>
+before the shuffle, so only one partial result per store and window crosses the network. It keeps
+them in memory, not in Flink state, and sends them all on when the watermark reaches the end of a
+window, or at a checkpoint. GlobalWindowAggregate, after the hash exchange on
+<code>store_id</code>, merges them into keyed state, decides what's late, and fires the timers. So
+order 105, which is late, isn't dropped when it arrives: LocalWindowAggregate adds it to a partial
+result, and GlobalWindowAggregate drops that partial result when it reaches it, a watermark later.
+The graph leaves out two Calcs that only drop columns.</p>
 <p>Under the hood, the state is kept per <em>slice</em>. For a tumbling window, a slice is the whole
 window. Hopping and cumulating windows share slices between overlapping windows.</p>
 <p>If late orders matter, give the watermark a longer delay, at the cost of later results, or
@@ -201,8 +231,7 @@ send them to a topic of their own, as the next recipe does.</p>`,
     blurb: 'A hopping window is 15 minutes long and starts every 5 minutes, so windows overlap and each order belongs to three of them. To keep one example readable, only store 7 sends orders here.',
     intro: 'Store 7 sends orders. Windows are 15 minutes long and start every 5 minutes. Flink keeps state per 5-minute slice, and builds each window from three slices. Press Play, or step through with the arrow keys.',
     tvf: ['HOP(', '  TABLE orders,', '  DESCRIPTOR(event_time),', "  INTERVAL '5' MINUTES,", "  INTERVAL '15' MINUTES)"],
-    op: 'windowAggregate',
-    nodeLines: ['HOP 15 min, every 5', 'local + global'],
+    nodeLine: 'HOP 15 min, every 5',
     cfg: { kind: 'hop', size: 900, slide: 300 },
     inputs: [
       order(101, 7, 18.00, '12:01:10'), order(103, 7, 31.00, '12:03:45'), WM,
@@ -211,19 +240,15 @@ send them to a topic of their own, as the next recipe does.</p>`,
       order(111, 7, 25.00, '12:16:40'), WM,
       order(112, 7, 9.00, '12:21:05'), WM,
     ],
-    record(ev) {
-      const r = ev.row;
-      if (ev.type === 'new-slice') {
-        const end = U.toSec(`${ev.slice.end}:00`);
-        const wins = [0, 1, 2].map((i) => `${U.fromSec(end - 900 + i * 300).slice(0, 5)}–${U.fromSec(end + i * 300).slice(0, 5)}`);
-        return `Order ${r.order_id} belongs to three windows (${list(wins)}), but it's stored once, in the ${ev.slice.start}–${ev.slice.end} slice. That slice is new, so an accumulator is created, with a timer for ${ev.timer}.`;
-      }
-      if (ev.type === 'accumulate') return `Order ${r.order_id} is added to the ${ev.slice.start}–${ev.slice.end} slice: ${result({ orders: ev.acc.count, sales: ev.acc.sum })}.`;
-      return `Order ${r.order_id} is late, and dropped.`;
+    local(ev) {
+      if (ev.type !== 'new') return null;
+      const end = U.toSec(`${ev.slice.slice(-5)}:00`);
+      const wins = [0, 1, 2].map((i) => `${U.fromSec(end - 900 + i * 300).slice(0, 5)}–${U.fromSec(end + i * 300).slice(0, 5)}`);
+      return `Order ${ev.row.order_id} belongs to three windows (${list(wins)}), but it's counted once, in store ${ev.key}'s partial result for the ${ev.slice} slice: ${result({ orders: ev.acc.count, sales: ev.acc.sum })}. LocalWindowAggregate keeps it in memory, not in Flink state.`;
     },
     fire(ev) {
       return ev.firings.map((f) => {
-        const parts = [`The watermark, ${ev.time}, passes ${f.end}, the end of the ${f.start}–${f.end} window.`];
+        const parts = [`The watermark passes ${f.end}, the end of the ${f.start}–${f.end} window.`];
         parts.push(f.row
           ? `It's assembled from the slices it spans that hold orders (${list(f.merged)}): ${result(f.row)}, and emitted.`
           : 'None of its slices hold orders, so nothing is emitted.');
@@ -232,9 +257,9 @@ send them to a topic of their own, as the next recipe does.</p>`,
         return parts.join(' ');
       }).join(' ');
     },
-    matrix: { state: 'An accumulator per key and slice, freed when no open window needs it', memory: 'Records are buffered in memory, and written to state by the next watermark or checkpoint', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
+    matrix: { state: 'An accumulator per key and slice, freed when no open window needs it', memory: 'LocalWindowAggregate keeps partial results in memory, not state, until a watermark or checkpoint sends them on', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
     facts: {
-      state: 'One accumulator per store and 5-minute slice, and a timer at the next window\'s end. Each order is stored once, though it belongs to three windows. A slice is freed when the last window that needs it has fired.',
+      state: 'GlobalWindowAggregate keeps one accumulator per store and 5-minute slice, and a timer at the next window\'s end. Each order is stored once, though it belongs to three windows. A slice is freed when the last window that needs it has fired. LocalWindowAggregate\'s partial results are in memory, not in state.',
       ...sharedFacts,
       output: 'Append-only. Every 5 minutes, one final row per store for the 15 minutes just ended.',
     },
@@ -251,7 +276,8 @@ fires with data sets a timer for the next one. Once a window comes out empty, no
 set until another order arrives, so empty windows are never emitted. Windows aren't aligned to the
 first order, either: the order at 12:01:10 is in 11:50–12:05 and 11:55–12:10, which started before
 it.</p>
-<p>Like a tumbling window, it's planned in two phases, and drawn here as one operator.</p>`,
+<p>Like a tumbling window, it's planned in two phases: LocalWindowAggregate sends on one partial
+result per store and slice, and GlobalWindowAggregate builds the windows from them.</p>`,
   });
 
   // ---------- Cumulate ----------
@@ -263,8 +289,7 @@ it.</p>
     blurb: 'A cumulating window grows in steps from the start of the hour, and emits a running total at each step, until it reaches its full size. Only store 7 sends orders here.',
     intro: 'Store 7 sends orders. The window starts on the hour, and grows by 15 minutes at a time, up to an hour. Press Play, or step through with the arrow keys.',
     tvf: ['CUMULATE(', '  TABLE orders,', '  DESCRIPTOR(event_time),', "  INTERVAL '15' MINUTES,", "  INTERVAL '1' HOUR)"],
-    op: 'windowAggregate',
-    nodeLines: ['CUMULATE 1 h, every 15', 'local + global'],
+    nodeLine: 'CUMULATE 1 h, every 15',
     cfg: { kind: 'cumulate', size: 3600, step: 900 },
     inputs: [
       order(101, 7, 18.00, '12:05:10'), order(103, 7, 31.00, '12:11:30'), WM,
@@ -273,15 +298,9 @@ it.</p>
       order(111, 7, 25.00, '12:52:40'), WM,
       order(112, 7, 9.00, '13:03:05'), WM,
     ],
-    record(ev) {
-      const r = ev.row;
-      if (ev.type === 'new-slice') return `Order ${r.order_id} goes into the ${ev.slice.start}–${ev.slice.end} slice. It's the slice's first order, so an accumulator is created, with a timer for ${ev.timer}.`;
-      if (ev.type === 'accumulate') return `Order ${r.order_id} is added to the ${ev.slice.start}–${ev.slice.end} slice: ${result({ orders: ev.acc.count, sales: ev.acc.sum })}.`;
-      return `Order ${r.order_id} is late, and dropped.`;
-    },
     fire(ev) {
       return ev.firings.map((f) => {
-        const parts = [`The watermark, ${ev.time}, passes ${f.end}.`];
+        const parts = [`The watermark passes ${f.end}.`];
         if (!f.merged.length) {
           parts.push(`The ${f.start}–${f.end} window fires: ${result(f.row)}. Its slice is the window's first slice, which every later step shares.`);
         } else {
@@ -292,9 +311,9 @@ it.</p>
         return parts.join(' ');
       }).join(' ');
     },
-    matrix: { state: 'An accumulator per key and slice, freed when the hour is complete', memory: 'Records are buffered in memory, and written to state by the next watermark or checkpoint', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
+    matrix: { state: 'An accumulator per key and slice, freed when the hour is complete', memory: 'LocalWindowAggregate keeps partial results in memory, not state, until a watermark or checkpoint sends them on', watermarks: 'Triggers results and frees state', watermarksOut: 'Passed through, after the windows it fires' },
     facts: {
-      state: 'One accumulator per store and 15-minute slice, and a timer for the next step. As each step fires, its slice is merged into the window\'s first slice, which holds the running total. It\'s all freed when the hour is complete.',
+      state: 'GlobalWindowAggregate keeps one accumulator per store and 15-minute slice, and a timer for the next step. As each step fires, its slice is merged into the window\'s first slice, which holds the running total. It\'s all freed when the hour is complete. LocalWindowAggregate\'s partial results are in memory, not in state.',
       ...sharedFacts,
       output: 'Append-only. Every 15 minutes, a final total for the hour so far. Each row covers more time than the one before.',
     },
@@ -310,7 +329,8 @@ slice always holds the total up to the last step that fired. When the hour is co
 freed.</p>
 <p>Once a window has data, a timer is set for every step until the end of the hour, even if no more
 orders arrive.</p>
-<p>Like a tumbling window, it's planned in two phases, and drawn here as one operator.</p>`,
+<p>Like a tumbling window, it's planned in two phases: LocalWindowAggregate sends on one partial
+result per store and slice, and GlobalWindowAggregate builds the windows from them.</p>`,
   });
 
   // ---------- Session ----------
@@ -323,7 +343,7 @@ orders arrive.</p>
     intro: 'Stores 7 and 9 send orders. Each order keeps its store\'s session open for another 10 minutes. Press Play, or step through with the arrow keys.',
     tvf: ['SESSION(', '  TABLE orders PARTITION BY store_id,', '  DESCRIPTOR(event_time),', "  INTERVAL '10' MINUTES)"],
     op: 'sessionWindowAggregate',
-    nodeLines: ['SESSION 10 min gap'],
+    nodeLine: 'SESSION 10 min gap',
     cfg: { gap: 600 },
     inputs: [
       order(101, 7, 18.00, '12:01:10'), order(102, 9, 24.50, '12:02:30'), order(103, 7, 31.00, '12:06:00'), WM,
@@ -376,6 +396,8 @@ into local and global phases: it's a single WindowAggregate after the hash excha
   const placed = (id, store, total, time) => statusRow(id, store, 'placed', total, time);
   const cancelled = (id, store, total, time) => statusRow(id, store, 'cancelled', total, time);
 
+  const cfgUpdating = { kind: 'tumble', size: 300, key: 'store_id', keyLabel: 'store', timeField: 'event_time', sumField: 'total' };
+
   const updating = {
     id: 'updating',
     label: 'Updating input',
@@ -413,13 +435,13 @@ CREATE TABLE store_sales (
 ) WITH ('connector' = 'kafka', 'topic' = 'store_sales');
 
 -- Connection and format options are left out.`,
-    matrix: { state: 'The last row per order, and an accumulator per key and window', memory: 'The window aggregate buffers records in memory, and writes them to state by the next watermark or checkpoint', watermarks: 'Trigger results, and set the deadline for retractions', watermarksOut: 'Passed through, after the windows it fires' },
+    matrix: { state: 'The last row per order, and an accumulator per key and window', memory: 'LocalWindowAggregate keeps partial results in memory, not state, until a watermark or checkpoint sends them on', watermarks: 'Trigger results, and set the deadline for retractions', watermarksOut: 'Passed through, after the windows it fires' },
     facts: {
-      state: 'ChangelogNormalize keeps the last row of every order that hasn\'t been cancelled, so it can retract it. WindowAggregate keeps an accumulator per store and window, and frees it when the window fires.',
+      state: 'ChangelogNormalize keeps the last row of every order that hasn\'t been cancelled, so it can retract it. GlobalWindowAggregate keeps an accumulator per store and window, and frees it when the window fires. LocalWindowAggregate\'s partial results are in memory, not in state.',
       watermarks: 'They fire the windows, and so they set the deadline for cancellations. A cancellation counts only if it arrives before the watermark passes the end of the order\'s window.',
       output: 'Append-only, although the input is updating. Each window is still emitted once, when it fires, so a plain Kafka topic can take it.',
     },
-    graphLabel: 'Job graph: upsert-kafka source order_status, hash partitioned by order_id into ChangelogNormalize with the filter, which emits a retract stream, hash partitioned by store_id into WindowAggregate (tumble), then Kafka sink store_sales, which is append-only.',
+    graphLabel: 'Job graph: upsert-kafka source order_status, hash partitioned by order_id into ChangelogNormalize with the filter, which emits a retract stream into LocalWindowAggregate (tumble), hash partitioned by store_id into GlobalWindowAggregate, then Kafka sink store_sales, which is append-only.',
     graph: {
       nodes: [
         {
@@ -440,8 +462,13 @@ CREATE TABLE store_sales (
           },
         },
         {
-          id: 'win', kind: 'op', op: 'windowAggregate', title: 'WindowAggregate', lines: ['TUMBLE 5 min', 'local + global'],
-          stateful: true, sqlLines: [2, 3, 4, 5, 7, 8, 10],
+          id: 'local', kind: 'op', op: 'localWindowAggregate', title: 'LocalWindowAggregate', lines: ['TUMBLE 5 min', 'pre-aggregate'],
+          panel: true, sqlLines: [3, 4, 5, 7, 8],
+          cfg: { kind: 'tumble', size: 300, key: 'store_id', keyLabel: 'store', timeField: 'event_time', sumField: 'total' },
+        },
+        {
+          id: 'win', kind: 'op', op: 'globalWindowAggregate', title: 'GlobalWindowAggregate', lines: ['TUMBLE 5 min', 'merge, fire'],
+          stateful: true, sqlLines: [2, 3, 4, 10],
           cfg: { kind: 'tumble', size: 300, key: 'store_id', keyLabel: 'store', timeField: 'event_time', sumField: 'total' },
         },
         {
@@ -454,7 +481,10 @@ CREATE TABLE store_sales (
       ],
       edges: [
         { from: 'src', to: 'cn', mode: 'upsert', kinds: '+U -D', exchange: 'hash(order_id)' },
-        { from: 'cn', to: 'win', mode: 'retract', kinds: '+I -U +U -D', exchange: 'hash(store_id)' },
+        { from: 'cn', to: 'local', mode: 'retract', kinds: '+I -U +U -D' },
+        // The plan labels this edge with its input's changelog mode, but every partial result is
+        // a plain insert, with a negative count for retractions.
+        { from: 'local', to: 'win', mode: 'retract', kinds: '+I -U +U -D', exchange: 'hash(store_id)' },
         { from: 'win', to: 'sink', mode: 'append', kinds: '+I' },
       ],
     },
@@ -468,9 +498,7 @@ CREATE TABLE store_sales (
       placed(105, 9, 19.00, '12:08:30'), cancelled(104, 7, 13.00, '12:06:20'),
       placed(106, 9, 22.00, '12:10:40'), WM,
     ],
-    pill: (r) => (r.window_start
-      ? `s${r.store_id} ${r.window_start} ${U.money(r.sales)}`
-      : r.status === 'cancelled' ? `${r.order_id} cancelled` : `${r.order_id} s${r.store_id} ${r.event_time}`),
+    pill,
     narrate(node, ev) {
       if (node === 'src' && ev.type === 'read') {
         const r = ev.row;
@@ -488,26 +516,18 @@ CREATE TABLE store_sales (
           case 'wm': return `The watermark passes through ChangelogNormalize.`;
         }
       }
-      if (node === 'win') {
-        const r = ev.row;
-        const win = ev.slice && `${ev.slice.start}–${ev.slice.end}`;
-        switch (ev.type) {
-          case 'new-slice': return `Order ${r.order_id} falls in the ${win} window. Store ${r.store_id} has no accumulator for it yet, so one is created, with a timer for ${ev.timer}.`;
-          case 'accumulate': return `Order ${r.order_id} also falls in the ${win} window. Store ${r.store_id}'s accumulator becomes ${result({ orders: ev.acc.count, sales: ev.acc.sum })}.`;
-          case 'retract': return ev.acc.count === 0
-            ? `The delete takes order ${r.order_id} back out of the ${win} window, which leaves store ${r.store_id} with no orders in it. The accumulator stays until its timer fires.`
-            : `The delete takes order ${r.order_id} back out of the ${win} window, which hasn't fired yet. Store ${r.store_id}'s accumulator goes down to ${result({ orders: ev.acc.count, sales: ev.acc.sum })}.`;
-          case 'late': return `The delete for order ${r.order_id} belongs to the ${win} window, but the watermark is already at ${ev.wm}. That window has fired and its state is gone, so the retraction is late, and dropped, like any late record. Store ${r.store_id}'s result in store_sales still counts order ${r.order_id}.`;
-          case 'wm': return `The watermark, ${ev.time}, hasn't reached any timer, so nothing fires. WindowAggregate forwards it.`;
-          case 'fire': {
-            const wins = [...new Set(ev.firings.map((f) => `${f.start}–${f.end}`))];
-            const rows = ev.firings.filter((f) => f.row).map((f) => `store ${f.k}, ${result(f.row)}`).join('; ');
-            const empty = ev.firings.filter((f) => f.empty).map((f) => `store ${f.k}`);
-            return `The watermark reaches ${ev.time}, so the ${list(wins)} window is complete. WindowAggregate emits a final row for ${rows}.`
-              + (empty.length ? ` The count for ${list(empty)} is 0, so nothing is emitted for it.` : '')
-              + ' It frees the window\'s state, and then forwards the watermark.';
-          }
-        }
+      if (node === 'local' && ev.type === 'flush' && ev.sent.some((x) => x.acc.count <= 0)) {
+        return `${Ops.localWindowAggregate.say(ev, cfgUpdating)} The plan labels this edge as a retract stream, like the one coming in, but each partial result is a plain insert: a retraction only lowers its count and sum, here to zero or below.`;
+      }
+      if (node === 'win' && (ev.type === 'fire' || ev.type === 'merge')) {
+        const lost = ev.late.map((l) => `Store ${l.k}'s result in store_sales still counts the cancelled order.`).join(' ');
+        if (ev.type === 'merge') return `The watermark, ${ev.time}, arrives. ${merged(ev, cfgUpdating)}${lost}`;
+        const wins = [...new Set(ev.firings.map((f) => `${f.start}–${f.end}`))];
+        const rows = ev.firings.filter((f) => f.row).map((f) => `store ${f.k}, ${result(f.row)}`).join('; ');
+        const empty = ev.firings.filter((f) => f.empty).map((f) => `store ${f.k}`);
+        return `The watermark, ${ev.time}, arrives. ${merged(ev, cfgUpdating)}${lost ? `${lost} ` : ''}Then the ${list(wins)} window is complete: GlobalWindowAggregate emits a final row for ${rows}.`
+          + (empty.length ? ` The count for ${list(empty)} is 0, so nothing is emitted for it.` : '')
+          + ' It frees the window\'s state, and forwards the watermark.';
       }
       if (node === 'sink' && ev.type === 'append') {
         const r = ev.row;

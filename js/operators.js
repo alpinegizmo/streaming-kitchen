@@ -188,55 +188,174 @@ const Ops = (() => {
   const timerList = (st) => [...new Set(Object.values(st.timers).map((t) => t.t))].sort((a, b) => a - b);
   const add = (a, b) => Math.round((a + b) * 100) / 100;
 
-  // Window aggregation over TUMBLE, HOP and CUMULATE window TVFs. Flink plans these as
-  // LocalWindowAggregate + GlobalWindowAggregate, drawn as one operator. State is kept per
-  // slice, and windows are assembled from slices when they fire. Mirrors Flink 2.3's
-  // AbstractSliceSyncStateWindowAggProcessor, SliceSharedSyncStateWindowAggProcessor,
-  // SliceUnsharedSyncStateWindowAggProcessor and the slice assigners in SliceAssigners:
-  //   - a record goes into one slice, and registers a timer at the first unfired window end
-  //   - a record whose slice has fired, and whose last window has fired, is late, and dropped
+  // Window aggregation over TUMBLE, HOP and CUMULATE window TVFs, which Flink plans in two
+  // phases: LocalWindowAggregate before the hash exchange, and GlobalWindowAggregate after it.
+  // Both work in slices: a tumbling window is one slice; hopping and cumulating windows share
+  // slices between overlapping windows. Mirrors Flink 2.3's LocalSlicingWindowAggOperator,
+  // WindowAggOperator with SliceSharedSyncStateWindowAggProcessor and
+  // SliceUnsharedSyncStateWindowAggProcessor, RecordsWindowBuffer, LocalAggCombiner,
+  // GlobalAggCombiner, and the slice assigners in SliceAssigners.
+  //   cfg: { kind: 'tumble' | 'hop' | 'cumulate', size, slide (hop), step (cumulate),
+  //          key, keyLabel, timeField, sumField, countName, sumName, what(row) }   (all durations
+  //          in seconds; without a sumField there's only the count, named countName, 'orders' by
+  //          default; what(row) names a row in captions, 'Order <order_id>' by default)
+  const sliceSize = (cfg) => (cfg.kind === 'hop' ? cfg.slide : cfg.kind === 'cumulate' ? cfg.step : cfg.size);
+  const sliceUnit = (cfg) => (cfg.kind === 'tumble' ? 'window' : 'slice');
+  const sliceLabel = (cfg, end) => `${hm(end - sliceSize(cfg))}–${hm(end)}`;
+  // Both phases look at their buffer only when the watermark reaches the next slice boundary
+  // (getNextTriggerWatermark); before the first watermark, any watermark will do.
+  const nextBoundary = (cfg, w) => Math.floor(w / sliceSize(cfg)) * sliceSize(cfg) + sliceSize(cfg);
+  // A retraction can make a partial result negative: −1 order, −$31.00.
+  const signed = (n, text) => (n < 0 ? `−${text(-n)}` : text(n));
+  const accText = (cfg, a) => (cfg.sumField
+    ? `${signed(a.count, (n) => `${n} ${n === 1 ? 'order' : 'orders'}`)}, ${signed(a.sum, U.money)}`
+    : `${cfg.countName || 'orders'} ${signed(a.count, String)}`);
+  const what = (cfg, row) => (cfg.what ? cfg.what(row) : `Order ${row.order_id}`);
+
+  // LocalWindowAggregate: pre-aggregates before the shuffle, so only one partial result per key
+  // and slice crosses the network. The partial results are kept in memory, not in Flink state:
+  //   - every record, retractions included, is added to its key and slice. Lateness isn't
+  //     decided here: a record for a fired window is added like any other
+  //   - when the watermark reaches the next slice boundary, and a buffered slice's window has
+  //     ended, every partial result is sent on (RecordsWindowBuffer.advanceProgress), then the
+  //     watermark. A checkpoint sends them on too (prepareSnapshotPreBarrier)
+  //   - a partial result is a plain insert: the key, the count (and sum), and $slice_end
+  const localWindowAggregate = {
+    init: () => ({ buffer: {}, wm: null, next: null }),
+    record(st, item, cfg) {
+      const row = item.row;
+      const k = row[cfg.key];
+      const size = sliceSize(cfg);
+      const end = Math.floor(U.toSec(row[cfg.timeField]) / size) * size + size;
+      const retract = item.kind === '-U' || item.kind === '-D';
+      const key = `${k}|${end}`;
+      const created = !st.buffer[key];
+      const b = st.buffer[key] || (st.buffer[key] = { k, end, count: 0, sum: 0 });
+      b.count += retract ? -1 : 1;
+      const v = cfg.sumField ? row[cfg.sumField] : 0;
+      b.sum = add(b.sum, retract ? -v : v);
+      return {
+        out: [], absorb: true, touched: key,
+        ev: { type: retract ? 'retract' : created ? 'new' : 'add', row, key: k, slice: sliceLabel(cfg, end), acc: { ...b }, behind: fired(st, end), wm: st.wm },
+      };
+    },
+    watermark(st, item, cfg) {
+      const w = U.toSec(item.time);
+      st.wm = item.time;
+      let sent = [];
+      const checked = st.next == null || w >= st.next;
+      if (checked) {
+        const buffered = Object.values(st.buffer).sort((a, b) => a.end - b.end || a.k - b.k);
+        if (buffered.length && buffered[0].end <= w) {
+          sent = buffered;
+          st.buffer = {};
+        }
+        st.next = nextBoundary(cfg, w);
+      }
+      const out = sent.map((b) => rec('+I', {
+        [cfg.key]: b.k, [cfg.countName || 'orders']: b.count,
+        ...(cfg.sumField ? { [cfg.sumName || 'sales']: b.sum } : {}), slice_end: hms(b.end),
+      }));
+      return {
+        out: [...out, wm(item.time)],
+        ev: { type: sent.length ? 'flush' : 'wm', time: item.time, checked, next: hm(st.next), sent: sent.map((b) => ({ k: b.k, slice: sliceLabel(cfg, b.end), due: b.end <= w, acc: b })) },
+      };
+    },
+    view(st, cfg) {
+      const kl = cfg.keyLabel || cfg.key;
+      return {
+        title: 'Partial results, in memory',
+        cols: [kl, sliceUnit(cfg), cfg.countName || 'orders', ...(cfg.sumField ? [cfg.sumName || 'sales'] : [])],
+        rows: Object.entries(st.buffer)
+          .sort(([, a], [, b]) => a.end - b.end || a.k - b.k)
+          .map(([key, b]) => ({ key, cells: [b.k, sliceLabel(cfg, b.end), b.count, ...(cfg.sumField ? [signed(b.sum, U.money)] : [])] })),
+        footer: `not state. Sent on at ${st.next == null ? 'the first watermark' : `watermark ${hm(st.next)}`}, if a window ended`,
+      };
+    },
+    // No keyed state and no timers: the partial results are in memory.
+    facts: () => ({ state: [], timers: [] }),
+    say(ev, cfg) {
+      const unit = sliceUnit(cfg);
+      const kl = cfg.keyLabel || cfg.key;
+      switch (ev.type) {
+        case 'new':
+        case 'add': {
+          const base = ev.type === 'new'
+            ? `${what(cfg, ev.row)} starts ${kl} ${ev.key}'s partial result for the ${ev.slice} ${unit}: ${accText(cfg, ev.acc)}.`
+            : `${what(cfg, ev.row)} is added to ${kl} ${ev.key}'s partial result for the ${ev.slice} ${unit}: ${accText(cfg, ev.acc)}.`;
+          if (ev.behind) return `${base} The watermark (${ev.wm}) is already past the end of this ${unit}, but LocalWindowAggregate doesn't decide what's late: GlobalWindowAggregate will.`;
+          return ev.type === 'new' ? `${base} LocalWindowAggregate keeps it in memory, not in Flink state.` : base;
+        }
+        case 'retract': return `The retraction takes ${what(cfg, ev.row).toLowerCase()} back out of ${kl} ${ev.key}'s partial result for the ${ev.slice} ${unit}: ${accText(cfg, ev.acc)}.${ev.behind ? ` The watermark (${ev.wm}) is already past the end of this ${unit}, but LocalWindowAggregate doesn't decide what's late: GlobalWindowAggregate will.` : ''}`;
+        case 'wm': return ev.checked
+          ? `The watermark, ${ev.time}, hasn't reached the end of any buffered ${unit}, so the partial results stay in memory. LocalWindowAggregate forwards the watermark.`
+          : `The watermark, ${ev.time}, hasn't reached the next ${unit} boundary, so LocalWindowAggregate doesn't look at its partial results. It forwards the watermark.`;
+        case 'flush': {
+          const parts = ev.sent.map((x) => `${kl} ${x.k}, ${x.slice}: ${accText(cfg, x.acc)}`);
+          const early = ev.sent.filter((x) => !x.due).map((x) => x.slice);
+          return `The watermark, ${ev.time}, has reached the end of a buffered ${unit}, so LocalWindowAggregate sends on every partial result it holds (${parts.join('; ')})${early.length ? `, even ${[...new Set(early)].join(' and ')}, which isn't due yet` : ''}. Then it forwards the watermark. One row per ${kl} and ${unit} crosses the network, however many records went into it.`;
+        }
+      }
+      return '';
+    },
+  };
+
+  // GlobalWindowAggregate: after the hash exchange, merges the partial results in keyed state,
+  // per key and slice, and fires the windows:
+  //   - partial results wait in memory until a watermark that reaches the next slice boundary
+  //     (as in the local phase), which first merges them into state, before it fires any timer.
+  //     Lateness is decided then, against the watermark before this one: a partial result for a
+  //     fired slice whose last window has fired is late, and dropped. Merging a slice registers
+  //     a timer at its first unfired window end
   //   - tumble: a slice is a window; it fires, and is freed
   //   - hop: a window merges the slices it spans, is emitted unless empty, schedules the next
   //     window if it wasn't empty, and frees its first slice
   //   - cumulate: each step merges its slice into the window's first slice, which is shared,
   //     and emits it; the next step is scheduled until the window reaches its maximum size
-  //   - a retraction (-U or -D) takes its row back out of the slice (COUNT_RETRACT, SUM_RETRACT
-  //     in AggCombiner), but is late, and dropped, on exactly the same terms as an insert
   //   - a window whose COUNT(*) is zero when it fires isn't emitted (WindowIsEmptySupplier)
-  //   cfg: { kind: 'tumble' | 'hop' | 'cumulate', size, slide (hop), step (cumulate),
-  //          key, keyLabel, timeField, sumField, countName, sumName }   (all durations in seconds;
-  //          without a sumField there's only the count, named countName, 'orders' by default)
-  const windowAggregate = {
-    init: () => ({ slices: {}, timers: {}, wm: null }),
+  const globalWindowAggregate = {
+    init: () => ({ pending: [], slices: {}, timers: {}, wm: null, next: null }),
     record(st, item, cfg) {
-      const row = item.row;
-      const k = row[cfg.key];
-      const ts = U.toSec(row[cfg.timeField]);
-      const sliceSize = cfg.kind === 'hop' ? cfg.slide : cfg.kind === 'cumulate' ? cfg.step : cfg.size;
-      const sliceEnd = Math.floor(ts / sliceSize) * sliceSize + sliceSize;
-      const winStart = (end) => (cfg.kind === 'cumulate' ? Math.floor((end - 1) / cfg.size) * cfg.size : end - cfg.size);
-      const lastWindowEnd = cfg.kind === 'hop' ? sliceEnd - sliceSize + cfg.size
-        : cfg.kind === 'cumulate' ? winStart(sliceEnd) + cfg.size : sliceEnd;
-      const slice = { start: hm(sliceEnd - sliceSize), end: hm(sliceEnd) };
-      const retract = item.kind === '-U' || item.kind === '-D';
-      if (fired(st, sliceEnd)) {
-        if (fired(st, lastWindowEnd)) return { out: [], ev: { type: 'late', retract, row, slice, wm: st.wm } };
-        throw new Error('A record for a fired slice of an unfired window: the example data should avoid this case.');
-      }
-      const key = `${k}|${sliceEnd}`;
-      const created = !st.slices[key];
-      const s = st.slices[key] || (st.slices[key] = { k, start: sliceEnd - sliceSize, end: sliceEnd, count: 0, sum: 0 });
-      s.count += retract ? -1 : 1;
-      const v = cfg.sumField ? row[cfg.sumField] : 0;
-      s.sum = add(s.sum, retract ? -v : v);
-      let timer = sliceEnd;
-      while (fired(st, timer)) timer += sliceSize;
-      st.timers[`${k}|${timer}`] = { k, t: timer };
-      return { out: [], absorb: true, touched: key, ev: { type: retract ? 'retract' : created ? 'new-slice' : 'accumulate', row, slice, acc: { ...s }, timer: hm(timer), wm: st.wm } };
+      const p = item.row;
+      st.pending.push(p);
+      const end = U.toSec(p.slice_end);
+      return { out: [], absorb: true, touched: `P${p[cfg.key]}|${end}`, ev: { type: 'receive', row: p, key: p[cfg.key], slice: sliceLabel(cfg, end), acc: { count: p[cfg.countName || 'orders'], sum: p[cfg.sumName || 'sales'] } } };
     },
     watermark(st, item, cfg) {
-      st.wm = item.time;
       const now = U.toSec(item.time);
+      const size = sliceSize(cfg);
+      const winStart = (end) => (cfg.kind === 'cumulate' ? Math.floor((end - 1) / cfg.size) * cfg.size : end - cfg.size);
+      // 1. Merge the partial results that have arrived, with the old watermark deciding lateness.
+      const merged = [];
+      const late = [];
+      if (st.next == null || now >= st.next) {
+        if (st.pending.length && Math.min(...st.pending.map((p) => U.toSec(p.slice_end))) <= now) {
+          for (const p of st.pending) {
+            const k = p[cfg.key];
+            const end = U.toSec(p.slice_end);
+            const lastWindowEnd = cfg.kind === 'hop' ? end - size + cfg.size : cfg.kind === 'cumulate' ? winStart(end) + cfg.size : end;
+            const count = p[cfg.countName || 'orders'];
+            const sum = cfg.sumField ? p[cfg.sumName || 'sales'] : 0;
+            if (fired(st, end)) {
+              if (fired(st, lastWindowEnd)) { late.push({ k, slice: sliceLabel(cfg, end), acc: { count, sum } }); continue; }
+              throw new Error('A partial result for a fired slice of an unfired window: the example data should avoid this case.');
+            }
+            const key = `${k}|${end}`;
+            const created = !st.slices[key];
+            const s = st.slices[key] || (st.slices[key] = { k, start: end - size, end, count: 0, sum: 0 });
+            s.count += count;
+            s.sum = add(s.sum, sum);
+            let timer = end;
+            while (fired(st, timer)) timer += size;
+            st.timers[`${k}|${timer}`] = { k, t: timer };
+            merged.push({ k, slice: sliceLabel(cfg, end), acc: { ...s }, created, timer: hm(timer) });
+          }
+          st.pending = [];
+        }
+        st.next = nextBoundary(cfg, now);
+      }
+      // 2. Fire the timers the watermark has reached.
+      st.wm = item.time;
       const out = [];
       const firings = [];
       for (;;) {
@@ -291,22 +410,31 @@ const Ops = (() => {
         }
         firings.push(f);
       }
-      return { out: [...out, wm(item.time)], ev: { type: firings.length ? 'fire' : 'wm', time: item.time, firings, rows: out.map((o) => o.row) } };
+      const type = firings.length ? 'fire' : merged.length || late.length ? 'merge' : 'wm';
+      return { out: [...out, wm(item.time)], ev: { type, time: item.time, merged, late, firings, rows: out.map((o) => o.row) } };
     },
     view(st, cfg) {
       const kl = cfg.keyLabel || cfg.key;
+      const unit = sliceUnit(cfg);
       return {
-        title: `Accumulator per ${kl} and ${cfg.kind === 'tumble' ? 'window' : 'slice'}`,
-        cols: [kl, cfg.kind === 'tumble' ? 'window' : 'slice', cfg.countName || 'orders', ...(cfg.sumField ? [cfg.sumName || 'sales'] : [])],
-        rows: Object.entries(st.slices)
-          .sort(([, a], [, b]) => a.start - b.start || a.k - b.k)
-          .map(([key, s]) => ({ key, cells: [s.k, `${hm(s.start)}–${hm(s.cover || s.end)}`, s.count, ...(cfg.sumField ? [U.money(s.sum)] : [])] })),
+        title: `Accumulator per ${kl} and ${unit}`,
+        cols: [kl, unit, cfg.countName || 'orders', ...(cfg.sumField ? [cfg.sumName || 'sales'] : [])],
+        rows: [
+          ...Object.entries(st.slices)
+            .sort(([, a], [, b]) => a.start - b.start || a.k - b.k)
+            .map(([key, s]) => ({ key, cells: [s.k, `${hm(s.start)}–${hm(s.cover || s.end)}`, s.count, ...(cfg.sumField ? [U.money(s.sum)] : [])] })),
+          ...st.pending.map((p) => {
+            const end = U.toSec(p.slice_end);
+            return { key: `P${p[cfg.key]}|${end}`, cells: [p[cfg.key], `${sliceLabel(cfg, end)} arrived`, p[cfg.countName || 'orders'], ...(cfg.sumField ? [U.money(p[cfg.sumName || 'sales'])] : [])] };
+          }),
+        ],
         footer: `timers: ${timerList(st).map(hm).join(', ') || 'none'}`,
       };
     },
-    // State is per key and slice (the namespace is the slice end). A window's timer is set for
-    // 1 ms before its end, so it fires when the watermark reaches the end.
-    // The accumulator: COUNT(*), then SUM (with its own count of rows, when it can retract).
+    // State is per key and slice (the namespace is the slice end); partial results that haven't
+    // been merged yet are in memory. A window's timer is set for 1 ms before its end, so it fires
+    // when the watermark reaches the end. The accumulator: COUNT(*), then SUM (with its own count
+    // of rows, when it can retract).
     facts: (st, cfg, ctx) => ({
       state: Object.values(st.slices).map((s) => `${s.k}|${hms(s.end)}`),
       timers: Object.values(st.timers).map((t) => `${t.k}@${ms(t.t * 1000 - 1)}`),
@@ -315,14 +443,30 @@ const Ops = (() => {
           F.tuple(String(s.count), ...(cfg.sumField ? [F.dec(s.sum), ...(ctx.retract ? [String(s.count)] : [])] : []))])),
       },
     }),
-    say(ev) {
+    // What the watermark merges into state before it fires anything, for captions.
+    mergeText(ev, cfg) {
+      const unit = sliceUnit(cfg);
+      const kl = cfg.keyLabel || cfg.key;
+      const parts = [];
+      if (ev.merged.length) {
+        parts.push(`GlobalWindowAggregate first merges the partial results that arrived into its state (${ev.merged.map((m) => `${kl} ${m.k}, ${m.slice}: ${m.created ? '' : 'now '}${accText(cfg, m.acc)}`).join('; ')}), with a timer for each ${unit} it hadn't seen.`);
+      }
+      for (const l of ev.late) {
+        parts.push(`${kl[0].toUpperCase()}${kl.slice(1)} ${l.k}'s partial result for ${l.slice} (${accText(cfg, l.acc)}) is late: that window fired at an earlier watermark, and its state is gone, so it's dropped.`);
+      }
+      return parts.join(' ');
+    },
+    say(ev, cfg) {
+      const unit = sliceUnit(cfg);
+      const kl = cfg.keyLabel || cfg.key;
       switch (ev.type) {
-        case 'new-slice': return `The record opens the ${ev.slice.start}–${ev.slice.end} slice, with a timer for ${ev.timer}.`;
-        case 'accumulate': return `The record is added to the ${ev.slice.start}–${ev.slice.end} slice.`;
-        case 'retract': return `The retraction takes the row back out of the ${ev.slice.start}–${ev.slice.end} slice.`;
-        case 'late': return `Every window the record belongs to has already fired, so it's late, and dropped.`;
-        case 'fire': return `The watermark passes the end of a window, which fires.`;
-        case 'wm': return `The watermark hasn't reached any timer, so nothing fires. It's forwarded.`;
+        case 'receive': return `${kl[0].toUpperCase()}${kl.slice(1)} ${ev.key}'s partial result for the ${ev.slice} ${unit} arrives (${accText(cfg, ev.acc)}). GlobalWindowAggregate holds it in memory until the watermark that follows.`;
+        case 'merge': return `The watermark, ${ev.time}, arrives. ${this.mergeText(ev, cfg)} No timer is due yet, so nothing fires, and the watermark is forwarded.`;
+        case 'fire': {
+          const rows = ev.rows.map((x) => `${kl} ${x[cfg.key]}, ${accText(cfg, { count: x[cfg.countName || 'orders'], sum: x[cfg.sumName || 'sales'] })}`).join('; ');
+          return `The watermark, ${ev.time}, arrives. ${this.mergeText(ev, cfg)} Then the window ending ${ev.firings[0].end} is complete: GlobalWindowAggregate emits ${rows || 'nothing, since it\'s empty'}, frees its state, and forwards the watermark.`;
+        }
+        case 'wm': return `The watermark, ${ev.time}, hasn't reached any timer, so nothing fires. GlobalWindowAggregate forwards it.`;
       }
       return '';
     },
@@ -1548,7 +1692,7 @@ const Ops = (() => {
   };
 
   return {
-    kafkaSource, upsertKafkaSource, calc, changelogNormalize, windowAggregate, sessionWindowAggregate, overAggregate,
+    kafkaSource, upsertKafkaSource, calc, changelogNormalize, localWindowAggregate, globalWindowAggregate, sessionWindowAggregate, overAggregate,
     groupAggregate, procTimeDedup, rowTimeDedup, retractRank, fastTop1, windowJoin,
     regularJoin, intervalJoin, lookupJoin, temporalJoin, lateralSnapshotJoin, match, upsertMaterializer, external,
     kafkaSink, upsertKafkaSink, changelogKafkaSink,
