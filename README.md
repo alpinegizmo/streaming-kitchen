@@ -37,6 +37,7 @@ keep the font link instead (the page then falls back to system fonts when offlin
 | `verification/` | The SQL behind every job graph, and the plans Flink produced for it |
 | `tools/shoot.mjs` | Screenshots the page in headless Chrome, and reports console errors |
 | `tools/bundle.mjs` | Bundles the site into one standalone HTML file |
+| `tools/share-card.html` | The share card (the image link previews show), rendered to `images/share-card.png` by the command in its header |
 | `tools/export-replay.mjs` | Exports patterns, with the simulator's output, for `verification/run-replay.sh` |
 
 ## Checking the job graphs against Flink
