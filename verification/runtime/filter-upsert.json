@@ -224,7 +224,19 @@
             "state": [
               "201"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "placed"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 201 isn't in state, and placed passes the filter. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -255,7 +267,27 @@
               "201",
               "202"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "placed"
+                  },
+                  "input": 0
+                },
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 7,
+                    "status": "placed"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 202 isn't in state, and placed passes the filter. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -286,7 +318,27 @@
               "201",
               "202"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "baking"
+                  },
+                  "input": 0
+                },
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 7,
+                    "status": "placed"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 201 is already in state, and baking still passes the filter. The stored row is replaced, and an update (+U) goes downstream."
         },
@@ -316,7 +368,19 @@
             "state": [
               "201"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "baking"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 202 is now cancelled, so it fails the filter. Dropping the upsert wouldn't remove the order downstream. Because ChangelogNormalize remembers emitting it, it sends a delete (−D) for the old row, and clears the key."
         },
@@ -337,7 +401,19 @@
             "state": [
               "201"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "baking"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 203 was cancelled before it was ever emitted. It fails the filter and there's nothing to retract, so nothing is emitted or stored."
         },
@@ -358,7 +434,19 @@
             "state": [
               "201"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "baking"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "A duplicate of order 201's last update, perhaps a producer retry. It's identical to the row in state, so nothing is emitted. (ChangelogNormalize only skips duplicates when state TTL is off.)"
         },
@@ -384,7 +472,10 @@
           ],
           "facts": {
             "state": [],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {}
+            }
           },
           "caption": "ChangelogNormalize finds order 201 in state, emits a delete with the full row, which the tombstone didn't have, and clears the key."
         },
@@ -414,7 +505,19 @@
             "state": [
               "204"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "204": {
+                  "row": {
+                    "order_id": 204,
+                    "store_id": 9,
+                    "status": "placed"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 204 isn't in state, and placed passes the filter. ChangelogNormalize stores the row and emits an insert (+I)."
         }

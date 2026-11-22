@@ -237,7 +237,19 @@
             "state": [
               "201"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "placed"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 201 isn't in state yet. ChangelogNormalize stores it and emits an insert (+I)."
         },
@@ -268,7 +280,27 @@
               "201",
               "202"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "placed"
+                  },
+                  "input": 0
+                },
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 7,
+                    "status": "placed"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 202 isn't in state yet. ChangelogNormalize stores it and emits an insert (+I)."
         },
@@ -307,7 +339,27 @@
               "201",
               "202"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "baking"
+                  },
+                  "input": 0
+                },
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 7,
+                    "status": "placed"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 201 moves from placed to baking. ChangelogNormalize looks up the old row in state, and emits it as a retraction (−U), then the new row (+U). The aggregate needs both."
         },
@@ -339,7 +391,35 @@
               "202",
               "203"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "baking"
+                  },
+                  "input": 0
+                },
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 7,
+                    "status": "placed"
+                  },
+                  "input": 0
+                },
+                "203": {
+                  "row": {
+                    "order_id": 203,
+                    "store_id": 9,
+                    "status": "placed"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 203 isn't in state yet. ChangelogNormalize stores it and emits an insert (+I)."
         },
@@ -379,7 +459,35 @@
               "202",
               "203"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "baking"
+                  },
+                  "input": 0
+                },
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 7,
+                    "status": "baking"
+                  },
+                  "input": 0
+                },
+                "203": {
+                  "row": {
+                    "order_id": 203,
+                    "store_id": 9,
+                    "status": "placed"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 202 moves from placed to baking. ChangelogNormalize looks up the old row in state, and emits it as a retraction (−U), then the new row (+U). The aggregate needs both."
         },
@@ -408,7 +516,27 @@
               "202",
               "203"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 7,
+                    "status": "baking"
+                  },
+                  "input": 0
+                },
+                "203": {
+                  "row": {
+                    "order_id": 203,
+                    "store_id": 9,
+                    "status": "placed"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "ChangelogNormalize finds order 201 in state, and emits a delete with the full row (baking), so the aggregate knows which count to decrement. Then it clears the key."
         },
@@ -447,7 +575,27 @@
               "202",
               "203"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 7,
+                    "status": "baking"
+                  },
+                  "input": 0
+                },
+                "203": {
+                  "row": {
+                    "order_id": 203,
+                    "store_id": 9,
+                    "status": "baking"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 203 moves from placed to baking. ChangelogNormalize looks up the old row in state, and emits it as a retraction (−U), then the new row (+U). The aggregate needs both."
         }
@@ -489,7 +637,16 @@
             "state": [
               "placed"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "placed": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "There's no count for placed yet. GroupAggregate starts one at 1, and emits an insert (+I)."
         },
@@ -518,7 +675,16 @@
             "state": [
               "placed"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "placed": {
+                  "tuple": [
+                    "2"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The count for placed goes up to 2. GroupAggregate emits the new count (+U). The upsert sink doesn't need the old one."
         },
@@ -547,7 +713,16 @@
             "state": [
               "placed"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "placed": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The retraction takes the count for placed down to 1. GroupAggregate emits the new count (+U)."
         },
@@ -577,7 +752,21 @@
               "placed",
               "baking"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "placed": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "baking": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "There's no count for baking yet. GroupAggregate starts one at 1, and emits an insert (+I)."
         },
@@ -607,7 +796,21 @@
               "placed",
               "baking"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "placed": {
+                  "tuple": [
+                    "2"
+                  ]
+                },
+                "baking": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The count for placed goes up to 2. GroupAggregate emits the new count (+U). The upsert sink doesn't need the old one."
         },
@@ -637,7 +840,21 @@
               "placed",
               "baking"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "placed": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "baking": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The retraction takes the count for placed down to 1. GroupAggregate emits the new count (+U)."
         },
@@ -667,7 +884,21 @@
               "placed",
               "baking"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "placed": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "baking": {
+                  "tuple": [
+                    "2"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The count for baking goes up to 2. GroupAggregate emits the new count (+U). The upsert sink doesn't need the old one."
         },
@@ -697,7 +928,21 @@
               "placed",
               "baking"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "placed": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "baking": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The retraction takes the count for baking down to 1. GroupAggregate emits the new count (+U)."
         },
@@ -726,7 +971,16 @@
             "state": [
               "baking"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "baking": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The retraction takes placed down to 0 orders, so the group is gone. GroupAggregate emits a delete (−D) for it, and clears the key."
         },
@@ -755,7 +1009,16 @@
             "state": [
               "baking"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "baking": {
+                  "tuple": [
+                    "2"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The count for baking goes up to 2. GroupAggregate emits the new count (+U). The upsert sink doesn't need the old one."
         }

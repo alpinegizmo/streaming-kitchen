@@ -320,7 +320,7 @@ JOIN LATERAL SNAPSHOT(
     ddl: ordersDdl,
     matrix: { state: 'The current costs; while loading, buffered orders and pending changes', watermarks: 'Ends the load phase, and decides when each cost change takes effect', watermarksOut: 'The orders watermark only, held back until loading ends. The costs watermark is never forwarded' },
     facts: {
-      state: 'The current cost rows, per pizza, and cost changes waiting for the watermark. Orders are buffered only during the load phase. ChangelogNormalize also keeps the last row of every pizza.',
+      state: 'The current cost rows, per pizza, and cost changes that haven\'t been applied yet. Orders are buffered only during the load phase. ChangelogNormalize also keeps the last row of every pizza.',
       watermarks: 'The costs watermark decides when the load phase ends, and when each cost change becomes visible. Orders don\'t wait for watermarks in the join phase, and the order watermark is forwarded.',
       output: 'Append-only. Each order is joined once, with the cost that\'s current when it\'s processed. Not deterministic.',
     },
@@ -370,30 +370,40 @@ JOIN LATERAL SNAPSHOT(
         return null;
       }
       if (node === 'join') {
+        // Due changes are applied when their pizza is next needed: say so first.
+        const changes = (cs) => cs.map((c) => `${c.kind} pizza ${c.row.pizza_id} ${U.money(c.row.food_cost)}`).join(', ');
+        const first = ev.row && ev.applied?.length ? `Pizza ${ev.row.pizza_id} has due changes, so the join applies them first (${changes(ev.applied)}). ` : '';
         switch (ev.type) {
           case 'buffer-change':
-            return `The ${ev.kind} for pizza ${ev.row.pizza_id} (valid from ${ev.row.valid_from}) is buffered. It's applied once the costs watermark reaches ${ev.row.valid_from}.`;
+            return ev.behind
+              ? `${first}The ${ev.kind} for pizza ${ev.row.pizza_id} carries ${ev.kind === '-U' || ev.kind === '-D' ? 'the old row\'s' : 'its'} valid_from, ${ev.row.valid_from}, which the costs watermark has already passed. It's buffered until the watermark moves on, and applied the next time the join needs pizza ${ev.row.pizza_id} after that.`
+              : `${first}The ${ev.kind} for pizza ${ev.row.pizza_id} (valid from ${ev.row.valid_from}) is buffered. It's applied once the costs watermark has reached ${ev.row.valid_from}, the next time the join needs pizza ${ev.row.pizza_id}.`;
           case 'buffer-probe':
-            return `The join is still loading costs, so order ${ev.row.order_id} is buffered. Joining it now could use a cost table that isn't complete yet.`;
+            return `${first}The join is still loading costs, so order ${ev.row.order_id} is buffered. Joining it now could use a cost table that isn't complete yet.`;
           case 'join':
-            return `Order ${ev.row.order_id} is joined at once with the current cost of pizza ${ev.row.pizza_id}: ${U.money(ev.build.food_cost)}. It doesn't wait for any watermark.`;
+            return `${first}Order ${ev.row.order_id} is joined at once with the current cost of pizza ${ev.row.pizza_id}: ${U.money(ev.build.food_cost)}. It doesn't wait for any watermark.`;
           case 'no-match':
-            return ev.pending.length
+            return first + (ev.pending.length
               ? `Pizza ${ev.row.pizza_id}'s cost (valid from ${ev.pending[0].valid_from}) has arrived, but the costs watermark hasn't reached it, so it isn't visible yet. No current row: with an inner join, order ${ev.row.order_id} is dropped.`
-              : `There's no current cost for pizza ${ev.row.pizza_id}, so order ${ev.row.order_id} is dropped.`;
+              : `There's no current cost for pizza ${ev.row.pizza_id}, so order ${ev.row.order_id} is dropped.`);
           case 'hold':
             return `The orders watermark, ${ev.time}, is held back: during the load phase the join emits nothing, not even watermarks.`;
           case 'build-wm': {
-            const applied = ev.applied.length ? ` Changes that are now due are applied: ${ev.applied.map((c) => `${c.kind} pizza ${c.row.pizza_id} ${U.money(c.row.food_cost)}`).join(', ')}.` : ' No buffered change is due yet.';
-            return `The costs watermark moves to ${ev.time}.${applied}${ev.phase === 'LOAD' ? ' It hasn\'t reached 10:00:00, so the join keeps loading.' : ' It\'s used internally, and never forwarded.'}`;
+            const due = ev.due.length
+              ? ` Now due: ${changes(ev.due)}. Nothing changes yet: the join applies a pizza's due changes the next time it needs that pizza.`
+              : ' No buffered change is due yet.';
+            return `The costs watermark moves to ${ev.time}.${due}${ev.phase === 'LOAD' ? ' It hasn\'t reached 10:00:00, so the join keeps loading.' : ' It\'s used internally, and never forwarded.'}`;
           }
           case 'flip': {
-            const applied = ev.applied.map((c) => `${c.kind} pizza ${c.row.pizza_id} ${U.money(c.row.food_cost)}`).join(', ');
-            const drained = ev.drained.length ? ` The buffered orders are joined with the current costs, and emitted, with the held-back orders watermark.` : '';
-            return `The costs watermark reaches ${ev.time}, past 10:00:00, the time the query was compiled. Due changes are applied (${applied}), and the join switches from loading to joining.${drained}`;
+            const drained = ev.drained.length
+              ? ` Each buffered order is joined, after its pizza's due changes are applied (${changes(ev.applied) || 'none'}), and the results are emitted, with the held-back orders watermark.`
+              : '';
+            return `The costs watermark reaches ${ev.time}, past 10:00:00, the time the query was compiled. The join switches from loading to joining.${drained}`;
           }
           case 'probe-wm':
-            return `In the join phase, the orders watermark, ${ev.time}, is forwarded.`;
+            return ev.drained.length
+              ? `The orders watermark, ${ev.time}, lets the join emit the orders it buffered while loading. Each is joined, after its pizza's due changes are applied (${changes(ev.applied) || 'none'}), and the watermark is forwarded.`
+              : `In the join phase, the orders watermark, ${ev.time}, is forwarded.`;
         }
       }
       if (node === 'sink') {
@@ -423,10 +433,12 @@ changes, and buffers orders, until the costs watermark reaches the load-complete
 the moment the query was compiled. Then it joins the buffered orders and switches to the
 <em>join phase</em>. A static build side may never move its watermark that far, so set
 <code>load_completed_idle_timeout</code>, or read it in bounded mode.</p>
-<p>Cost changes are applied in the order of <code>on_time</code>, once the costs watermark reaches
+<p>Cost changes take effect in the order of <code>on_time</code>, once the costs watermark reaches
 them, in both phases. That's why order 1004 finds no cost for pizza 3 here: the cost has arrived,
-but isn't visible yet. The planner adds a ChangelogNormalize because the join needs full
-retractions to remove an old cost.</p>
+but isn't visible yet. Flink applies a pizza's due changes lazily, the next time the join needs
+that pizza, not when the watermark arrives, so the state panel shows them as due until then. The
+planner adds a ChangelogNormalize because the join needs full retractions to remove an old
+cost.</p>
 <p>It's processing time. Order 1001 was placed at 09:59:50, but it's joined at the flip with the cost
 current then, $4.50, not the $4.00 that a temporal join would give it. Run it twice and you can get
 different results. When you need the cost as it was when each order was placed, use the event-time

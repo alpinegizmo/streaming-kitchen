@@ -76,10 +76,17 @@ import org.apache.flink.types.RowKind;
  */
 public class StateCheck {
 
+    /** --dump: print every state value after every step, not just after a failing one. */
+    static boolean dump;
+
     public static void main(String[] args) throws Exception {
         int failed = 0;
         int checked = 0;
         for (String arg : args) {
+            if (arg.equals("--dump")) {
+                dump = true;
+                continue;
+            }
             JsonNode spec = new ObjectMapper().readTree(Path.of(arg).toFile());
             if (!spec.has("operators") || spec.get("operators").isEmpty()) {
                 continue;
@@ -391,7 +398,23 @@ public class StateCheck {
             state(last, op.get("op").asText(), flinkState, values);
             Set<String> flinkTimers = timers(last);
 
-            boolean ok = simOut.equals(flinkOut) && simState.equals(flinkState) && (!showsTimers || simTimers.equals(flinkTimers));
+            // Values, for the states the simulator's facts name: every entry, as "state key = value".
+            JsonNode simValues = step.get("facts").get("values");
+            Set<String> simVals = new TreeSet<>();
+            Set<String> flinkVals = new TreeSet<>();
+            if (simValues != null) {
+                simValues.fields().forEachRemaining(st -> st.getValue().fields().forEachRemaining(
+                        e -> simVals.add(st.getKey() + " " + e.getKey() + " = " + renderSim(e.getValue(), first))));
+                for (String v : values) {
+                    String name = v.substring(0, v.indexOf(' '));
+                    if (simValues.has(name)) {
+                        flinkVals.add(v);
+                    }
+                }
+            }
+
+            boolean ok = simOut.equals(flinkOut) && simState.equals(flinkState) && (!showsTimers || simTimers.equals(flinkTimers))
+                    && simVals.equals(flinkVals);
             pass &= ok;
             System.out.printf("  %s step %d: %s%n", ok ? "PASS" : "FAIL", n, describeSimItem(step.get("item")));
             if (!ok) {
@@ -404,7 +427,22 @@ public class StateCheck {
             } else {
                 System.out.printf("      %-8s flink %s (not shown in the simulator)%n", "timers", flinkTimers.isEmpty() ? "none" : String.join(", ", flinkTimers));
             }
-            if (!ok) {
+            if (simValues != null) {
+                if (simVals.equals(flinkVals)) {
+                    List<String> names = new ArrayList<>();
+                    simValues.fieldNames().forEachRemaining(names::add);
+                    System.out.printf("      %-8s %d entries in %s%n", "values", simVals.size(), String.join(", ", names));
+                } else {
+                    Set<String> onlySim = new TreeSet<>(simVals);
+                    onlySim.removeAll(flinkVals);
+                    Set<String> onlyFlink = new TreeSet<>(flinkVals);
+                    onlyFlink.removeAll(simVals);
+                    System.out.printf("    ≠ %-8s%n", "values");
+                    onlySim.forEach(v -> System.out.printf("        sim only    %s%n", v));
+                    onlyFlink.forEach(v -> System.out.printf("        flink only  %s%n", v));
+                }
+            }
+            if (!ok || dump) {
                 values.forEach(v -> System.out.printf("      flink state: %s%n", v));
             }
         }
@@ -535,18 +573,65 @@ public class StateCheck {
         return "|" + ns;
     }
 
-    static String value(Object v, Object serializer) {
-        if (v instanceof RowData && serializer instanceof RowDataSerializer) {
-            try {
-                LogicalType[] types = (LogicalType[]) field(serializer, "types");
+    /**
+     * A state value as text, decoded with its serializer: rows field by field, maps (sorted by
+     * key), lists, tuples, windows, and epoch millis on the replay's day as times of day.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    static String value(Object v, Object ser) {
+        if (v == null) {
+            return "null";
+        }
+        try {
+            if (v instanceof RowData && ser instanceof RowDataSerializer) {
+                LogicalType[] types = (LogicalType[]) field(ser, "types");
                 RowData r = (RowData) v;
                 List<String> parts = new ArrayList<>();
                 for (int i = 0; i < types.length; i++) {
                     parts.add(text(RowData.createFieldGetter(types[i], i).getFieldOrNull(r), types[i]));
                 }
+                // A stored row keeps its row kind: shown unless it's an insert.
+                String kind = r.getRowKind() == RowKind.INSERT ? "" : r.getRowKind().shortString();
+                return kind + "(" + String.join(", ", parts) + ")";
+            }
+            if (v instanceof Map) {
+                Object ks = ser.getClass().getMethod("getKeySerializer").invoke(ser);
+                Object vs = ser.getClass().getMethod("getValueSerializer").invoke(ser);
+                List<String> parts = new ArrayList<>();
+                for (Map.Entry<?, ?> e : ((Map<?, ?>) v).entrySet()) {
+                    parts.add(value(e.getKey(), ks) + "=" + value(e.getValue(), vs));
+                }
+                Collections.sort(parts);
+                return "{" + String.join(", ", parts) + "}";
+            }
+            if (v instanceof List) {
+                Object es = ser.getClass().getMethod("getElementSerializer").invoke(ser);
+                List<String> parts = new ArrayList<>();
+                for (Object e : (List<?>) v) {
+                    parts.add(value(e, es));
+                }
+                return "[" + String.join(", ", parts) + "]";
+            }
+            if (v instanceof org.apache.flink.api.java.tuple.Tuple) {
+                Object[] fs = (Object[]) ser.getClass().getMethod("getFieldSerializers").invoke(ser);
+                org.apache.flink.api.java.tuple.Tuple t = (org.apache.flink.api.java.tuple.Tuple) v;
+                List<String> parts = new ArrayList<>();
+                for (int i = 0; i < t.getArity(); i++) {
+                    parts.add(value(t.getField(i), fs[i]));
+                }
                 return "(" + String.join(", ", parts) + ")";
-            } catch (Exception e) {
-                return v.toString();
+            }
+        } catch (Exception e) {
+            return v.toString();
+        }
+        if (v instanceof TimeWindow) {
+            return namespace(v).substring(1);
+        }
+        if (v instanceof Long) {
+            long m = (Long) v;
+            long day = Replay.millis("00:00:00");
+            if (m >= day && m < day + 86_400_000L) {
+                return time(m, m % 1000 != 0);
             }
         }
         return String.valueOf(v);
@@ -671,6 +756,44 @@ public class StateCheck {
             parts.add(name + "=" + Replay.format(v == null || v.isNull() ? null : v.asText(), type.getTypeAt(i).asSummaryString()));
         }
         return o.get("kind").asText() + "[" + String.join(", ", parts) + "]";
+    }
+
+    /**
+     * A value from the simulator's facts, in the text form value() gives Flink's: a row in the
+     * Flink operator's input layout (and its kind, unless +I), a tuple, a map sorted by entry,
+     * a list, or a scalar already written as Flink's would be.
+     */
+    static String renderSim(JsonNode v, Stage stage) {
+        if (v == null || v.isNull()) {
+            return "null";
+        }
+        if (v.isValueNode()) {
+            return v.asText();
+        }
+        List<String> parts = new ArrayList<>();
+        if (v.isArray()) {
+            v.forEach(e -> parts.add(renderSim(e, stage)));
+            return "[" + String.join(", ", parts) + "]";
+        }
+        if (v.has("row")) {
+            RowType type = stage.ins.get(v.path("input").asInt(0));
+            JsonNode row = v.get("row");
+            for (int i = 0; i < type.getFieldCount(); i++) {
+                JsonNode f = row.get(type.getFieldNames().get(i));
+                parts.add(Replay.format(f == null || f.isNull() ? null : f.asText(), type.getTypeAt(i).asSummaryString()));
+            }
+            return (v.has("kind") ? v.get("kind").asText() : "") + "(" + String.join(", ", parts) + ")";
+        }
+        if (v.has("tuple")) {
+            v.get("tuple").forEach(e -> parts.add(renderSim(e, stage)));
+            return "(" + String.join(", ", parts) + ")";
+        }
+        if (v.has("map")) {
+            v.get("map").forEach(e -> parts.add(renderSim(e.get(0), stage) + "=" + renderSim(e.get(1), stage)));
+            Collections.sort(parts);
+            return "{" + String.join(", ", parts) + "}";
+        }
+        throw new IllegalArgumentException("not a facts value: " + v);
     }
 
     static String describeSimItem(JsonNode item) {

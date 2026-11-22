@@ -308,7 +308,16 @@
             ],
             "timers": [
               "7@12:14:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:15:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 101 falls in the 12:00–12:15 window. Store 7's placed count for it starts at 1."
         },
@@ -334,7 +343,21 @@
             "timers": [
               "7@12:14:59.999",
               "9@12:14:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:15:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "9|12:15:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 102 falls in the 12:00–12:15 window. Store 9's placed count for it starts at 1."
         },
@@ -360,7 +383,21 @@
             "timers": [
               "7@12:14:59.999",
               "9@12:14:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:15:00": {
+                  "tuple": [
+                    "2"
+                  ]
+                },
+                "9|12:15:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 103 is also in the 12:00–12:15 window. Store 7's placed count becomes 2."
         },
@@ -386,7 +423,21 @@
             "timers": [
               "7@12:14:59.999",
               "9@12:14:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:15:00": {
+                  "tuple": [
+                    "3"
+                  ]
+                },
+                "9|12:15:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 104 is also in the 12:00–12:15 window. Store 7's placed count becomes 3."
         },
@@ -414,7 +465,26 @@
               "7@12:14:59.999",
               "9@12:14:59.999",
               "7@12:29:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:15:00": {
+                  "tuple": [
+                    "3"
+                  ]
+                },
+                "9|12:15:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "7|12:30:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 105 falls in the 12:15–12:30 window. Store 7's placed count for it starts at 1."
         },
@@ -454,7 +524,16 @@
             ],
             "timers": [
               "7@12:29:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:30:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark reaches 12:17:04, so the 12:00–12:15 window is complete. WindowAggregate emits a count per store (store 7, 3 placed; store 9, 1 placed), then forwards the watermark."
         },
@@ -480,7 +559,21 @@
             "timers": [
               "7@12:29:59.999",
               "9@12:44:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:30:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "9|12:45:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 106 falls in the 12:30–12:45 window. Store 9's placed count for it starts at 1."
         },
@@ -511,7 +604,16 @@
             ],
             "timers": [
               "9@12:44:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "9|12:45:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark reaches 12:31:09, so the 12:15–12:30 window is complete. WindowAggregate emits a count per store (store 7, 1 placed), then forwards the watermark."
         }
@@ -549,7 +651,16 @@
             ],
             "timers": [
               "7@12:14:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:15:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The ticket for order 101 falls in the 12:00–12:15 window. Store 7's cooked count for it starts at 1."
         },
@@ -575,7 +686,21 @@
             "timers": [
               "7@12:14:59.999",
               "9@12:29:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:15:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "9|12:30:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The ticket for order 102 falls in the 12:15–12:30 window. Store 9's cooked count for it starts at 1."
         },
@@ -603,7 +728,26 @@
               "7@12:14:59.999",
               "9@12:29:59.999",
               "7@12:29:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:15:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "9|12:30:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "7|12:30:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The ticket for order 103 falls in the 12:15–12:30 window. Store 7's cooked count for it starts at 1."
         },
@@ -636,7 +780,21 @@
             "timers": [
               "9@12:29:59.999",
               "7@12:29:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "9|12:30:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "7|12:30:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark reaches 12:16:49, so the 12:00–12:15 window is complete. WindowAggregate emits a count per store (store 7, 1 cooked), then forwards the watermark."
         },
@@ -664,7 +822,26 @@
               "9@12:29:59.999",
               "7@12:29:59.999",
               "7@12:44:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "9|12:30:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "7|12:30:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                },
+                "7|12:45:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The ticket for order 104 falls in the 12:30–12:45 window. Store 7's cooked count for it starts at 1."
         },
@@ -704,7 +881,16 @@
             ],
             "timers": [
               "7@12:44:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:45:00": {
+                  "tuple": [
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark reaches 12:31:29, so the 12:15–12:30 window is complete. WindowAggregate emits a count per store (store 7, 1 cooked; store 9, 1 cooked), then forwards the watermark."
         }
@@ -747,7 +933,23 @@
             ],
             "timers": [
               "7@12:14:59.999"
-            ]
+            ],
+            "values": {
+              "left-records": {
+                "7|12:15:00": [
+                  {
+                    "row": {
+                      "window_start": "12:00",
+                      "window_end": "12:15",
+                      "store_id": 7,
+                      "placed": 3
+                    },
+                    "input": 0
+                  }
+                ]
+              },
+              "right-records": {}
+            }
           },
           "caption": "Store 7's placed count for 12:00–12:15 waits in the join's state. It can't be joined until the combined watermark passes the window's end, when both sides are complete."
         },
@@ -773,7 +975,34 @@
             "timers": [
               "7@12:14:59.999",
               "9@12:14:59.999"
-            ]
+            ],
+            "values": {
+              "left-records": {
+                "7|12:15:00": [
+                  {
+                    "row": {
+                      "window_start": "12:00",
+                      "window_end": "12:15",
+                      "store_id": 7,
+                      "placed": 3
+                    },
+                    "input": 0
+                  }
+                ],
+                "9|12:15:00": [
+                  {
+                    "row": {
+                      "window_start": "12:00",
+                      "window_end": "12:15",
+                      "store_id": 9,
+                      "placed": 1
+                    },
+                    "input": 0
+                  }
+                ]
+              },
+              "right-records": {}
+            }
           },
           "caption": "Store 9's placed count for 12:00–12:15 waits in the join's state. It can't be joined until the combined watermark passes the window's end, when both sides are complete."
         },
@@ -793,7 +1022,34 @@
             "timers": [
               "7@12:14:59.999",
               "9@12:14:59.999"
-            ]
+            ],
+            "values": {
+              "left-records": {
+                "7|12:15:00": [
+                  {
+                    "row": {
+                      "window_start": "12:00",
+                      "window_end": "12:15",
+                      "store_id": 7,
+                      "placed": 3
+                    },
+                    "input": 0
+                  }
+                ],
+                "9|12:15:00": [
+                  {
+                    "row": {
+                      "window_start": "12:00",
+                      "window_end": "12:15",
+                      "store_id": 9,
+                      "placed": 1
+                    },
+                    "input": 0
+                  }
+                ]
+              },
+              "right-records": {}
+            }
           },
           "caption": "The join records the orders watermark, 12:17:04. The kitchen input hasn't sent one yet, so there's no combined watermark, and nothing can be joined. The slower input holds back both."
         },
@@ -820,7 +1076,46 @@
             "timers": [
               "7@12:14:59.999",
               "9@12:14:59.999"
-            ]
+            ],
+            "values": {
+              "left-records": {
+                "7|12:15:00": [
+                  {
+                    "row": {
+                      "window_start": "12:00",
+                      "window_end": "12:15",
+                      "store_id": 7,
+                      "placed": 3
+                    },
+                    "input": 0
+                  }
+                ],
+                "9|12:15:00": [
+                  {
+                    "row": {
+                      "window_start": "12:00",
+                      "window_end": "12:15",
+                      "store_id": 9,
+                      "placed": 1
+                    },
+                    "input": 0
+                  }
+                ]
+              },
+              "right-records": {
+                "7|12:15:00": [
+                  {
+                    "row": {
+                      "window_start": "12:00",
+                      "window_end": "12:15",
+                      "store_id": 7,
+                      "cooked": 1
+                    },
+                    "input": 1
+                  }
+                ]
+              }
+            }
           },
           "caption": "Store 7's cooked count for 12:00–12:15 waits in the join's state, next to the other side's. It can't be joined until the combined watermark passes the window's end, when both sides are complete."
         },
@@ -858,7 +1153,11 @@
           ],
           "facts": {
             "state": [],
-            "timers": []
+            "timers": [],
+            "values": {
+              "left-records": {},
+              "right-records": {}
+            }
           },
           "caption": "The combined watermark moves to 12:16:49, the lower of the two inputs, which passes the window ending 12:15. WindowJoin joins each store's counts: store 7, 3 orders placed, 1 cooked; store 9, 1 order placed, none cooked (only the orders side had rows, so the other count is null). It frees that window's state, then forwards the watermark."
         },
@@ -882,7 +1181,23 @@
             ],
             "timers": [
               "7@12:29:59.999"
-            ]
+            ],
+            "values": {
+              "left-records": {
+                "7|12:30:00": [
+                  {
+                    "row": {
+                      "window_start": "12:15",
+                      "window_end": "12:30",
+                      "store_id": 7,
+                      "placed": 1
+                    },
+                    "input": 0
+                  }
+                ]
+              },
+              "right-records": {}
+            }
           },
           "caption": "Store 7's placed count for 12:15–12:30 waits in the join's state. It can't be joined until the combined watermark passes the window's end, when both sides are complete."
         },
@@ -900,7 +1215,23 @@
             ],
             "timers": [
               "7@12:29:59.999"
-            ]
+            ],
+            "values": {
+              "left-records": {
+                "7|12:30:00": [
+                  {
+                    "row": {
+                      "window_start": "12:15",
+                      "window_end": "12:30",
+                      "store_id": 7,
+                      "placed": 1
+                    },
+                    "input": 0
+                  }
+                ]
+              },
+              "right-records": {}
+            }
           },
           "caption": "The join records the orders watermark, 12:31:09. The other input is still at 12:16:49, so the combined watermark stays at 12:16:49, and nothing is joined."
         },
@@ -925,7 +1256,35 @@
             ],
             "timers": [
               "7@12:29:59.999"
-            ]
+            ],
+            "values": {
+              "left-records": {
+                "7|12:30:00": [
+                  {
+                    "row": {
+                      "window_start": "12:15",
+                      "window_end": "12:30",
+                      "store_id": 7,
+                      "placed": 1
+                    },
+                    "input": 0
+                  }
+                ]
+              },
+              "right-records": {
+                "7|12:30:00": [
+                  {
+                    "row": {
+                      "window_start": "12:15",
+                      "window_end": "12:30",
+                      "store_id": 7,
+                      "cooked": 1
+                    },
+                    "input": 1
+                  }
+                ]
+              }
+            }
           },
           "caption": "Store 7's cooked count for 12:15–12:30 waits in the join's state, next to the other side's. It can't be joined until the combined watermark passes the window's end, when both sides are complete."
         },
@@ -952,7 +1311,46 @@
             "timers": [
               "7@12:29:59.999",
               "9@12:29:59.999"
-            ]
+            ],
+            "values": {
+              "left-records": {
+                "7|12:30:00": [
+                  {
+                    "row": {
+                      "window_start": "12:15",
+                      "window_end": "12:30",
+                      "store_id": 7,
+                      "placed": 1
+                    },
+                    "input": 0
+                  }
+                ]
+              },
+              "right-records": {
+                "7|12:30:00": [
+                  {
+                    "row": {
+                      "window_start": "12:15",
+                      "window_end": "12:30",
+                      "store_id": 7,
+                      "cooked": 1
+                    },
+                    "input": 1
+                  }
+                ],
+                "9|12:30:00": [
+                  {
+                    "row": {
+                      "window_start": "12:15",
+                      "window_end": "12:30",
+                      "store_id": 9,
+                      "cooked": 1
+                    },
+                    "input": 1
+                  }
+                ]
+              }
+            }
           },
           "caption": "Store 9's cooked count for 12:15–12:30 waits in the join's state. It can't be joined until the combined watermark passes the window's end, when both sides are complete."
         },
@@ -990,7 +1388,11 @@
           ],
           "facts": {
             "state": [],
-            "timers": []
+            "timers": [],
+            "values": {
+              "left-records": {},
+              "right-records": {}
+            }
           },
           "caption": "The combined watermark moves to 12:31:09, the lower of the two inputs, which passes the window ending 12:30. WindowJoin joins each store's counts: store 7, 1 order placed, 1 cooked; store 9, no orders placed, 1 cooked (only the kitchen side had rows, so the other count is null). It frees that window's state, then forwards the watermark."
         }

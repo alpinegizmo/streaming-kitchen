@@ -262,7 +262,21 @@
             "state": [
               "201"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 18,
+                    "event_time": "12:00:05"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 201 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -297,7 +311,31 @@
               "201",
               "202"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 18,
+                    "event_time": "12:00:05"
+                  },
+                  "input": 0
+                },
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:00:09"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 202 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -333,7 +371,41 @@
               "202",
               "203"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 18,
+                    "event_time": "12:00:05"
+                  },
+                  "input": 0
+                },
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:00:09"
+                  },
+                  "input": 0
+                },
+                "203": {
+                  "row": {
+                    "order_id": 203,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 31,
+                    "event_time": "12:00:12"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 203 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -370,7 +442,51 @@
               "203",
               "204"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "201": {
+                  "row": {
+                    "order_id": 201,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 18,
+                    "event_time": "12:00:05"
+                  },
+                  "input": 0
+                },
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:00:09"
+                  },
+                  "input": 0
+                },
+                "203": {
+                  "row": {
+                    "order_id": 203,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 31,
+                    "event_time": "12:00:12"
+                  },
+                  "input": 0
+                },
+                "204": {
+                  "row": {
+                    "order_id": 204,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 13,
+                    "event_time": "12:00:20"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 204 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -406,7 +522,41 @@
               "203",
               "204"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:00:09"
+                  },
+                  "input": 0
+                },
+                "203": {
+                  "row": {
+                    "order_id": 203,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 31,
+                    "event_time": "12:00:12"
+                  },
+                  "input": 0
+                },
+                "204": {
+                  "row": {
+                    "order_id": 204,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 13,
+                    "event_time": "12:00:20"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 201 is now cancelled, so it fails the filter. ChangelogNormalize emits a delete (−D) with the row from state, and clears the key."
         },
@@ -443,7 +593,51 @@
               "204",
               "205"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:00:09"
+                  },
+                  "input": 0
+                },
+                "203": {
+                  "row": {
+                    "order_id": 203,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 31,
+                    "event_time": "12:00:12"
+                  },
+                  "input": 0
+                },
+                "204": {
+                  "row": {
+                    "order_id": 204,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 13,
+                    "event_time": "12:00:20"
+                  },
+                  "input": 0
+                },
+                "205": {
+                  "row": {
+                    "order_id": 205,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 22,
+                    "event_time": "12:00:03"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 205 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -479,7 +673,41 @@
               "203",
               "205"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "202": {
+                  "row": {
+                    "order_id": 202,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:00:09"
+                  },
+                  "input": 0
+                },
+                "203": {
+                  "row": {
+                    "order_id": 203,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 31,
+                    "event_time": "12:00:12"
+                  },
+                  "input": 0
+                },
+                "205": {
+                  "row": {
+                    "order_id": 205,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 22,
+                    "event_time": "12:00:03"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 204 is now cancelled, so it fails the filter. ChangelogNormalize emits a delete (−D) with the row from state, and clears the key."
         }
@@ -526,7 +754,48 @@
             "state": [
               "7"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "data-state": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:05"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 201,
+                            "store_id": 7,
+                            "status": "placed",
+                            "total": 18,
+                            "event_time": "12:00:05"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              },
+              "sorted-map": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:05"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Store 7 has no rows yet, so order 201 is its first order. Rank stores it and emits an insert (+I)."
         },
@@ -561,7 +830,83 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "data-state": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:05"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 201,
+                            "store_id": 7,
+                            "status": "placed",
+                            "total": 18,
+                            "event_time": "12:00:05"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:09"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 202,
+                            "store_id": 9,
+                            "status": "placed",
+                            "total": 24.5,
+                            "event_time": "12:00:09"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              },
+              "sorted-map": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:05"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:09"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Store 9 has no rows yet, so order 202 is its first order. Rank stores it and emits an insert (+I)."
         },
@@ -585,7 +930,110 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "data-state": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:05"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 201,
+                            "store_id": 7,
+                            "status": "placed",
+                            "total": 18,
+                            "event_time": "12:00:05"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:12"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 203,
+                            "store_id": 7,
+                            "status": "placed",
+                            "total": 31,
+                            "event_time": "12:00:12"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:09"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 202,
+                            "store_id": 9,
+                            "status": "placed",
+                            "total": 24.5,
+                            "event_time": "12:00:09"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              },
+              "sorted-map": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:05"
+                        ]
+                      },
+                      "1"
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:12"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:09"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 203 (12:00:12) comes after store 7's first order, so nothing changes downstream. Rank stores it anyway, as row 2 of 2, in case the orders ahead of it are cancelled."
         },
@@ -609,7 +1057,137 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "data-state": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:05"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 201,
+                            "store_id": 7,
+                            "status": "placed",
+                            "total": 18,
+                            "event_time": "12:00:05"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:12"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 203,
+                            "store_id": 7,
+                            "status": "placed",
+                            "total": 31,
+                            "event_time": "12:00:12"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:20"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 204,
+                            "store_id": 7,
+                            "status": "placed",
+                            "total": 13,
+                            "event_time": "12:00:20"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:09"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 202,
+                            "store_id": 9,
+                            "status": "placed",
+                            "total": 24.5,
+                            "event_time": "12:00:09"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              },
+              "sorted-map": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:05"
+                        ]
+                      },
+                      "1"
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:12"
+                        ]
+                      },
+                      "1"
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:20"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:09"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 204 (12:00:20) comes after store 7's first order, so nothing changes downstream. Rank stores it anyway, as row 3 of 3, in case the orders ahead of it are cancelled."
         },
@@ -654,7 +1232,110 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "data-state": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:12"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 203,
+                            "store_id": 7,
+                            "status": "placed",
+                            "total": 31,
+                            "event_time": "12:00:12"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:20"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 204,
+                            "store_id": 7,
+                            "status": "placed",
+                            "total": 13,
+                            "event_time": "12:00:20"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:09"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 202,
+                            "store_id": 9,
+                            "status": "placed",
+                            "total": 24.5,
+                            "event_time": "12:00:09"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              },
+              "sorted-map": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:12"
+                        ]
+                      },
+                      "1"
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:20"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:09"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 201 was store 7's first order, and it's been cancelled. Rank deletes it (−D), and inserts the next order it has kept, 203 (+I). Without every row in state, it couldn't."
         },
@@ -699,7 +1380,137 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "data-state": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:12"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 203,
+                            "store_id": 7,
+                            "status": "placed",
+                            "total": 31,
+                            "event_time": "12:00:12"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:20"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 204,
+                            "store_id": 7,
+                            "status": "placed",
+                            "total": 13,
+                            "event_time": "12:00:20"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:03"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 205,
+                            "store_id": 9,
+                            "status": "placed",
+                            "total": 22,
+                            "event_time": "12:00:03"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:09"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 202,
+                            "store_id": 9,
+                            "status": "placed",
+                            "total": 24.5,
+                            "event_time": "12:00:09"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              },
+              "sorted-map": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:12"
+                        ]
+                      },
+                      "1"
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:20"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:03"
+                        ]
+                      },
+                      "1"
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:09"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 205 was placed at 12:00:03, before order 202 (12:00:09), though it arrived after it. It's store 9's first order now, so Rank deletes order 202 (−D) and inserts order 205 (+I)."
         },
@@ -723,7 +1534,110 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "data-state": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:12"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 203,
+                            "store_id": 7,
+                            "status": "placed",
+                            "total": 31,
+                            "event_time": "12:00:12"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:03"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 205,
+                            "store_id": 9,
+                            "status": "placed",
+                            "total": 22,
+                            "event_time": "12:00:03"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:09"
+                        ]
+                      },
+                      [
+                        {
+                          "row": {
+                            "order_id": 202,
+                            "store_id": 9,
+                            "status": "placed",
+                            "total": 24.5,
+                            "event_time": "12:00:09"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              },
+              "sorted-map": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:12"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "tuple": [
+                          "12:00:03"
+                        ]
+                      },
+                      "1"
+                    ],
+                    [
+                      {
+                        "tuple": [
+                          "12:00:09"
+                        ]
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 204 is cancelled, but it was row 2 for store 7, not the first. Rank removes it from state, and emits nothing."
         }

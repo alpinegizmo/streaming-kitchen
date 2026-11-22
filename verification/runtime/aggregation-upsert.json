@@ -207,7 +207,17 @@
             "state": [
               "7"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "1",
+                    "18.00"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Store 7 has no accumulator yet. GroupAggregate creates one (1 order, $18.00) and emits it as an insert (+I)."
         },
@@ -238,7 +248,23 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "1",
+                    "18.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "1",
+                    "24.50"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Store 9 has no accumulator yet. GroupAggregate creates one (1 order, $24.50) and emits it as an insert (+I)."
         },
@@ -269,7 +295,23 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "2",
+                    "49.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "1",
+                    "24.50"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 103 makes store 7: 2 orders, $49.00. The sink is keyed by store_id, so GroupAggregate only sends the new result (+U). The old one doesn't need retracting."
         },
@@ -300,7 +342,23 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "3",
+                    "62.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "1",
+                    "24.50"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 104 makes store 7: 3 orders, $62.00. The sink is keyed by store_id, so GroupAggregate only sends the new result (+U). The old one doesn't need retracting."
         },
@@ -331,7 +389,23 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "3",
+                    "62.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "2",
+                    "43.50"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 105 makes store 9: 2 orders, $43.50. The sink is keyed by store_id, so GroupAggregate only sends the new result (+U). The old one doesn't need retracting."
         }

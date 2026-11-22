@@ -267,7 +267,12 @@
             "state": [
               "101"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": "true"
+              }
+            }
           },
           "caption": "Order 101 hasn't been seen before. This copy is emitted at once, and order 101 is marked as seen."
         },
@@ -300,7 +305,13 @@
               "101",
               "102"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": "true",
+                "102": "true"
+              }
+            }
           },
           "caption": "Order 102 hasn't been seen before. This copy is emitted at once, and order 102 is marked as seen."
         },
@@ -323,7 +334,13 @@
               "101",
               "102"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": "true",
+                "102": "true"
+              }
+            }
           },
           "caption": "Order 101 has been seen already, so this copy (12:00:04) is dropped, even if its event time is earlier."
         },
@@ -344,7 +361,13 @@
               "101",
               "102"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": "true",
+                "102": "true"
+              }
+            }
           },
           "caption": "The watermark passes through. Deduplicating by arrival order has no use for it."
         },
@@ -378,7 +401,14 @@
               "102",
               "103"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": "true",
+                "102": "true",
+                "103": "true"
+              }
+            }
           },
           "caption": "Order 103 hasn't been seen before. This copy is emitted at once, and order 103 is marked as seen."
         },
@@ -402,7 +432,14 @@
               "102",
               "103"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": "true",
+                "102": "true",
+                "103": "true"
+              }
+            }
           },
           "caption": "Order 103 has been seen already, so this copy (12:00:05) is dropped, even if its event time is earlier."
         },
@@ -426,7 +463,14 @@
               "102",
               "103"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": "true",
+                "102": "true",
+                "103": "true"
+              }
+            }
           },
           "caption": "Order 102 has been seen already, so this copy (12:00:02) is dropped, even if its event time is earlier."
         },
@@ -448,7 +492,14 @@
               "102",
               "103"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": "true",
+                "102": "true",
+                "103": "true"
+              }
+            }
           },
           "caption": "The watermark passes through. Deduplicating by arrival order has no use for it."
         },
@@ -483,7 +534,15 @@
               "103",
               "104"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": "true",
+                "102": "true",
+                "103": "true",
+                "104": "true"
+              }
+            }
           },
           "caption": "Order 104 hasn't been seen before. This copy is emitted at once, and order 104 is marked as seen."
         },
@@ -519,7 +578,16 @@
               "104",
               "105"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": "true",
+                "102": "true",
+                "103": "true",
+                "104": "true",
+                "105": "true"
+              }
+            }
           },
           "caption": "Order 105 hasn't been seen before. This copy is emitted at once, and order 105 is marked as seen."
         },
@@ -543,7 +611,16 @@
               "104",
               "105"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": "true",
+                "102": "true",
+                "103": "true",
+                "104": "true",
+                "105": "true"
+              }
+            }
           },
           "caption": "The watermark passes through. Deduplicating by arrival order has no use for it."
         }

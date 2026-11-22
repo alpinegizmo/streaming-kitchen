@@ -314,7 +314,19 @@
             "state": [
               "7"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "7": {
+                  "row": {
+                    "store_id": 7,
+                    "city": "Oakland",
+                    "manager": "Sam"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "ChangelogNormalize stores store 7's row, and emits an insert. The planner added it because the join needs to retract the old row when a store changes."
         },
@@ -345,7 +357,27 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "7": {
+                  "row": {
+                    "store_id": 7,
+                    "city": "Oakland",
+                    "manager": "Sam"
+                  },
+                  "input": 0
+                },
+                "9": {
+                  "row": {
+                    "store_id": 9,
+                    "city": "Fresno",
+                    "manager": "Priya"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "ChangelogNormalize stores store 9's row, and emits an insert. The planner added it because the join needs to retract the old row when a store changes."
         },
@@ -384,7 +416,27 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "7": {
+                  "row": {
+                    "store_id": 7,
+                    "city": "Oakland",
+                    "manager": "Alex"
+                  },
+                  "input": 0
+                },
+                "9": {
+                  "row": {
+                    "store_id": 9,
+                    "city": "Fresno",
+                    "manager": "Priya"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Store 7's manager changes from Sam to Alex. ChangelogNormalize emits the pair the join needs: −U for the old row, then +U for the new one."
         }
@@ -419,7 +471,20 @@
             "state": [
               "7"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "left-records": {},
+              "right-records": {
+                "7": {
+                  "row": {
+                    "store_id": 7,
+                    "city": "Oakland",
+                    "manager": "Sam"
+                  },
+                  "input": 1
+                }
+              }
+            }
           },
           "caption": "Store 7's row is stored. No orders yet, so nothing is emitted."
         },
@@ -441,7 +506,28 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "left-records": {},
+              "right-records": {
+                "7": {
+                  "row": {
+                    "store_id": 7,
+                    "city": "Oakland",
+                    "manager": "Sam"
+                  },
+                  "input": 1
+                },
+                "9": {
+                  "row": {
+                    "store_id": 9,
+                    "city": "Fresno",
+                    "manager": "Priya"
+                  },
+                  "input": 1
+                }
+              }
+            }
           },
           "caption": "Store 9's row is stored. No orders yet, so nothing is emitted."
         },
@@ -475,7 +561,44 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "left-records": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "order_id": 101,
+                          "store_id": 7,
+                          "total": 18
+                        },
+                        "input": 0
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "right-records": {
+                "7": {
+                  "row": {
+                    "store_id": 7,
+                    "city": "Oakland",
+                    "manager": "Sam"
+                  },
+                  "input": 1
+                },
+                "9": {
+                  "row": {
+                    "store_id": 9,
+                    "city": "Fresno",
+                    "manager": "Priya"
+                  },
+                  "input": 1
+                }
+              }
+            }
           },
           "caption": "Order 101 is added to the join's state, and joined with store 7: Sam. The join keeps every order, because orders have no unique key. That's 1 order for store 7 so far, and it never shrinks."
         },
@@ -510,7 +633,59 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "left-records": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "order_id": 101,
+                          "store_id": 7,
+                          "total": 18
+                        },
+                        "input": 0
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "order_id": 102,
+                          "store_id": 9,
+                          "total": 24.5
+                        },
+                        "input": 0
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "right-records": {
+                "7": {
+                  "row": {
+                    "store_id": 7,
+                    "city": "Oakland",
+                    "manager": "Sam"
+                  },
+                  "input": 1
+                },
+                "9": {
+                  "row": {
+                    "store_id": 9,
+                    "city": "Fresno",
+                    "manager": "Priya"
+                  },
+                  "input": 1
+                }
+              }
+            }
           },
           "caption": "Order 102 is added to the join's state, and joined with store 9: Priya. The join keeps every order, because orders have no unique key. That's 1 order for store 9 so far, and it never shrinks."
         },
@@ -545,7 +720,70 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "left-records": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "order_id": 101,
+                          "store_id": 7,
+                          "total": 18
+                        },
+                        "input": 0
+                      },
+                      "1"
+                    ],
+                    [
+                      {
+                        "row": {
+                          "order_id": 103,
+                          "store_id": 7,
+                          "total": 31
+                        },
+                        "input": 0
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "order_id": 102,
+                          "store_id": 9,
+                          "total": 24.5
+                        },
+                        "input": 0
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "right-records": {
+                "7": {
+                  "row": {
+                    "store_id": 7,
+                    "city": "Oakland",
+                    "manager": "Sam"
+                  },
+                  "input": 1
+                },
+                "9": {
+                  "row": {
+                    "store_id": 9,
+                    "city": "Fresno",
+                    "manager": "Priya"
+                  },
+                  "input": 1
+                }
+              }
+            }
           },
           "caption": "Order 103 is added to the join's state, and joined with store 7: Sam. The join keeps every order, because orders have no unique key. That's 2 orders for store 7 so far, and it never shrinks."
         },
@@ -589,7 +827,62 @@
               "9",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "left-records": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "order_id": 101,
+                          "store_id": 7,
+                          "total": 18
+                        },
+                        "input": 0
+                      },
+                      "1"
+                    ],
+                    [
+                      {
+                        "row": {
+                          "order_id": 103,
+                          "store_id": 7,
+                          "total": 31
+                        },
+                        "input": 0
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "order_id": 102,
+                          "store_id": 9,
+                          "total": 24.5
+                        },
+                        "input": 0
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "right-records": {
+                "9": {
+                  "row": {
+                    "store_id": 9,
+                    "city": "Fresno",
+                    "manager": "Priya"
+                  },
+                  "input": 1
+                }
+              }
+            }
           },
           "caption": "The −U for Sam reaches the join. It has to retract every order it ever joined with that row: 2 retractions (−U), one per order of store 7."
         },
@@ -634,7 +927,70 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "left-records": {
+                "7": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "order_id": 101,
+                          "store_id": 7,
+                          "total": 18
+                        },
+                        "input": 0
+                      },
+                      "1"
+                    ],
+                    [
+                      {
+                        "row": {
+                          "order_id": 103,
+                          "store_id": 7,
+                          "total": 31
+                        },
+                        "input": 0
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "order_id": 102,
+                          "store_id": 9,
+                          "total": 24.5
+                        },
+                        "input": 0
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "right-records": {
+                "7": {
+                  "row": {
+                    "store_id": 7,
+                    "city": "Oakland",
+                    "manager": "Alex"
+                  },
+                  "input": 1
+                },
+                "9": {
+                  "row": {
+                    "store_id": 9,
+                    "city": "Fresno",
+                    "manager": "Priya"
+                  },
+                  "input": 1
+                }
+              }
+            }
           },
           "caption": "The +U for Alex is joined with every order of store 7 again: 2 new rows (+U). Each one has to be aggregated all over again."
         }
@@ -683,7 +1039,18 @@
             "state": [
               "7 Oakland Sam"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "7 Oakland Sam": {
+                  "tuple": [
+                    "1",
+                    "18.00",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "First row for Sam at store 7. GroupAggregate starts the group, 1 order, $18.00, and emits an insert."
         },
@@ -719,7 +1086,25 @@
               "7 Oakland Sam",
               "9 Fresno Priya"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "7 Oakland Sam": {
+                  "tuple": [
+                    "1",
+                    "18.00",
+                    "1"
+                  ]
+                },
+                "9 Fresno Priya": {
+                  "tuple": [
+                    "1",
+                    "24.50",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "First row for Priya at store 9. GroupAggregate starts the group, 1 order, $24.50, and emits an insert."
         },
@@ -765,7 +1150,25 @@
               "7 Oakland Sam",
               "9 Fresno Priya"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "7 Oakland Sam": {
+                  "tuple": [
+                    "2",
+                    "49.00",
+                    "2"
+                  ]
+                },
+                "9 Fresno Priya": {
+                  "tuple": [
+                    "1",
+                    "24.50",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The group for Sam becomes 2 orders, $49.00. The materializer needs retractions, so GroupAggregate sends −U for the old total, then +U."
         },
@@ -811,7 +1214,25 @@
               "7 Oakland Sam",
               "9 Fresno Priya"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "7 Oakland Sam": {
+                  "tuple": [
+                    "1",
+                    "31.00",
+                    "1"
+                  ]
+                },
+                "9 Fresno Priya": {
+                  "tuple": [
+                    "1",
+                    "24.50",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "An order is taken back out of Sam's group: it drops to 1 order, $31.00. GroupAggregate sends −U, then +U."
         },
@@ -846,7 +1267,18 @@
             "state": [
               "9 Fresno Priya"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "9 Fresno Priya": {
+                  "tuple": [
+                    "1",
+                    "24.50",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The group for Sam at store 7 has no orders left, so GroupAggregate deletes it (−D)."
         },
@@ -882,7 +1314,25 @@
               "9 Fresno Priya",
               "7 Oakland Alex"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "9 Fresno Priya": {
+                  "tuple": [
+                    "1",
+                    "24.50",
+                    "1"
+                  ]
+                },
+                "7 Oakland Alex": {
+                  "tuple": [
+                    "1",
+                    "18.00",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "First row for Alex at store 7. GroupAggregate starts the group, 1 order, $18.00, and emits an insert."
         },
@@ -928,7 +1378,25 @@
               "9 Fresno Priya",
               "7 Oakland Alex"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "accState": {
+                "9 Fresno Priya": {
+                  "tuple": [
+                    "1",
+                    "24.50",
+                    "1"
+                  ]
+                },
+                "7 Oakland Alex": {
+                  "tuple": [
+                    "2",
+                    "49.00",
+                    "2"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The group for Alex becomes 2 orders, $49.00. The materializer needs retractions, so GroupAggregate sends −U for the old total, then +U."
         }
@@ -977,7 +1445,23 @@
             "state": [
               "7"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "values": {
+                "7": [
+                  {
+                    "row": {
+                      "store_id": 7,
+                      "city": "Oakland",
+                      "manager": "Sam",
+                      "orders": 1,
+                      "sales": 18
+                    },
+                    "input": 0
+                  }
+                ]
+              }
+            }
           },
           "caption": "The materializer adds Sam: 1 order, $18.00 to the list for store 7, and emits it as +I."
         },
@@ -1013,7 +1497,35 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "values": {
+                "7": [
+                  {
+                    "row": {
+                      "store_id": 7,
+                      "city": "Oakland",
+                      "manager": "Sam",
+                      "orders": 1,
+                      "sales": 18
+                    },
+                    "input": 0
+                  }
+                ],
+                "9": [
+                  {
+                    "row": {
+                      "store_id": 9,
+                      "city": "Fresno",
+                      "manager": "Priya",
+                      "orders": 1,
+                      "sales": 24.5
+                    },
+                    "input": 0
+                  }
+                ]
+              }
+            }
           },
           "caption": "The materializer adds Priya: 1 order, $24.50 to the list for store 9, and emits it as +I."
         },
@@ -1048,7 +1560,23 @@
             "state": [
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "values": {
+                "9": [
+                  {
+                    "row": {
+                      "store_id": 9,
+                      "city": "Fresno",
+                      "manager": "Priya",
+                      "orders": 1,
+                      "sales": 24.5
+                    },
+                    "input": 0
+                  }
+                ]
+              }
+            }
           },
           "caption": "The −U empties the materializer's list for store 7, so it emits a delete. The leaderboard will briefly have no row for store 7."
         },
@@ -1084,7 +1612,35 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "values": {
+                "7": [
+                  {
+                    "row": {
+                      "store_id": 7,
+                      "city": "Oakland",
+                      "manager": "Sam",
+                      "orders": 2,
+                      "sales": 49
+                    },
+                    "input": 0
+                  }
+                ],
+                "9": [
+                  {
+                    "row": {
+                      "store_id": 9,
+                      "city": "Fresno",
+                      "manager": "Priya",
+                      "orders": 1,
+                      "sales": 24.5
+                    },
+                    "input": 0
+                  }
+                ]
+              }
+            }
           },
           "caption": "The materializer adds Sam: 2 orders, $49.00 to the list for store 7, and emits it as +I."
         },
@@ -1119,7 +1675,23 @@
             "state": [
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "values": {
+                "9": [
+                  {
+                    "row": {
+                      "store_id": 9,
+                      "city": "Fresno",
+                      "manager": "Priya",
+                      "orders": 1,
+                      "sales": 24.5
+                    },
+                    "input": 0
+                  }
+                ]
+              }
+            }
           },
           "caption": "The −U empties the materializer's list for store 7, so it emits a delete. The leaderboard will briefly have no row for store 7."
         },
@@ -1155,7 +1727,35 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "values": {
+                "7": [
+                  {
+                    "row": {
+                      "store_id": 7,
+                      "city": "Oakland",
+                      "manager": "Sam",
+                      "orders": 1,
+                      "sales": 31
+                    },
+                    "input": 0
+                  }
+                ],
+                "9": [
+                  {
+                    "row": {
+                      "store_id": 9,
+                      "city": "Fresno",
+                      "manager": "Priya",
+                      "orders": 1,
+                      "sales": 24.5
+                    },
+                    "input": 0
+                  }
+                ]
+              }
+            }
           },
           "caption": "The materializer adds Sam: 1 order, $31.00 to the list for store 7, and emits it as +I."
         },
@@ -1190,7 +1790,23 @@
             "state": [
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "values": {
+                "9": [
+                  {
+                    "row": {
+                      "store_id": 9,
+                      "city": "Fresno",
+                      "manager": "Priya",
+                      "orders": 1,
+                      "sales": 24.5
+                    },
+                    "input": 0
+                  }
+                ]
+              }
+            }
           },
           "caption": "The −D empties the materializer's list for store 7, so it emits a delete. The leaderboard will briefly have no row for store 7."
         },
@@ -1226,7 +1842,35 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "values": {
+                "7": [
+                  {
+                    "row": {
+                      "store_id": 7,
+                      "city": "Oakland",
+                      "manager": "Alex",
+                      "orders": 1,
+                      "sales": 18
+                    },
+                    "input": 0
+                  }
+                ],
+                "9": [
+                  {
+                    "row": {
+                      "store_id": 9,
+                      "city": "Fresno",
+                      "manager": "Priya",
+                      "orders": 1,
+                      "sales": 24.5
+                    },
+                    "input": 0
+                  }
+                ]
+              }
+            }
           },
           "caption": "The materializer adds Alex: 1 order, $18.00 to the list for store 7, and emits it as +I."
         },
@@ -1261,7 +1905,23 @@
             "state": [
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "values": {
+                "9": [
+                  {
+                    "row": {
+                      "store_id": 9,
+                      "city": "Fresno",
+                      "manager": "Priya",
+                      "orders": 1,
+                      "sales": 24.5
+                    },
+                    "input": 0
+                  }
+                ]
+              }
+            }
           },
           "caption": "The −U empties the materializer's list for store 7, so it emits a delete. The leaderboard will briefly have no row for store 7."
         },
@@ -1297,7 +1957,35 @@
               "7",
               "9"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "values": {
+                "7": [
+                  {
+                    "row": {
+                      "store_id": 7,
+                      "city": "Oakland",
+                      "manager": "Alex",
+                      "orders": 2,
+                      "sales": 49
+                    },
+                    "input": 0
+                  }
+                ],
+                "9": [
+                  {
+                    "row": {
+                      "store_id": 9,
+                      "city": "Fresno",
+                      "manager": "Priya",
+                      "orders": 1,
+                      "sales": 24.5
+                    },
+                    "input": 0
+                  }
+                ]
+              }
+            }
           },
           "caption": "The materializer adds Alex: 2 orders, $49.00 to the list for store 7, and emits it as +I."
         }

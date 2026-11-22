@@ -261,7 +261,21 @@
             "state": [
               "101"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": {
+                  "row": {
+                    "order_id": 101,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 18,
+                    "event_time": "12:01:10"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 101 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -296,7 +310,31 @@
               "101",
               "102"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": {
+                  "row": {
+                    "order_id": 101,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 18,
+                    "event_time": "12:01:10"
+                  },
+                  "input": 0
+                },
+                "102": {
+                  "row": {
+                    "order_id": 102,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:02:30"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 102 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -332,7 +370,41 @@
               "102",
               "103"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "101": {
+                  "row": {
+                    "order_id": 101,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 18,
+                    "event_time": "12:01:10"
+                  },
+                  "input": 0
+                },
+                "102": {
+                  "row": {
+                    "order_id": 102,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:02:30"
+                  },
+                  "input": 0
+                },
+                "103": {
+                  "row": {
+                    "order_id": 103,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 31,
+                    "event_time": "12:03:45"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 103 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -367,7 +439,31 @@
               "102",
               "103"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "102": {
+                  "row": {
+                    "order_id": 102,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:02:30"
+                  },
+                  "input": 0
+                },
+                "103": {
+                  "row": {
+                    "order_id": 103,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 31,
+                    "event_time": "12:03:45"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 101 is now cancelled, so it fails the filter. ChangelogNormalize emits a delete (−D) with the row from state, which says when the order was placed (12:01:10) and what it cost, and clears the key."
         },
@@ -403,7 +499,41 @@
               "103",
               "104"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "102": {
+                  "row": {
+                    "order_id": 102,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:02:30"
+                  },
+                  "input": 0
+                },
+                "103": {
+                  "row": {
+                    "order_id": 103,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 31,
+                    "event_time": "12:03:45"
+                  },
+                  "input": 0
+                },
+                "104": {
+                  "row": {
+                    "order_id": 104,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 13,
+                    "event_time": "12:06:20"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 104 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -425,7 +555,41 @@
               "103",
               "104"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "102": {
+                  "row": {
+                    "order_id": 102,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:02:30"
+                  },
+                  "input": 0
+                },
+                "103": {
+                  "row": {
+                    "order_id": 103,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 31,
+                    "event_time": "12:03:45"
+                  },
+                  "input": 0
+                },
+                "104": {
+                  "row": {
+                    "order_id": 104,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 13,
+                    "event_time": "12:06:20"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "The watermark passes through ChangelogNormalize."
         },
@@ -460,7 +624,31 @@
               "102",
               "104"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "102": {
+                  "row": {
+                    "order_id": 102,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:02:30"
+                  },
+                  "input": 0
+                },
+                "104": {
+                  "row": {
+                    "order_id": 104,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 13,
+                    "event_time": "12:06:20"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 103 is now cancelled, so it fails the filter. ChangelogNormalize emits a delete (−D) with the row from state, which says when the order was placed (12:03:45) and what it cost, and clears the key."
         },
@@ -496,7 +684,41 @@
               "104",
               "105"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "102": {
+                  "row": {
+                    "order_id": 102,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:02:30"
+                  },
+                  "input": 0
+                },
+                "104": {
+                  "row": {
+                    "order_id": 104,
+                    "store_id": 7,
+                    "status": "placed",
+                    "total": 13,
+                    "event_time": "12:06:20"
+                  },
+                  "input": 0
+                },
+                "105": {
+                  "row": {
+                    "order_id": 105,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 19,
+                    "event_time": "12:08:30"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 105 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -531,7 +753,31 @@
               "102",
               "105"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "102": {
+                  "row": {
+                    "order_id": 102,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:02:30"
+                  },
+                  "input": 0
+                },
+                "105": {
+                  "row": {
+                    "order_id": 105,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 19,
+                    "event_time": "12:08:30"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 104 is now cancelled, so it fails the filter. ChangelogNormalize emits a delete (−D) with the row from state, which says when the order was placed (12:06:20) and what it cost, and clears the key."
         },
@@ -567,7 +813,41 @@
               "105",
               "106"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "102": {
+                  "row": {
+                    "order_id": 102,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:02:30"
+                  },
+                  "input": 0
+                },
+                "105": {
+                  "row": {
+                    "order_id": 105,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 19,
+                    "event_time": "12:08:30"
+                  },
+                  "input": 0
+                },
+                "106": {
+                  "row": {
+                    "order_id": 106,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 22,
+                    "event_time": "12:10:40"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Order 106 isn't in state, and it isn't cancelled. ChangelogNormalize stores the row and emits an insert (+I)."
         },
@@ -589,7 +869,41 @@
               "105",
               "106"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "102": {
+                  "row": {
+                    "order_id": 102,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 24.5,
+                    "event_time": "12:02:30"
+                  },
+                  "input": 0
+                },
+                "105": {
+                  "row": {
+                    "order_id": 105,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 19,
+                    "event_time": "12:08:30"
+                  },
+                  "input": 0
+                },
+                "106": {
+                  "row": {
+                    "order_id": 106,
+                    "store_id": 9,
+                    "status": "placed",
+                    "total": 22,
+                    "event_time": "12:10:40"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "The watermark passes through ChangelogNormalize."
         }
@@ -628,7 +942,18 @@
             ],
             "timers": [
               "7@12:04:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:05:00": {
+                  "tuple": [
+                    "1",
+                    "18.00",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 101 falls in the 12:00–12:05 window. Store 7 has no accumulator for it yet, so one is created, with a timer for 12:05."
         },
@@ -655,7 +980,25 @@
             "timers": [
               "7@12:04:59.999",
               "9@12:04:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:05:00": {
+                  "tuple": [
+                    "1",
+                    "18.00",
+                    "1"
+                  ]
+                },
+                "9|12:05:00": {
+                  "tuple": [
+                    "1",
+                    "24.50",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 102 falls in the 12:00–12:05 window. Store 9 has no accumulator for it yet, so one is created, with a timer for 12:05."
         },
@@ -682,7 +1025,25 @@
             "timers": [
               "7@12:04:59.999",
               "9@12:04:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:05:00": {
+                  "tuple": [
+                    "2",
+                    "49.00",
+                    "2"
+                  ]
+                },
+                "9|12:05:00": {
+                  "tuple": [
+                    "1",
+                    "24.50",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 103 also falls in the 12:00–12:05 window. Store 7's accumulator becomes 2 orders, $49.00."
         },
@@ -709,7 +1070,25 @@
             "timers": [
               "7@12:04:59.999",
               "9@12:04:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:05:00": {
+                  "tuple": [
+                    "1",
+                    "31.00",
+                    "1"
+                  ]
+                },
+                "9|12:05:00": {
+                  "tuple": [
+                    "1",
+                    "24.50",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The delete takes order 101 back out of the 12:00–12:05 window, which hasn't fired yet. Store 7's accumulator goes down to 1 order, $31.00."
         },
@@ -738,7 +1117,32 @@
               "7@12:04:59.999",
               "9@12:04:59.999",
               "7@12:09:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:05:00": {
+                  "tuple": [
+                    "1",
+                    "31.00",
+                    "1"
+                  ]
+                },
+                "9|12:05:00": {
+                  "tuple": [
+                    "1",
+                    "24.50",
+                    "1"
+                  ]
+                },
+                "7|12:10:00": {
+                  "tuple": [
+                    "1",
+                    "13.00",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 104 falls in the 12:05–12:10 window. Store 7 has no accumulator for it yet, so one is created, with a timer for 12:10."
         },
@@ -780,7 +1184,18 @@
             ],
             "timers": [
               "7@12:09:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:10:00": {
+                  "tuple": [
+                    "1",
+                    "13.00",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark reaches 12:06:19, so the 12:00–12:05 window is complete. WindowAggregate emits a final row for store 7, 1 order, $31.00; store 9, 1 order, $24.50. It frees the window's state, and then forwards the watermark."
         },
@@ -805,7 +1220,18 @@
             ],
             "timers": [
               "7@12:09:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:10:00": {
+                  "tuple": [
+                    "1",
+                    "13.00",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The delete for order 103 belongs to the 12:00–12:05 window, but the watermark is already at 12:06:19. That window has fired and its state is gone, so the retraction is late, and dropped, like any late record. Store 7's result in store_sales still counts order 103."
         },
@@ -832,7 +1258,25 @@
             "timers": [
               "7@12:09:59.999",
               "9@12:09:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:10:00": {
+                  "tuple": [
+                    "1",
+                    "13.00",
+                    "1"
+                  ]
+                },
+                "9|12:10:00": {
+                  "tuple": [
+                    "1",
+                    "19.00",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 105 falls in the 12:05–12:10 window. Store 9 has no accumulator for it yet, so one is created, with a timer for 12:10."
         },
@@ -859,7 +1303,25 @@
             "timers": [
               "7@12:09:59.999",
               "9@12:09:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:10:00": {
+                  "tuple": [
+                    "0",
+                    "0.00",
+                    "0"
+                  ]
+                },
+                "9|12:10:00": {
+                  "tuple": [
+                    "1",
+                    "19.00",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The delete takes order 104 back out of the 12:05–12:10 window, which leaves store 7 with no orders in it. The accumulator stays until its timer fires."
         },
@@ -888,7 +1350,32 @@
               "7@12:09:59.999",
               "9@12:09:59.999",
               "9@12:14:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:10:00": {
+                  "tuple": [
+                    "0",
+                    "0.00",
+                    "0"
+                  ]
+                },
+                "9|12:10:00": {
+                  "tuple": [
+                    "1",
+                    "19.00",
+                    "1"
+                  ]
+                },
+                "9|12:15:00": {
+                  "tuple": [
+                    "1",
+                    "22.00",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 106 falls in the 12:10–12:15 window. Store 9 has no accumulator for it yet, so one is created, with a timer for 12:15."
         },
@@ -920,7 +1407,18 @@
             ],
             "timers": [
               "9@12:14:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "9|12:15:00": {
+                  "tuple": [
+                    "1",
+                    "22.00",
+                    "1"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark reaches 12:10:39, so the 12:05–12:10 window is complete. WindowAggregate emits a final row for store 9, 1 order, $19.00. The count for store 7 is 0, so nothing is emitted for it. It frees the window's state, and then forwards the watermark."
         }

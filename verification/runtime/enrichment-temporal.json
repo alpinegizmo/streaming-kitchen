@@ -271,7 +271,27 @@
             ],
             "timers": [
               "1@10:00:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The cost of pizza 1 from 10:00:00 is stored as a new version, next to any older ones."
         },
@@ -296,7 +316,43 @@
             "timers": [
               "1@10:00:00.000",
               "2@10:00:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The cost of pizza 2 from 10:00:00 is stored as a new version, next to any older ones."
         },
@@ -316,7 +372,43 @@
             "timers": [
               "1@10:00:00.000",
               "2@10:00:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The join records the watermark, 09:59:59, but has none from orders yet, so its own watermark can't advance."
         },
@@ -343,7 +435,43 @@
             "timers": [
               "1@10:00:00.000",
               "2@10:00:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 1001 waits in state. A cost change for pizza 1 from before 10:02:00 could still arrive, so the join can't know the right cost yet."
         },
@@ -371,7 +499,43 @@
             "timers": [
               "1@10:00:00.000",
               "2@10:00:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 1002 waits in state. A cost change for pizza 2 from before 10:04:00 could still arrive, so the join can't know the right cost yet."
         },
@@ -397,7 +561,43 @@
             "timers": [
               "1@10:00:00.000",
               "2@10:00:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The join's watermark, the minimum of both inputs, moves to 09:59:59. No waiting order is at or before it yet."
         },
@@ -424,7 +624,55 @@
             "timers": [
               "1@10:00:00.000",
               "2@10:00:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ],
+                    [
+                      "10:05:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 5,
+                          "valid_from": "10:05:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The cost of pizza 1 from 10:05:00 is stored as a new version, next to any older ones."
         },
@@ -457,7 +705,55 @@
             ],
             "timers": [
               "2@10:04:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ],
+                    [
+                      "10:05:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 5,
+                          "valid_from": "10:05:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The join's watermark, the minimum of both inputs, moves to 10:03:59. Order 1001 (10:02:00) is joined with pizza 1's cost as of then: $4.00, valid from 10:00:00."
         },
@@ -485,7 +781,55 @@
             "timers": [
               "1@10:07:00.000",
               "2@10:04:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ],
+                    [
+                      "10:05:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 5,
+                          "valid_from": "10:05:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 1003 waits in state. A cost change for pizza 1 from before 10:07:00 could still arrive, so the join can't know the right cost yet."
         },
@@ -518,7 +862,55 @@
             ],
             "timers": [
               "1@10:07:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ],
+                    [
+                      "10:05:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 5,
+                          "valid_from": "10:05:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The join's watermark, the minimum of both inputs, moves to 10:04:59. Order 1002 (10:04:00) is joined with pizza 2's cost as of then: $5.50, valid from 10:00:00."
         },
@@ -544,7 +936,67 @@
             "timers": [
               "1@10:07:00.000",
               "2@10:12:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ],
+                    [
+                      "10:05:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 5,
+                          "valid_from": "10:05:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ],
+                    [
+                      "10:12:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 6,
+                          "valid_from": "10:12:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The cost of pizza 2 from 10:12:00 is stored as a new version, next to any older ones."
         },
@@ -569,7 +1021,67 @@
             "timers": [
               "1@10:07:00.000",
               "2@10:12:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ],
+                    [
+                      "10:05:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 5,
+                          "valid_from": "10:05:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ],
+                    [
+                      "10:12:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 6,
+                          "valid_from": "10:12:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The join's watermark, the minimum of both inputs, moves to 10:06:59. No waiting order is at or before it yet."
         },
@@ -597,7 +1109,67 @@
             "timers": [
               "1@10:07:00.000",
               "2@10:12:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ],
+                    [
+                      "10:05:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 5,
+                          "valid_from": "10:05:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ],
+                    [
+                      "10:12:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 6,
+                          "valid_from": "10:12:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 1004 waits in state. A cost change for pizza 2 from before 10:13:00 could still arrive, so the join can't know the right cost yet."
         },
@@ -630,7 +1202,55 @@
             ],
             "timers": [
               "2@10:12:00.000"
-            ]
+            ],
+            "values": {
+              "right": {
+                "1": {
+                  "map": [
+                    [
+                      "10:05:00",
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 5,
+                          "valid_from": "10:05:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "10:00:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "10:00:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ],
+                    [
+                      "10:12:00",
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 6,
+                          "valid_from": "10:12:00"
+                        },
+                        "input": 1,
+                        "kind": "+U"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The join's watermark, the minimum of both inputs, moves to 10:11:59. Order 1003 (10:07:00) is joined with pizza 1's cost as of then: $5.00, valid from 10:05:00. Pizza 1's timer has fired, so the join also cleans up its versions: the $4.00 version is older than the latest one at or before the watermark, and can't be needed any more."
         }

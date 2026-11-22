@@ -308,7 +308,17 @@
             ],
             "timers": [
               "7@12:00:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:01:00": {
+                  "tuple": [
+                    "1",
+                    "18.00"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 101 falls in the 12:00–12:01 window. Store 7 has no accumulator for it yet, so one is created, with a timer for 12:01."
         },
@@ -334,7 +344,23 @@
             "timers": [
               "7@12:00:59.999",
               "9@12:00:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:01:00": {
+                  "tuple": [
+                    "1",
+                    "18.00"
+                  ]
+                },
+                "9|12:01:00": {
+                  "tuple": [
+                    "1",
+                    "24.50"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 102 falls in the 12:00–12:01 window. Store 9 has no accumulator for it yet, so one is created, with a timer for 12:01."
         },
@@ -360,7 +386,23 @@
             "timers": [
               "7@12:00:59.999",
               "9@12:00:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:01:00": {
+                  "tuple": [
+                    "2",
+                    "49.00"
+                  ]
+                },
+                "9|12:01:00": {
+                  "tuple": [
+                    "1",
+                    "24.50"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 103 also falls in the 12:00–12:01 window. Store 7's accumulator becomes 2 orders, $49.00."
         },
@@ -388,7 +430,29 @@
               "7@12:00:59.999",
               "9@12:00:59.999",
               "7@12:01:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:01:00": {
+                  "tuple": [
+                    "2",
+                    "49.00"
+                  ]
+                },
+                "9|12:01:00": {
+                  "tuple": [
+                    "1",
+                    "24.50"
+                  ]
+                },
+                "7|12:02:00": {
+                  "tuple": [
+                    "1",
+                    "13.00"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 104 falls in the 12:01–12:02 window. Store 7 has no accumulator for it yet, so one is created, with a timer for 12:02."
         },
@@ -430,7 +494,17 @@
             ],
             "timers": [
               "7@12:01:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:02:00": {
+                  "tuple": [
+                    "1",
+                    "13.00"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark reaches 12:01:04, so the 12:00–12:01 window is complete. WindowAggregate emits a final row for each store (store 7, 2 orders, $49.00; store 9, 1 order, $24.50), frees their state, and then forwards the watermark."
         },
@@ -456,7 +530,23 @@
             "timers": [
               "7@12:01:59.999",
               "9@12:02:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "7|12:02:00": {
+                  "tuple": [
+                    "1",
+                    "13.00"
+                  ]
+                },
+                "9|12:03:00": {
+                  "tuple": [
+                    "1",
+                    "19.00"
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 107 falls in the 12:02–12:03 window. Store 9 has no accumulator for it yet, so one is created, with a timer for 12:03."
         },
@@ -488,7 +578,17 @@
             ],
             "timers": [
               "9@12:02:59.999"
-            ]
+            ],
+            "values": {
+              "window-aggs": {
+                "9|12:03:00": {
+                  "tuple": [
+                    "1",
+                    "19.00"
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark reaches 12:02:02, so the 12:01–12:02 window is complete. WindowAggregate emits a final row for each store (store 7, 1 order, $13.00), frees their state, and then forwards the watermark."
         }

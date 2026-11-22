@@ -317,7 +317,34 @@
             "timers": [
               "7@12:01:10.000",
               "7@12:08:40.001"
-            ]
+            ],
+            "values": {
+              "accState": {},
+              "lastTriggeringTsState": {},
+              "cleanupTsState": {
+                "7": "12:08:40.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:01:10",
+                      [
+                        {
+                          "row": {
+                            "order_id": 101,
+                            "store_id": 7,
+                            "total": 18,
+                            "event_time": "12:01:10"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 101 is buffered under its event time, 12:01:10, with a timer. Its result has to wait until the watermark says no earlier order for store 7 can still arrive."
         },
@@ -345,7 +372,53 @@
               "7@12:08:40.001",
               "9@12:02:30.000",
               "9@12:10:00.001"
-            ]
+            ],
+            "values": {
+              "accState": {},
+              "lastTriggeringTsState": {},
+              "cleanupTsState": {
+                "7": "12:08:40.001",
+                "9": "12:10:00.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:01:10",
+                      [
+                        {
+                          "row": {
+                            "order_id": 101,
+                            "store_id": 7,
+                            "total": 18,
+                            "event_time": "12:01:10"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:02:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 102,
+                            "store_id": 9,
+                            "total": 24.5,
+                            "event_time": "12:02:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 102 is buffered under its event time, 12:02:30, with a timer. Its result has to wait until the watermark says no earlier order for store 9 can still arrive."
         },
@@ -375,7 +448,67 @@
               "7@12:11:15.001",
               "9@12:02:30.000",
               "9@12:10:00.001"
-            ]
+            ],
+            "values": {
+              "accState": {},
+              "lastTriggeringTsState": {},
+              "cleanupTsState": {
+                "7": "12:11:15.001",
+                "9": "12:10:00.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:01:10",
+                      [
+                        {
+                          "row": {
+                            "order_id": 101,
+                            "store_id": 7,
+                            "total": 18,
+                            "event_time": "12:01:10"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:03:45",
+                      [
+                        {
+                          "row": {
+                            "order_id": 103,
+                            "store_id": 7,
+                            "total": 31,
+                            "event_time": "12:03:45"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:02:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 102,
+                            "store_id": 9,
+                            "total": 24.5,
+                            "event_time": "12:02:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 103 is buffered under its event time, 12:03:45, with a timer. Its result has to wait until the watermark says no earlier order for store 7 can still arrive."
         },
@@ -423,7 +556,85 @@
               "7@12:03:45.000",
               "7@12:11:15.001",
               "9@12:10:00.001"
-            ]
+            ],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "1",
+                    "1",
+                    "18.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "1",
+                    "1",
+                    "24.50"
+                  ]
+                }
+              },
+              "lastTriggeringTsState": {
+                "7": "12:01:10",
+                "9": "12:02:30"
+              },
+              "cleanupTsState": {
+                "7": "12:11:15.001",
+                "9": "12:10:00.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:01:10",
+                      [
+                        {
+                          "row": {
+                            "order_id": 101,
+                            "store_id": 7,
+                            "total": 18,
+                            "event_time": "12:01:10"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:03:45",
+                      [
+                        {
+                          "row": {
+                            "order_id": 103,
+                            "store_id": 7,
+                            "total": 31,
+                            "event_time": "12:03:45"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:02:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 102,
+                            "store_id": 9,
+                            "total": 24.5,
+                            "event_time": "12:02:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark reaches 12:03:44. Order 101, at 12:01:10: store 7's last 5 minutes hold 1 order, $18.00. Order 102, at 12:02:30: store 9's last 5 minutes hold 1 order, $24.50. OverAggregate emits each result, then forwards the watermark."
         },
@@ -453,7 +664,99 @@
               "7@12:06:20.000",
               "7@12:13:50.001",
               "9@12:10:00.001"
-            ]
+            ],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "1",
+                    "1",
+                    "18.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "1",
+                    "1",
+                    "24.50"
+                  ]
+                }
+              },
+              "lastTriggeringTsState": {
+                "7": "12:01:10",
+                "9": "12:02:30"
+              },
+              "cleanupTsState": {
+                "7": "12:13:50.001",
+                "9": "12:10:00.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:01:10",
+                      [
+                        {
+                          "row": {
+                            "order_id": 101,
+                            "store_id": 7,
+                            "total": 18,
+                            "event_time": "12:01:10"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:03:45",
+                      [
+                        {
+                          "row": {
+                            "order_id": 103,
+                            "store_id": 7,
+                            "total": 31,
+                            "event_time": "12:03:45"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:06:20",
+                      [
+                        {
+                          "row": {
+                            "order_id": 104,
+                            "store_id": 7,
+                            "total": 13,
+                            "event_time": "12:06:20"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:02:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 102,
+                            "store_id": 9,
+                            "total": 24.5,
+                            "event_time": "12:02:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 104 is buffered under its event time, 12:06:20, with a timer. Its result has to wait until the watermark says no earlier order for store 7 can still arrive."
         },
@@ -484,7 +787,113 @@
               "7@12:13:50.001",
               "7@12:05:58.000",
               "9@12:10:00.001"
-            ]
+            ],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "1",
+                    "1",
+                    "18.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "1",
+                    "1",
+                    "24.50"
+                  ]
+                }
+              },
+              "lastTriggeringTsState": {
+                "7": "12:01:10",
+                "9": "12:02:30"
+              },
+              "cleanupTsState": {
+                "7": "12:13:50.001",
+                "9": "12:10:00.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:01:10",
+                      [
+                        {
+                          "row": {
+                            "order_id": 101,
+                            "store_id": 7,
+                            "total": 18,
+                            "event_time": "12:01:10"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:03:45",
+                      [
+                        {
+                          "row": {
+                            "order_id": 103,
+                            "store_id": 7,
+                            "total": 31,
+                            "event_time": "12:03:45"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:58",
+                      [
+                        {
+                          "row": {
+                            "order_id": 105,
+                            "store_id": 7,
+                            "total": 16,
+                            "event_time": "12:05:58"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:06:20",
+                      [
+                        {
+                          "row": {
+                            "order_id": 104,
+                            "store_id": 7,
+                            "total": 13,
+                            "event_time": "12:06:20"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:02:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 102,
+                            "store_id": 9,
+                            "total": 24.5,
+                            "event_time": "12:02:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 105 is buffered under its event time, 12:05:58, with a timer. Its result has to wait until the watermark says no earlier order for store 7 can still arrive."
         },
@@ -533,7 +942,113 @@
               "7@12:06:20.000",
               "7@12:13:50.001",
               "9@12:10:00.001"
-            ]
+            ],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "3",
+                    "3",
+                    "65.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "1",
+                    "1",
+                    "24.50"
+                  ]
+                }
+              },
+              "lastTriggeringTsState": {
+                "7": "12:05:58",
+                "9": "12:02:30"
+              },
+              "cleanupTsState": {
+                "7": "12:13:50.001",
+                "9": "12:10:00.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:01:10",
+                      [
+                        {
+                          "row": {
+                            "order_id": 101,
+                            "store_id": 7,
+                            "total": 18,
+                            "event_time": "12:01:10"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:03:45",
+                      [
+                        {
+                          "row": {
+                            "order_id": 103,
+                            "store_id": 7,
+                            "total": 31,
+                            "event_time": "12:03:45"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:58",
+                      [
+                        {
+                          "row": {
+                            "order_id": 105,
+                            "store_id": 7,
+                            "total": 16,
+                            "event_time": "12:05:58"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:06:20",
+                      [
+                        {
+                          "row": {
+                            "order_id": 104,
+                            "store_id": 7,
+                            "total": 13,
+                            "event_time": "12:06:20"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:02:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 102,
+                            "store_id": 9,
+                            "total": 24.5,
+                            "event_time": "12:02:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark reaches 12:06:19. Order 103, at 12:03:45: store 7's last 5 minutes hold 2 orders, $49.00. Order 105, at 12:05:58: store 7's last 5 minutes hold 3 orders, $65.00. OverAggregate emits each result, then forwards the watermark."
         },
@@ -562,7 +1077,113 @@
               "7@12:06:20.000",
               "7@12:13:50.001",
               "9@12:10:00.001"
-            ]
+            ],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "3",
+                    "3",
+                    "65.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "1",
+                    "1",
+                    "24.50"
+                  ]
+                }
+              },
+              "lastTriggeringTsState": {
+                "7": "12:05:58",
+                "9": "12:02:30"
+              },
+              "cleanupTsState": {
+                "7": "12:13:50.001",
+                "9": "12:10:00.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:01:10",
+                      [
+                        {
+                          "row": {
+                            "order_id": 101,
+                            "store_id": 7,
+                            "total": 18,
+                            "event_time": "12:01:10"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:03:45",
+                      [
+                        {
+                          "row": {
+                            "order_id": 103,
+                            "store_id": 7,
+                            "total": 31,
+                            "event_time": "12:03:45"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:58",
+                      [
+                        {
+                          "row": {
+                            "order_id": 105,
+                            "store_id": 7,
+                            "total": 16,
+                            "event_time": "12:05:58"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:06:20",
+                      [
+                        {
+                          "row": {
+                            "order_id": 104,
+                            "store_id": 7,
+                            "total": 13,
+                            "event_time": "12:06:20"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:02:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 102,
+                            "store_id": 9,
+                            "total": 24.5,
+                            "event_time": "12:02:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 106 was placed at 12:04:30, but store 7 has already emitted a result for 12:05:58, and that result can't be revised. So the order is late, and dropped."
         },
@@ -592,7 +1213,127 @@
               "7@12:13:50.001",
               "9@12:10:00.001",
               "9@12:05:00.000"
-            ]
+            ],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "3",
+                    "3",
+                    "65.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "1",
+                    "1",
+                    "24.50"
+                  ]
+                }
+              },
+              "lastTriggeringTsState": {
+                "7": "12:05:58",
+                "9": "12:02:30"
+              },
+              "cleanupTsState": {
+                "7": "12:13:50.001",
+                "9": "12:10:00.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:01:10",
+                      [
+                        {
+                          "row": {
+                            "order_id": 101,
+                            "store_id": 7,
+                            "total": 18,
+                            "event_time": "12:01:10"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:03:45",
+                      [
+                        {
+                          "row": {
+                            "order_id": 103,
+                            "store_id": 7,
+                            "total": 31,
+                            "event_time": "12:03:45"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:58",
+                      [
+                        {
+                          "row": {
+                            "order_id": 105,
+                            "store_id": 7,
+                            "total": 16,
+                            "event_time": "12:05:58"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:06:20",
+                      [
+                        {
+                          "row": {
+                            "order_id": 104,
+                            "store_id": 7,
+                            "total": 13,
+                            "event_time": "12:06:20"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:02:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 102,
+                            "store_id": 9,
+                            "total": 24.5,
+                            "event_time": "12:02:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:00",
+                      [
+                        {
+                          "row": {
+                            "order_id": 107,
+                            "store_id": 9,
+                            "total": 14,
+                            "event_time": "12:05:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 107 was placed at 12:05:00, behind the watermark (12:06:19). But store 9 has only emitted results up to 12:02:30, so it isn't late. OverAggregate buffers it, and its timer, already due, fires with the next watermark."
         },
@@ -624,7 +1365,141 @@
               "9@12:05:00.000",
               "9@12:07:30.000",
               "9@12:15:00.001"
-            ]
+            ],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "3",
+                    "3",
+                    "65.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "1",
+                    "1",
+                    "24.50"
+                  ]
+                }
+              },
+              "lastTriggeringTsState": {
+                "7": "12:05:58",
+                "9": "12:02:30"
+              },
+              "cleanupTsState": {
+                "7": "12:13:50.001",
+                "9": "12:15:00.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:01:10",
+                      [
+                        {
+                          "row": {
+                            "order_id": 101,
+                            "store_id": 7,
+                            "total": 18,
+                            "event_time": "12:01:10"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:03:45",
+                      [
+                        {
+                          "row": {
+                            "order_id": 103,
+                            "store_id": 7,
+                            "total": 31,
+                            "event_time": "12:03:45"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:58",
+                      [
+                        {
+                          "row": {
+                            "order_id": 105,
+                            "store_id": 7,
+                            "total": 16,
+                            "event_time": "12:05:58"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:06:20",
+                      [
+                        {
+                          "row": {
+                            "order_id": 104,
+                            "store_id": 7,
+                            "total": 13,
+                            "event_time": "12:06:20"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:02:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 102,
+                            "store_id": 9,
+                            "total": 24.5,
+                            "event_time": "12:02:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:00",
+                      [
+                        {
+                          "row": {
+                            "order_id": 107,
+                            "store_id": 9,
+                            "total": 14,
+                            "event_time": "12:05:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:07:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 108,
+                            "store_id": 9,
+                            "total": 19,
+                            "event_time": "12:07:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 108 is buffered under its event time, 12:07:30, with a timer. Its result has to wait until the watermark says no earlier order for store 9 can still arrive."
         },
@@ -674,7 +1549,127 @@
               "9@12:10:00.001",
               "9@12:07:30.000",
               "9@12:15:00.001"
-            ]
+            ],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "3",
+                    "3",
+                    "60.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "2",
+                    "2",
+                    "38.50"
+                  ]
+                }
+              },
+              "lastTriggeringTsState": {
+                "7": "12:06:20",
+                "9": "12:05:00"
+              },
+              "cleanupTsState": {
+                "7": "12:13:50.001",
+                "9": "12:15:00.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:03:45",
+                      [
+                        {
+                          "row": {
+                            "order_id": 103,
+                            "store_id": 7,
+                            "total": 31,
+                            "event_time": "12:03:45"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:58",
+                      [
+                        {
+                          "row": {
+                            "order_id": 105,
+                            "store_id": 7,
+                            "total": 16,
+                            "event_time": "12:05:58"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:06:20",
+                      [
+                        {
+                          "row": {
+                            "order_id": 104,
+                            "store_id": 7,
+                            "total": 13,
+                            "event_time": "12:06:20"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:02:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 102,
+                            "store_id": 9,
+                            "total": 24.5,
+                            "event_time": "12:02:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:00",
+                      [
+                        {
+                          "row": {
+                            "order_id": 107,
+                            "store_id": 9,
+                            "total": 14,
+                            "event_time": "12:05:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:07:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 108,
+                            "store_id": 9,
+                            "total": 19,
+                            "event_time": "12:07:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark reaches 12:07:29. Order 107, at 12:05:00: store 9's last 5 minutes hold 2 orders, $38.50. Order 101 (12:01:10) is now more than 5 minutes older, so it's retracted from the sum, and leaves state. Order 104, at 12:06:20: store 7's last 5 minutes hold 3 orders, $60.00. OverAggregate emits each result, then forwards the watermark."
         },
@@ -705,7 +1700,141 @@
               "9@12:07:30.000",
               "9@12:15:00.001",
               "9@12:08:30.000"
-            ]
+            ],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "3",
+                    "3",
+                    "60.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "2",
+                    "2",
+                    "38.50"
+                  ]
+                }
+              },
+              "lastTriggeringTsState": {
+                "7": "12:06:20",
+                "9": "12:05:00"
+              },
+              "cleanupTsState": {
+                "7": "12:13:50.001",
+                "9": "12:15:00.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:03:45",
+                      [
+                        {
+                          "row": {
+                            "order_id": 103,
+                            "store_id": 7,
+                            "total": 31,
+                            "event_time": "12:03:45"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:58",
+                      [
+                        {
+                          "row": {
+                            "order_id": 105,
+                            "store_id": 7,
+                            "total": 16,
+                            "event_time": "12:05:58"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:06:20",
+                      [
+                        {
+                          "row": {
+                            "order_id": 104,
+                            "store_id": 7,
+                            "total": 13,
+                            "event_time": "12:06:20"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:02:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 102,
+                            "store_id": 9,
+                            "total": 24.5,
+                            "event_time": "12:02:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:00",
+                      [
+                        {
+                          "row": {
+                            "order_id": 107,
+                            "store_id": 9,
+                            "total": 14,
+                            "event_time": "12:05:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:07:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 108,
+                            "store_id": 9,
+                            "total": 19,
+                            "event_time": "12:07:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:08:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 109,
+                            "store_id": 9,
+                            "total": 22,
+                            "event_time": "12:08:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 109 is buffered under its event time, 12:08:30, with a timer. Its result has to wait until the watermark says no earlier order for store 9 can still arrive."
         },
@@ -744,7 +1873,141 @@
               "9@12:10:00.001",
               "9@12:15:00.001",
               "9@12:08:30.000"
-            ]
+            ],
+            "values": {
+              "accState": {
+                "7": {
+                  "tuple": [
+                    "3",
+                    "3",
+                    "60.00"
+                  ]
+                },
+                "9": {
+                  "tuple": [
+                    "3",
+                    "3",
+                    "57.50"
+                  ]
+                }
+              },
+              "lastTriggeringTsState": {
+                "7": "12:06:20",
+                "9": "12:07:30"
+              },
+              "cleanupTsState": {
+                "7": "12:13:50.001",
+                "9": "12:15:00.001"
+              },
+              "inputState": {
+                "7": {
+                  "map": [
+                    [
+                      "12:03:45",
+                      [
+                        {
+                          "row": {
+                            "order_id": 103,
+                            "store_id": 7,
+                            "total": 31,
+                            "event_time": "12:03:45"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:58",
+                      [
+                        {
+                          "row": {
+                            "order_id": 105,
+                            "store_id": 7,
+                            "total": 16,
+                            "event_time": "12:05:58"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:06:20",
+                      [
+                        {
+                          "row": {
+                            "order_id": 104,
+                            "store_id": 7,
+                            "total": 13,
+                            "event_time": "12:06:20"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:02:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 102,
+                            "store_id": 9,
+                            "total": 24.5,
+                            "event_time": "12:02:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:05:00",
+                      [
+                        {
+                          "row": {
+                            "order_id": 107,
+                            "store_id": 9,
+                            "total": 14,
+                            "event_time": "12:05:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:07:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 108,
+                            "store_id": 9,
+                            "total": 19,
+                            "event_time": "12:07:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:08:30",
+                      [
+                        {
+                          "row": {
+                            "order_id": 109,
+                            "store_id": 9,
+                            "total": 22,
+                            "event_time": "12:08:30"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark reaches 12:08:29. Order 108, at 12:07:30: store 9's last 5 minutes hold 3 orders, $57.50. OverAggregate emits the result, then forwards the watermark."
         }

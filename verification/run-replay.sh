@@ -17,7 +17,7 @@ cp_file="$harness/target/classpath-$FLINK_VERSION.txt"
 node "$here/../tools/export-replay.mjs" "$@"
 
 (cd "$harness" && mvn -q -Dflink.version="$FLINK_VERSION" compile dependency:build-classpath \
-  -Dmdep.outputFile="$cp_file" >/dev/null)
+  -Dmdep.outputFile="$cp_file")
 
 # Tabs checked on a snapshot build only run on that build.
 specs=()

@@ -116,6 +116,11 @@ function exportOne(id) {
     walk(id);
     return [...found].sort();
   };
+  // What facts() needs to know about an operator's inputs: whether they carry retractions, which
+  // changes the accumulators Flink keeps.
+  const factsContext = (id) => ({
+    retract: variant.graph.edges.some((e) => e.to === id && e.mode !== 'append' && e.mode !== 'lookup'),
+  });
   // For each operator whose state can be checked: every item it received, what it emitted, and
   // its state afterwards (verification/run-state.sh runs the Flink operator on the same items).
   const operators = variant.graph.nodes.filter((n) => Ops[n.op].facts && FLINK_OPERATORS[n.op]).map((n) => ({
@@ -130,7 +135,7 @@ function exportOne(id) {
       from: upstreamTables(variant.graph.edges[s.via].from),
       item: item(s.item),
       out: s.out.map(item),
-      facts: Ops[n.op].facts(s.snap.ops[n.id], n.cfg || {}),
+      facts: Ops[n.op].facts(s.snap.ops[n.id], n.cfg || {}, factsContext(n.id)),
       caption: s.caption,
     })),
   }));

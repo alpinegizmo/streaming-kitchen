@@ -84,6 +84,7 @@ compared here; `run-state.sh` checks the state panels.
 ```sh
 verification/run-state.sh                        # every tab with a traced operator
 verification/run-state.sh windows/tumble         # just one
+verification/run-state.sh --dump windows/tumble  # also print every state value Flink holds
 FLINK_VERSION=2.4-SNAPSHOT verification/run-state.sh enrichment/lateral
 ```
 
@@ -94,7 +95,8 @@ every item the simulated operator received, what it emitted, and its state and t
 (LocalWindowAggregate and GlobalWindowAggregate for one simulated WindowAggregate), and runs them in
 Flink's operator test harness, with the heap state backend; a two-input operator gets each item on
 the input that reads from the same source table. After each item it compares the emitted rows and
-watermarks, the keys and namespaces in state, and every timer. Window aggregations and Rank's
+watermarks, the keys and namespaces in state, every timer, and the values of the states the
+simulator's facts name (accumulators, stored rows, buffered rows by time, and so on). Window aggregations and Rank's
 FastTop1Function hold records in memory until a checkpoint, so the harness takes one before each
 comparison. Output fields the simulator doesn't model (a join's copy of the other side's key, say)
 and input fields it leaves out are listed, not compared. The same snapshot gating as

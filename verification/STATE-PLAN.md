@@ -141,9 +141,35 @@ matches the simulator's step model exactly.
      and listed.
    - No differences in behaviour turned up: every difference so far was in how state is laid out,
      or in how rows are named.
-4. **Tier 2 projectors**, riskiest first:
-   - first: window aggregate, OVER, row-time dedup, Rank and Top-1, interval and window joins;
-   - then: the temporal join, regular join, GroupAggregate, ChangelogNormalize, SinkMaterializer,
-     session window, and LATERAL SNAPSHOT.
+4. **Tier 2 (values): done.** Rather than a Java projector per
+   operator, each `facts()` lists, per Flink state name, the entries the simulator's state implies,
+   in a small form (`F` in `js/operators.js`): scalars, tuples, maps, lists, and rows. A row is
+   given as the simulator's row, and StateCheck renders it in the Flink operator's input layout, so
+   column order and pruning come from the planner. StateCheck decodes Flink's state with its
+   serializers (`--dump` prints all of it) and compares every entry of the named states. 29 of the
+   30 operators on 2.3.0 compare values; two negative controls (an OVER sum, a join row's count)
+   fail. What it showed:
+   - Accumulators are laid out per aggregate: COUNT(*) is a count; SUM is a sum, plus a count of
+     rows when its input can retract (SUM_RETRACT). The exporter tells facts() whether an input
+     retracts, from the edge's changelog mode.
+   - Stored rows keep their row kind: the temporal join's versions are stored as +U, so the
+     simulator now keeps each version's kind.
+   - Not compared, and why: session windows (each accumulator lives under the window the session
+     started as, which the simulator doesn't track); the temporal join's waiting orders and the
+     LATERAL SNAPSHOT join's buffered probe rows (kept under internal per-key counters); the
+     interval join's right rows (Flink marks the ones that matched, which the simulator doesn't
+     track); MATCH_RECOGNIZE's NFA and shared buffer; timer bookkeeping states.
+   - **LATERAL SNAPSHOT applies build changes lazily (2.4 snapshot); now modelled.** The simulator
+     used to apply a pending build change as soon as the build watermark reached its row time.
+     Flink leaves it in `build-change-buffer` until that key is next touched: a probe row, a build
+     row, or the timer of a buffered probe row (`applyBufferedChangesUpToCurrentWm()`, called from
+     `processElement1`, `processElement2`, and `onEventTime`; `processWatermark2` applies nothing).
+     And it applies them only if the build watermark has moved past `buffered-at-wm`, the
+     watermark at which the key's buffer was last written. So a change that arrives already behind
+     the watermark, like a -U carrying the old row's time, waits for the next watermark, which
+     matters for results: applying the -U early would leave the pizza with no cost. The simulator
+     now does both (`applyDue` and `applyLimit` in `js/operators.js`), the panel marks changes
+     that are due but not yet applied, and the captions say when changes are applied. All values
+     match on the 2.4 snapshot, and the replay still passes.
 5. **Docs:** update the README and the verification line in the footer, then do a manual pass over
    the per-recipe `state:` prose ("never cleared" and similar) against what the harness reports.

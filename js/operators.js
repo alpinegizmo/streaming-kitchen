@@ -6,10 +6,12 @@
 //   record(st, item, cfg)        -> { out: [items], ev, touched }
 //   watermark(st, item, cfg)     -> { out: [items], ev }
 //   view(st, cfg)                -> the state panel drawn under the operator, or null
-//   facts(st, cfg)               -> optional: the state, as Flink would hold it, for verification
+//   facts(st, cfg, ctx)          -> optional: the state, as Flink would hold it, for verification
 //                                   (tools/export-replay.mjs, verification/run-state.sh):
-//                                   { state: ['key' or 'key|namespace'], timers: ['key@HH:MM:SS.mmm'] }
-//                                   (timers left out when the panel doesn't show them)
+//                                   { state: ['key' or 'key|namespace'], timers: ['key@HH:MM:SS.mmm'],
+//                                     values: { flinkStateName: { 'key' or 'key|namespace': value } } }
+//                                   (timers left out when the panel doesn't show them; values in
+//                                   the form F describes; ctx.retract: the input has retractions)
 //   say(ev, cfg)                 -> a default caption; patterns can override it
 //
 // An item is either a changelog row { t: 'rec', kind: '+I' | '-U' | '+U' | '-D', row }
@@ -25,6 +27,27 @@ const Ops = (() => {
   const pick = (row, fields) => Object.fromEntries(fields.map((f) => [f, row[f]]));
   // A Flink timestamp (time of day, in ms) as facts() writes it.
   const ms = (millis) => `${U.fromSec(Math.floor(millis / 1000))}.${String(millis % 1000).padStart(3, '0')}`;
+  // State values for facts(), which StateCheck renders the way it renders Flink's: scalars as
+  // text, a row in the Flink operator's input layout (with its kind, unless +I), a tuple, a map
+  // (sorted), or a list (an array). A time is HH:MM:SS, with .mmm only when it isn't 0.
+  const F = {
+    row: (row, input = 0, kind = '+I') => ({ row, input, ...(kind !== '+I' ? { kind } : {}) }),
+    tuple: (...items) => ({ tuple: items }),
+    map: (entries) => ({ map: entries }),
+    dec: (n) => Number(n).toFixed(2),
+    time: (sec) => (Number.isInteger(sec) ? U.fromSec(sec) : ms(Math.round(sec * 1000))),
+    count: (rows) => {
+      const n = new Map();
+      for (const r of rows) n.set(JSON.stringify(r), (n.get(JSON.stringify(r)) || 0) + 1);
+      return [...n].map(([r, c]) => [JSON.parse(r), String(c)]);
+    },
+    group: (items, keyOf) => {
+      const g = new Map();
+      for (const i of items) { const k = keyOf(i); if (!g.has(k)) g.set(k, []); g.get(k).push(i); }
+      return [...g];
+    },
+  };
+  const values = (entries) => Object.fromEntries(entries);
 
   // Kafka source with an append-only format (connector = 'kafka').
   // Watermarks: bounded out-of-orderness, newest event time minus `delay` seconds.
@@ -137,7 +160,10 @@ const Ops = (() => {
         rows: Object.entries(st.rows).map(([key, row]) => ({ key, cells: fields.map((f) => (cfg.stateFormat?.[f] ? cfg.stateFormat[f](row[f]) : row[f])) })),
       };
     },
-    facts: (st) => ({ state: Object.keys(st.rows), timers: [] }),
+    facts: (st) => ({
+      state: Object.keys(st.rows), timers: [],
+      values: { 'deduplicate-state': values(Object.entries(st.rows).map(([k, r]) => [k, F.row(r)])) },
+    }),
     say(ev, cfg) {
       switch (ev.type) {
         case 'insert': return `First row for key ${ev.key}. ChangelogNormalize stores it and emits an insert.`;
@@ -280,9 +306,14 @@ const Ops = (() => {
     },
     // State is per key and slice (the namespace is the slice end). A window's timer is set for
     // 1 ms before its end, so it fires when the watermark reaches the end.
-    facts: (st) => ({
+    // The accumulator: COUNT(*), then SUM (with its own count of rows, when it can retract).
+    facts: (st, cfg, ctx) => ({
       state: Object.values(st.slices).map((s) => `${s.k}|${hms(s.end)}`),
       timers: Object.values(st.timers).map((t) => `${t.k}@${ms(t.t * 1000 - 1)}`),
+      values: {
+        'window-aggs': values(Object.values(st.slices).map((s) => [`${s.k}|${hms(s.end)}`,
+          F.tuple(String(s.count), ...(cfg.sumField ? [F.dec(s.sum), ...(ctx.retract ? [String(s.count)] : [])] : []))])),
+      },
     }),
     say(ev) {
       switch (ev.type) {
@@ -348,6 +379,8 @@ const Ops = (() => {
     // One entry per key and session (Flink keeps a map from each merged session to the window
     // that holds its accumulator; see StateCheck.state), and a session's timer is set for 1 ms
     // before its end.
+    // Values aren't compared: Flink keeps each accumulator under the window the session started
+    // as, which the simulator doesn't track. The output checks the counts and sums.
     facts: (st) => ({
       state: st.sessions.map((s) => `${s.k}|${hms(s.start)}–${hms(s.end)}`),
       timers: st.sessions.map((s) => `${s.k}@${ms(s.end * 1000 - 1)}`),
@@ -459,10 +492,22 @@ const Ops = (() => {
       };
     },
     // Timers are at a row's event time, and the clean-up timer 1 ms after newest time + 1.5 x preceding.
-    facts: (st) => ({
-      state: Object.keys(st.keys),
-      timers: Object.entries(st.keys).flatMap(([k, s]) => s.timers.map((t) => `${k}@${ms(Math.round(t * 1000))}`)),
-    }),
+    // The accumulator (COUNT(*), COUNT(total), $SUM0(total)) and the last fired time exist once a
+    // key has fired; the rows, by event time, and the clean-up time from its first row.
+    facts: (st) => {
+      const keys = Object.entries(st.keys);
+      const fired = keys.filter(([, s]) => s.last != null);
+      return {
+        state: Object.keys(st.keys),
+        timers: keys.flatMap(([k, s]) => s.timers.map((t) => `${k}@${ms(Math.round(t * 1000))}`)),
+        values: {
+          accState: values(fired.map(([k, s]) => [k, F.tuple(String(s.count), String(s.count), F.dec(s.sum))])),
+          lastTriggeringTsState: values(fired.map(([k, s]) => [k, F.time(s.last)])),
+          cleanupTsState: values(keys.map(([k, s]) => [k, F.time(s.cleanup)])),
+          inputState: values(keys.map(([k, s]) => [k, F.map(Object.entries(s.rows).map(([t, rows]) => [F.time(Number(t)), rows.map((r) => F.row(r))]))])),
+        },
+      };
+    },
     say(ev) {
       switch (ev.type) {
         case 'buffer': return `The row is buffered under its event time, ${ev.timer}, until the watermark reaches it.`;
@@ -490,7 +535,10 @@ const Ops = (() => {
     view(st, cfg) {
       return { title: `Seen, per ${cfg.key}`, cols: [cfg.key, 'seen'], rows: Object.keys(st.seen).map((k) => ({ key: k, cells: [k, 'yes'] })) };
     },
-    facts: (st) => ({ state: Object.keys(st.seen), timers: [] }),
+    facts: (st) => ({
+      state: Object.keys(st.seen), timers: [],
+      values: { 'deduplicate-state': values(Object.keys(st.seen).map((k) => [k, 'true'])) },
+    }),
     say(ev) {
       if (ev.type === 'wm') return 'The watermark passes through. Processing-time deduplication has no use for it.';
       if (ev.type === 'duplicate') return `Key ${ev.key} has been seen before, so this copy is dropped.`;
@@ -546,6 +594,10 @@ const Ops = (() => {
     facts: (st, cfg) => ({
       state: Object.keys(st.keys),
       timers: Object.entries(st.keys).filter(([, s]) => s.waiting).map(([k, s]) => `${k}@${ms(U.toSec(s.waiting[cfg.timeField]) * 1000)}`),
+      values: {
+        'waiting-to-emit-on-timer': values(Object.entries(st.keys).filter(([, s]) => s.waiting).map(([k, s]) => [k, F.row(s.waiting)])),
+        'already-emitted-state-boolean': values(Object.entries(st.keys).filter(([, s]) => s.emitted).map(([k]) => [k, 'true'])),
+      },
     }),
     say(ev) {
       switch (ev.type) {
@@ -610,7 +662,16 @@ const Ops = (() => {
         }))),
       };
     },
-    facts: (st) => ({ state: Object.keys(st.parts), timers: [] }),
+    // Every row, by sort key, in arrival order, and how many rows each sort key has.
+    facts: (st, cfg) => ({
+      state: Object.keys(st.parts), timers: [],
+      values: {
+        'data-state': values(Object.entries(st.parts).map(([k, rows]) => [k,
+          F.map(F.group(rows, (r) => r[cfg.sortField]).map(([t, rs]) => [F.tuple(t), rs.map((r) => F.row(r))]))])),
+        'sorted-map': values(Object.entries(st.parts).map(([k, rows]) => [k,
+          F.map(F.group(rows, (r) => r[cfg.sortField]).map(([t, rs]) => [F.tuple(t), String(rs.length)]))])),
+      },
+    }),
     say(ev) {
       switch (ev.type) {
         case 'first': return `The first row for key ${ev.key}. Rank stores it and emits it.`;
@@ -659,7 +720,10 @@ const Ops = (() => {
         rows: Object.entries(st.rows).map(([k, r]) => ({ key: k, cells: fields.map((f) => (cfg.stateFormat?.[f] ? cfg.stateFormat[f](r[f]) : r[f])) })),
       };
     },
-    facts: (st) => ({ state: Object.keys(st.rows), timers: [] }),
+    facts: (st) => ({
+      state: Object.keys(st.rows), timers: [],
+      values: { 'Top1-Rank-State': values(Object.entries(st.rows).map(([k, r]) => [k, F.row(r)])) },
+    }),
     say(ev, cfg) {
       switch (ev.type) {
         case 'first': return `The first row for key ${ev.key}. Rank stores the whole row and emits it.`;
@@ -719,7 +783,15 @@ const Ops = (() => {
         })),
       };
     },
-    facts: (st) => ({ state: Object.keys(st.acc), timers: [] }),
+    // One field per aggregate: COUNT(*) a count; SUM a sum, and a count of rows when it can retract.
+    facts: (st, cfg, ctx) => ({
+      state: Object.keys(st.acc), timers: [],
+      values: {
+        accState: values(Object.entries(st.acc).map(([k, a]) => [k, F.tuple(...cfg.aggs.flatMap((g) => (g.fn === 'count'
+          ? [String(a.vals[g.name])]
+          : [F.dec(a.vals[g.name]), ...(ctx.retract ? [String(a.n)] : [])])))])),
+      },
+    }),
     say(ev) {
       switch (ev.type) {
         case 'first': return `First row for key ${ev.key}. GroupAggregate creates an accumulator and emits an insert.`;
@@ -804,7 +876,15 @@ const Ops = (() => {
       };
     },
     // The panel shows no timers, so only the keys in state are compared.
-    facts: (st, cfg) => ({ state: [...st.left, ...st.right].map((b) => String(b.row[cfg.key])) }),
+    // The left rows, by time, each with whether it has matched. Flink also marks right rows that
+    // have matched, which the simulator doesn't track, so only their keys are compared.
+    facts: (st, cfg) => ({
+      state: [...st.left, ...st.right].map((b) => String(b.row[cfg.key])),
+      values: {
+        IntervalJoinLeftCache: values(F.group(st.left, (l) => String(l.row[cfg.key])).map(([k, ls]) => [k,
+          F.map(F.group(ls, (l) => F.time(l.t)).map(([t, g]) => [t, g.map((l) => F.tuple(F.row(l.row), String(l.joined)))]))])),
+      },
+    }),
     say(ev) {
       if (ev.type === 'hold') return 'The watermark is recorded, but the other input is behind, so the combined watermark doesn\'t move.';
       if (ev.type === 'advance') return `The combined watermark moves to ${ev.W}.`;
@@ -892,6 +972,11 @@ const Ops = (() => {
         return `${k}|${hms(Number(end))}`;
       }),
       timers: Object.values(st.timers).map((t) => `${t.k}@${ms(t.end * 1000 - 1)}`),
+      values: Object.fromEntries([['left-records', 'left', 0], ['right-records', 'right', 1]].map(([name, side, input]) => [name,
+        values(Object.entries(st[side]).map(([id, rows]) => {
+          const [k, end] = id.split('|');
+          return [`${k}|${hms(Number(end))}`, rows.map((r) => F.row(r, input))];
+        }))])),
     }),
     say(ev) {
       switch (ev.type) {
@@ -959,7 +1044,14 @@ const Ops = (() => {
         })))),
       };
     },
-    facts: (st) => ({ state: [...Object.keys(st.left), ...Object.keys(st.right)], timers: [] }),
+    // A side with a unique key keeps one row per key; otherwise each distinct row, with its count.
+    facts: (st, cfg) => ({
+      state: [...Object.keys(st.left), ...Object.keys(st.right)], timers: [],
+      values: Object.fromEntries([['left-records', 'left', 0], ['right-records', 'right', 1]].map(([name, side, input]) => [name,
+        values(Object.entries(st[side]).map(([k, rows]) => [k, (cfg[`${side}Unique`] ?? true)
+          ? F.row(rows[0], input)
+          : F.map(F.count(rows).map(([r, n]) => [F.row(r, input), n]))]))])),
+    }),
     say(ev) {
       if (ev.type === 'hold' || ev.type === 'advance') return 'The join records the watermark. Its own is the minimum of both inputs.';
       if (ev.type === 'delete') return ev.other ? 'The row is removed from state, and the joined row is deleted downstream.' : 'The row is removed from state. Nothing was joined with it, so nothing is emitted.';
@@ -1015,7 +1107,7 @@ const Ops = (() => {
       }
       const t = row[cfg.rightTime];
       const vs = (st.versions[k] ||= []).filter((v) => v.row[cfg.rightTime] !== t);
-      vs.push({ row });
+      vs.push({ row, kind: item.kind });
       vs.sort((a, b) => U.toSec(a.row[cfg.rightTime]) - U.toSec(b.row[cfg.rightTime]));
       st.versions[k] = vs;
       timer(t);
@@ -1072,6 +1164,12 @@ const Ops = (() => {
     facts: (st, cfg) => ({
       state: [...st.left.map((l) => String(l.row[cfg.key])), ...Object.keys(st.versions).filter((k) => st.versions[k].length)],
       timers: Object.entries(st.timers).map(([k, t]) => `${k}@${ms(t * 1000)}`),
+      // The versions, by time, with their row kinds. The waiting orders are kept under a per-key
+      // counter, which the simulator doesn't track, so their values aren't compared.
+      values: {
+        right: values(Object.entries(st.versions).filter(([, vs]) => vs.length)
+          .map(([k, vs]) => [k, F.map(vs.map((v) => [v.row[cfg.rightTime], F.row(v.row, 1, v.kind)]))])),
+      },
     }),
     say(ev) {
       if (ev.type === 'buffer') return 'The order waits in state until the watermark reaches its time.';
@@ -1081,76 +1179,119 @@ const Ops = (() => {
     },
   };
 
+  // A LATERAL SNAPSHOT join's build-side bookkeeping, per key, as in Flink 2.4: the build
+  // watermark at which the key's change buffer was last written (bufferedAtWm; -Infinity before
+  // any watermark). Touching a key applies its due changes only if the watermark has moved past
+  // that point since (applyBufferedChangesUpToCurrentWm), so a change that arrives already behind
+  // the watermark, such as a -U with the old row's time, waits for the next one.
+  const buildWm = (st) => (st.wmBuild == null ? -Infinity : U.toSec(st.wmBuild));
+  // How far a key's changes would be applied if it were touched now, or null.
+  function applyLimit(st, k) {
+    if (!(k in st.bufferedAt)) return null;
+    const cur = buildWm(st);
+    if (cur > st.bufferedAt[k]) return cur;
+    if (st.phase === 'JOIN' && cur === -Infinity) return Infinity;
+    return null;
+  }
+  // Applies a key's due changes, in row-time order (ties in arrival order). Returns them, and
+  // what Flink's method returns: the limit if changes remain, null if none do, or the unchanged
+  // bufferedAtWm when nothing was applied.
+  function applyDue(st, cfg, k) {
+    if (!(k in st.bufferedAt)) return { applied: [], r: null };
+    const limit = applyLimit(st, k);
+    if (limit == null) return { applied: [], r: st.bufferedAt[k] };
+    const t = (r) => U.toSec(r[cfg.buildTime]);
+    const due = st.changes.filter((c) => c.row[cfg.key] === k && t(c.row) <= limit).sort((a, b) => t(a.row) - t(b.row) || a.seq - b.seq);
+    st.changes = st.changes.filter((c) => !due.includes(c));
+    for (const c of due) {
+      const rows = st.table[k] || [];
+      if (c.kind === '+I' || c.kind === '+U') rows.push(c.row);
+      else { const i = rows.findIndex((r) => same(r, c.row)); if (i >= 0) rows.splice(i, 1); }
+      if (rows.length) st.table[k] = rows; else delete st.table[k];
+    }
+    const remain = st.changes.some((c) => c.row[cfg.key] === k);
+    if (remain) st.bufferedAt[k] = limit; else delete st.bufferedAt[k];
+    return { applied: due.map((c) => ({ kind: c.kind, row: c.row })), r: remain ? limit : null };
+  }
+  // Whether a buffered change would be applied if its key were touched now.
+  const isDue = (st, cfg, c) => {
+    const limit = applyLimit(st, c.row[cfg.key]);
+    return limit != null && U.toSec(c.row[cfg.buildTime]) <= limit;
+  };
+
   // LATERAL SNAPSHOT join (LateralSnapshotJoinOperator, Flink 2.4). Two phases:
-  //   LOAD: build-side changes are applied to the build table; probe rows are buffered; probe
-  //         watermarks are held back. LOAD ends when the build watermark reaches
-  //         loadCompletedTime (by default, when the query was compiled).
+  //   LOAD: probe rows are buffered; probe watermarks are held back. LOAD ends when the build
+  //         watermark reaches loadCompletedTime (by default, when the query was compiled).
   //   JOIN: buffered probe rows are joined first (once a probe watermark is available), then
-  //         every probe row is joined on arrival against the current build table; probe
-  //         watermarks are forwarded.
-  // In both phases a build change is buffered by its row time, and applied once the build
-  // watermark reaches it. Build watermarks are never forwarded. Inner join: no match, no output.
+  //         every probe row is joined on arrival against the current build table, unless rows
+  //         for its key are still buffered; probe watermarks are forwarded.
+  // In both phases a build change is buffered under its row time, and takes effect once the build
+  // watermark reaches it. Flink applies a key's due changes lazily, when the key is next touched
+  // (applyBufferedChangesUpToCurrentWm): a probe row or a build row for it, or the timer of one of
+  // its buffered probe rows. A build watermark applies nothing by itself. A change that arrives
+  // behind the watermark waits for the watermark to advance (see applyLimit). Buffered probe rows are
+  // joined by those timers, which fire on the first probe watermark of the join phase; with one
+  // buffered row per key, that's arrival order. Build watermarks are never forwarded. Inner join:
+  // no match, no output.
   //   cfg: { left, key, buildTime, loadCompletedTime, joinRow(probe, build), probeId, probeTime,
   //          valueField }
   const lateralSnapshotJoin = {
-    init: () => ({ phase: 'LOAD', table: {}, changes: [], probes: [], wmProbe: null, wmBuild: null, forwarded: null, seq: 0 }),
+    init: () => ({ phase: 'LOAD', table: {}, changes: [], bufferedAt: {}, probes: [], wmProbe: null, wmBuild: null, forwarded: null, seq: 0 }),
     record(st, item, cfg, ctx) {
       const row = item.row;
       const k = row[cfg.key];
+      const { applied, r } = applyDue(st, cfg, k);
       if (ctx.from !== cfg.left) {
         st.changes.push({ kind: item.kind, row, seq: ++st.seq });
-        return { out: [], absorb: true, touched: `C${st.seq}`, ev: { type: 'buffer-change', kind: item.kind, row, phase: st.phase } };
+        if (r == null || r !== buildWm(st)) st.bufferedAt[k] = buildWm(st);
+        const behind = U.toSec(row[cfg.buildTime]) <= buildWm(st);
+        return { out: [], absorb: true, touched: `C${st.seq}`, ev: { type: 'buffer-change', kind: item.kind, row, phase: st.phase, applied, behind } };
       }
-      if (st.phase === 'LOAD' || st.probes.length) {
+      if (st.phase === 'LOAD' || st.probes.some((p) => p[cfg.key] === k)) {
         st.probes.push(row);
-        return { out: [], absorb: true, touched: `P${row[cfg.probeId]}`, ev: { type: 'buffer-probe', row, phase: st.phase } };
+        return { out: [], absorb: true, touched: `P${row[cfg.probeId]}`, ev: { type: 'buffer-probe', row, phase: st.phase, applied } };
       }
       const matches = st.table[k] || [];
       return {
         out: matches.map((b) => rec('+I', cfg.joinRow(row, b))), touched: `T${k}`,
-        ev: { type: matches.length ? 'join' : 'no-match', row, build: matches[0] || null, pending: st.changes.filter((c) => c.row[cfg.key] === k).map((c) => c.row) },
+        ev: { type: matches.length ? 'join' : 'no-match', row, build: matches[0] || null, applied, pending: st.changes.filter((c) => c.row[cfg.key] === k).map((c) => c.row) },
       };
     },
     watermark(st, item, cfg, ctx) {
-      const t = (r) => U.toSec(r[cfg.buildTime]);
+      // Joins the buffered probe rows, each after its key's due changes are applied.
       const drain = () => {
         const out = [];
-        for (const p of st.probes) for (const b of st.table[p[cfg.key]] || []) out.push(rec('+I', cfg.joinRow(p, b)));
+        const applied = [];
+        for (const p of st.probes) {
+          applied.push(...applyDue(st, cfg, p[cfg.key]).applied);
+          for (const b of st.table[p[cfg.key]] || []) out.push(rec('+I', cfg.joinRow(p, b)));
+        }
         const drained = st.probes;
         st.probes = [];
-        return { out, drained };
+        return { out, drained, applied };
       };
       if (ctx.from !== cfg.left) {
         st.wmBuild = item.time;
         const w = U.toSec(item.time);
-        const due = st.changes.filter((c) => t(c.row) <= w).sort((a, b) => t(a.row) - t(b.row) || a.seq - b.seq);
-        st.changes = st.changes.filter((c) => !due.includes(c));
-        for (const c of due) {
-          const k = c.row[cfg.key];
-          const rows = st.table[k] || [];
-          if (c.kind === '+I' || c.kind === '+U') rows.push(c.row);
-          else { const i = rows.findIndex((r) => same(r, c.row)); if (i >= 0) rows.splice(i, 1); }
-          if (rows.length) st.table[k] = rows; else delete st.table[k];
-        }
-        const applied = due.map((c) => ({ kind: c.kind, row: c.row }));
+        const due = st.changes.filter((c) => isDue(st, cfg, c)).map((c) => ({ kind: c.kind, row: c.row }));
         if (st.phase === 'LOAD' && w >= U.toSec(cfg.loadCompletedTime)) {
           st.phase = 'JOIN';
           if (st.wmProbe != null) {
-            const { out, drained } = drain();
+            const { out, drained, applied } = drain();
             st.forwarded = st.wmProbe;
             out.push(wm(st.wmProbe));
-            return { out, nodeWm: st.wmProbe, ev: { type: 'flip', time: item.time, applied, drained } };
+            return { out, nodeWm: st.wmProbe, ev: { type: 'flip', time: item.time, due, applied, drained } };
           }
-          return { out: [], nodeWm: null, ev: { type: 'flip', time: item.time, applied, drained: [] } };
+          return { out: [], nodeWm: null, ev: { type: 'flip', time: item.time, due, applied: [], drained: [] } };
         }
-        return { out: [], nodeWm: null, ev: { type: 'build-wm', time: item.time, applied, phase: st.phase } };
+        return { out: [], nodeWm: null, ev: { type: 'build-wm', time: item.time, due, phase: st.phase } };
       }
       st.wmProbe = item.time;
       if (st.phase === 'LOAD') return { out: [], nodeWm: null, ev: { type: 'hold', time: item.time } };
-      const { out, drained } = drain();
+      const { out, drained, applied } = drain();
       st.forwarded = item.time;
       out.push(wm(item.time));
-      return { out, nodeWm: item.time, ev: { type: 'probe-wm', time: item.time, drained } };
+      return { out, nodeWm: item.time, ev: { type: 'probe-wm', time: item.time, drained, applied } };
     },
     view(st, cfg) {
       return {
@@ -1158,19 +1299,29 @@ const Ops = (() => {
         cols: ['kind', cfg.key, 'value', 'time'],
         rows: [
           ...Object.entries(st.table).flatMap(([k, rows]) => rows.map((r) => ({ key: `T${k}`, cells: ['current', k, U.money(r[cfg.valueField]), r[cfg.buildTime]] }))),
-          ...st.changes.map((c) => ({ key: `C${c.seq}`, cells: [`pending ${c.kind.replace('-', '−')}`, c.row[cfg.key], U.money(c.row[cfg.valueField]), c.row[cfg.buildTime]] })),
+          ...st.changes.map((c) => ({
+            key: `C${c.seq}`,
+            cells: [`${isDue(st, cfg, c) ? 'due' : 'pending'} ${c.kind.replace('-', '−')}`, c.row[cfg.key], U.money(c.row[cfg.valueField]), c.row[cfg.buildTime]],
+          })),
           ...st.probes.map((p) => ({ key: `P${p[cfg.probeId]}`, cells: [cfg.probeName, p[cfg.key], `#${p[cfg.probeId]}`, p[cfg.probeTime]] })),
         ],
         footer: st.phase === 'LOAD' ? `phase: LOAD, until the costs watermark reaches ${cfg.loadCompletedTime}` : 'phase: JOIN',
       };
     },
-    // The panel shows no timers, so only the keys in state are compared.
+    // The build table (each row with its count), and the buffered changes by row time, with their
+    // kinds. Buffered probe rows are kept under an internal counter, so only their keys are
+    // compared. The panel shows no timers, so they aren't compared.
     facts: (st, cfg) => ({
       state: [...Object.keys(st.table), ...st.changes.map((c) => String(c.row[cfg.key])), ...st.probes.map((p) => String(p[cfg.key]))],
+      values: {
+        'build-table': values(Object.entries(st.table).map(([k, rows]) => [k, F.map(F.count(rows).map(([r, n]) => [F.row(r, 1), n]))])),
+        'build-change-buffer': values(F.group(st.changes, (c) => String(c.row[cfg.key])).map(([k, cs]) => [k,
+          F.map(F.group(cs, (c) => c.row[cfg.buildTime]).map(([t, g]) => [t, g.map((c) => F.row(c.row, 1, c.kind))]))])),
+      },
     }),
     say(ev) {
       switch (ev.type) {
-        case 'buffer-change': return 'The change is buffered until the build-side watermark reaches its row time.';
+        case 'buffer-change': return 'The change is buffered. It\'s applied once the build-side watermark has reached its row time, the next time its key is needed.';
         case 'buffer-probe': return 'The probe row is buffered until the load phase ends.';
         case 'join': return 'The probe row is joined at once with the current build-side row.';
         case 'no-match': return 'No current build-side row for this key, so nothing is emitted.';
@@ -1251,9 +1402,15 @@ const Ops = (() => {
       };
     },
     // The panel doesn't show them, but each buffered row has a timer at its timestamp.
+    // The buffered rows, by timestamp. The NFA's partial matches are in Flink's own form, so
+    // only the keys are compared for them.
     facts: (st) => ({
       state: Object.keys(st.keys),
       timers: Object.entries(st.keys).flatMap(([k, s]) => s.buffer.map((b) => `${k}@${ms(b.ts * 1000)}`)),
+      values: {
+        eventQueuesStateName: values(Object.entries(st.keys).filter(([, s]) => s.buffer.length).map(([k, s]) => [k,
+          F.map(F.group([...s.buffer].sort((a, b) => a.seq - b.seq), (b) => F.time(b.ts)).map(([t, bs]) => [t, bs.map((b) => F.row(b.row))]))])),
+      },
     }),
     say(ev) {
       switch (ev.type) {
@@ -1306,7 +1463,10 @@ const Ops = (() => {
         rows: Object.entries(st.rows).map(([k, list]) => ({ key: k, cells: [k, list.map(cfg.cell).join('; ')] })),
       };
     },
-    facts: (st) => ({ state: Object.keys(st.rows), timers: [] }),
+    facts: (st) => ({
+      state: Object.keys(st.rows), timers: [],
+      values: { values: values(Object.entries(st.rows).map(([k, list]) => [k, list.map((r) => F.row(r))])) },
+    }),
     say(ev) {
       switch (ev.type) {
         case 'add': return `The row is added to the list for key ${ev.key}, and emitted as ${ev.kind}.`;

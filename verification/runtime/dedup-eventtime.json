@@ -249,7 +249,21 @@
             ],
             "timers": [
               "101@12:00:01.000"
-            ]
+            ],
+            "values": {
+              "waiting-to-emit-on-timer": {
+                "101": {
+                  "row": {
+                    "order_id": 101,
+                    "store_id": 7,
+                    "total": 18,
+                    "event_time": "12:00:01"
+                  },
+                  "input": 0
+                }
+              },
+              "already-emitted-state-boolean": {}
+            }
           },
           "caption": "First copy of order 101. It can't be emitted yet, because an earlier copy might still arrive. It waits in state, with a timer at 12:00:01."
         },
@@ -275,7 +289,30 @@
             "timers": [
               "101@12:00:01.000",
               "102@12:00:03.000"
-            ]
+            ],
+            "values": {
+              "waiting-to-emit-on-timer": {
+                "101": {
+                  "row": {
+                    "order_id": 101,
+                    "store_id": 7,
+                    "total": 18,
+                    "event_time": "12:00:01"
+                  },
+                  "input": 0
+                },
+                "102": {
+                  "row": {
+                    "order_id": 102,
+                    "store_id": 9,
+                    "total": 24.5,
+                    "event_time": "12:00:03"
+                  },
+                  "input": 0
+                }
+              },
+              "already-emitted-state-boolean": {}
+            }
           },
           "caption": "First copy of order 102. It can't be emitted yet, because an earlier copy might still arrive. It waits in state, with a timer at 12:00:03."
         },
@@ -301,7 +338,30 @@
             "timers": [
               "101@12:00:01.000",
               "102@12:00:03.000"
-            ]
+            ],
+            "values": {
+              "waiting-to-emit-on-timer": {
+                "101": {
+                  "row": {
+                    "order_id": 101,
+                    "store_id": 7,
+                    "total": 18,
+                    "event_time": "12:00:01"
+                  },
+                  "input": 0
+                },
+                "102": {
+                  "row": {
+                    "order_id": 102,
+                    "store_id": 9,
+                    "total": 24.5,
+                    "event_time": "12:00:03"
+                  },
+                  "input": 0
+                }
+              },
+              "already-emitted-state-boolean": {}
+            }
           },
           "caption": "A copy of order 101 from 12:00:01 is already waiting, and this one (12:00:04) isn't earlier, so it's ignored."
         },
@@ -340,7 +400,14 @@
               "101",
               "102"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "waiting-to-emit-on-timer": {},
+              "already-emitted-state-boolean": {
+                "101": "true",
+                "102": "true"
+              }
+            }
           },
           "caption": "The watermark reaches 12:00:03. No copy older than that can still arrive, so the waiting copies of order 101 and 102 are final. Deduplicate emits them, and marks the orders as emitted."
         },
@@ -366,7 +433,24 @@
             ],
             "timers": [
               "103@12:00:06.000"
-            ]
+            ],
+            "values": {
+              "waiting-to-emit-on-timer": {
+                "103": {
+                  "row": {
+                    "order_id": 103,
+                    "store_id": 7,
+                    "total": 31,
+                    "event_time": "12:00:06"
+                  },
+                  "input": 0
+                }
+              },
+              "already-emitted-state-boolean": {
+                "101": "true",
+                "102": "true"
+              }
+            }
           },
           "caption": "First copy of order 103. It can't be emitted yet, because an earlier copy might still arrive. It waits in state, with a timer at 12:00:06."
         },
@@ -392,7 +476,24 @@
             ],
             "timers": [
               "103@12:00:05.000"
-            ]
+            ],
+            "values": {
+              "waiting-to-emit-on-timer": {
+                "103": {
+                  "row": {
+                    "order_id": 103,
+                    "store_id": 7,
+                    "total": 31,
+                    "event_time": "12:00:05"
+                  },
+                  "input": 0
+                }
+              },
+              "already-emitted-state-boolean": {
+                "101": "true",
+                "102": "true"
+              }
+            }
           },
           "caption": "This copy of order 103 has an earlier event time (12:00:05) than the one waiting (12:00:06), so it replaces it, and the timer moves to 12:00:05."
         },
@@ -418,7 +519,24 @@
             ],
             "timers": [
               "103@12:00:05.000"
-            ]
+            ],
+            "values": {
+              "waiting-to-emit-on-timer": {
+                "103": {
+                  "row": {
+                    "order_id": 103,
+                    "store_id": 7,
+                    "total": 31,
+                    "event_time": "12:00:05"
+                  },
+                  "input": 0
+                }
+              },
+              "already-emitted-state-boolean": {
+                "101": "true",
+                "102": "true"
+              }
+            }
           },
           "caption": "This copy of order 102 has event time 12:00:02, but the watermark is already at 12:00:03. It's late, and dropped, even though it's the earliest attempt."
         },
@@ -449,7 +567,15 @@
               "102",
               "103"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "waiting-to-emit-on-timer": {},
+              "already-emitted-state-boolean": {
+                "101": "true",
+                "102": "true",
+                "103": "true"
+              }
+            }
           },
           "caption": "The watermark reaches 12:00:05. No copy older than that can still arrive, so the waiting copy of order 103 is final. Deduplicate emits it, and marks the order as emitted."
         },
@@ -476,7 +602,25 @@
             ],
             "timers": [
               "104@12:00:08.000"
-            ]
+            ],
+            "values": {
+              "waiting-to-emit-on-timer": {
+                "104": {
+                  "row": {
+                    "order_id": 104,
+                    "store_id": 9,
+                    "total": 13,
+                    "event_time": "12:00:08"
+                  },
+                  "input": 0
+                }
+              },
+              "already-emitted-state-boolean": {
+                "101": "true",
+                "102": "true",
+                "103": "true"
+              }
+            }
           },
           "caption": "First copy of order 104. It can't be emitted yet, because an earlier copy might still arrive. It waits in state, with a timer at 12:00:08."
         },
@@ -505,7 +649,34 @@
             "timers": [
               "104@12:00:08.000",
               "105@12:00:10.000"
-            ]
+            ],
+            "values": {
+              "waiting-to-emit-on-timer": {
+                "104": {
+                  "row": {
+                    "order_id": 104,
+                    "store_id": 9,
+                    "total": 13,
+                    "event_time": "12:00:08"
+                  },
+                  "input": 0
+                },
+                "105": {
+                  "row": {
+                    "order_id": 105,
+                    "store_id": 7,
+                    "total": 22,
+                    "event_time": "12:00:10"
+                  },
+                  "input": 0
+                }
+              },
+              "already-emitted-state-boolean": {
+                "101": "true",
+                "102": "true",
+                "103": "true"
+              }
+            }
           },
           "caption": "First copy of order 105. It can't be emitted yet, because an earlier copy might still arrive. It waits in state, with a timer at 12:00:10."
         },
@@ -540,7 +711,26 @@
             ],
             "timers": [
               "105@12:00:10.000"
-            ]
+            ],
+            "values": {
+              "waiting-to-emit-on-timer": {
+                "105": {
+                  "row": {
+                    "order_id": 105,
+                    "store_id": 7,
+                    "total": 22,
+                    "event_time": "12:00:10"
+                  },
+                  "input": 0
+                }
+              },
+              "already-emitted-state-boolean": {
+                "101": "true",
+                "102": "true",
+                "103": "true",
+                "104": "true"
+              }
+            }
           },
           "caption": "The watermark reaches 12:00:09. No copy older than that can still arrive, so the waiting copy of order 104 is final. Deduplicate emits it, and marks the order as emitted."
         }

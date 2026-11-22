@@ -302,7 +302,19 @@
             "state": [
               "1"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "1": {
+                  "row": {
+                    "pizza_id": 1,
+                    "food_cost": 4,
+                    "valid_from": "09:00:00"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Pizza 1 is new. ChangelogNormalize stores its cost and emits an insert (+I)."
         },
@@ -333,7 +345,27 @@
               "1",
               "2"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "1": {
+                  "row": {
+                    "pizza_id": 1,
+                    "food_cost": 4,
+                    "valid_from": "09:00:00"
+                  },
+                  "input": 0
+                },
+                "2": {
+                  "row": {
+                    "pizza_id": 2,
+                    "food_cost": 5.5,
+                    "valid_from": "09:30:00"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Pizza 2 is new. ChangelogNormalize stores its cost and emits an insert (+I)."
         },
@@ -354,7 +386,27 @@
               "1",
               "2"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "1": {
+                  "row": {
+                    "pizza_id": 1,
+                    "food_cost": 4,
+                    "valid_from": "09:00:00"
+                  },
+                  "input": 0
+                },
+                "2": {
+                  "row": {
+                    "pizza_id": 2,
+                    "food_cost": 5.5,
+                    "valid_from": "09:30:00"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "The watermark passes through ChangelogNormalize."
         },
@@ -393,7 +445,27 @@
               "1",
               "2"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "1": {
+                  "row": {
+                    "pizza_id": 1,
+                    "food_cost": 4.5,
+                    "valid_from": "10:00:30"
+                  },
+                  "input": 0
+                },
+                "2": {
+                  "row": {
+                    "pizza_id": 2,
+                    "food_cost": 5.5,
+                    "valid_from": "09:30:00"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Pizza 1 already has a cost. ChangelogNormalize emits the old row as a retraction (−U), then the new one (+U). The join needs full retractions to remove the old cost."
         },
@@ -425,7 +497,35 @@
               "2",
               "3"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "1": {
+                  "row": {
+                    "pizza_id": 1,
+                    "food_cost": 4.5,
+                    "valid_from": "10:00:30"
+                  },
+                  "input": 0
+                },
+                "2": {
+                  "row": {
+                    "pizza_id": 2,
+                    "food_cost": 5.5,
+                    "valid_from": "09:30:00"
+                  },
+                  "input": 0
+                },
+                "3": {
+                  "row": {
+                    "pizza_id": 3,
+                    "food_cost": 6,
+                    "valid_from": "10:01:00"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Pizza 3 is new. ChangelogNormalize stores its cost and emits an insert (+I)."
         },
@@ -447,7 +547,35 @@
               "2",
               "3"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "1": {
+                  "row": {
+                    "pizza_id": 1,
+                    "food_cost": 4.5,
+                    "valid_from": "10:00:30"
+                  },
+                  "input": 0
+                },
+                "2": {
+                  "row": {
+                    "pizza_id": 2,
+                    "food_cost": 5.5,
+                    "valid_from": "09:30:00"
+                  },
+                  "input": 0
+                },
+                "3": {
+                  "row": {
+                    "pizza_id": 3,
+                    "food_cost": 6,
+                    "valid_from": "10:01:00"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "The watermark passes through ChangelogNormalize."
         },
@@ -480,7 +608,43 @@
               "3",
               "4"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "1": {
+                  "row": {
+                    "pizza_id": 1,
+                    "food_cost": 4.5,
+                    "valid_from": "10:00:30"
+                  },
+                  "input": 0
+                },
+                "2": {
+                  "row": {
+                    "pizza_id": 2,
+                    "food_cost": 5.5,
+                    "valid_from": "09:30:00"
+                  },
+                  "input": 0
+                },
+                "3": {
+                  "row": {
+                    "pizza_id": 3,
+                    "food_cost": 6,
+                    "valid_from": "10:01:00"
+                  },
+                  "input": 0
+                },
+                "4": {
+                  "row": {
+                    "pizza_id": 4,
+                    "food_cost": 7,
+                    "valid_from": "10:02:00"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "Pizza 4 is new. ChangelogNormalize stores its cost and emits an insert (+I)."
         },
@@ -503,7 +667,43 @@
               "3",
               "4"
             ],
-            "timers": []
+            "timers": [],
+            "values": {
+              "deduplicate-state": {
+                "1": {
+                  "row": {
+                    "pizza_id": 1,
+                    "food_cost": 4.5,
+                    "valid_from": "10:00:30"
+                  },
+                  "input": 0
+                },
+                "2": {
+                  "row": {
+                    "pizza_id": 2,
+                    "food_cost": 5.5,
+                    "valid_from": "09:30:00"
+                  },
+                  "input": 0
+                },
+                "3": {
+                  "row": {
+                    "pizza_id": 3,
+                    "food_cost": 6,
+                    "valid_from": "10:01:00"
+                  },
+                  "input": 0
+                },
+                "4": {
+                  "row": {
+                    "pizza_id": 4,
+                    "food_cost": 7,
+                    "valid_from": "10:02:00"
+                  },
+                  "input": 0
+                }
+              }
+            }
           },
           "caption": "The watermark passes through ChangelogNormalize."
         }
@@ -537,9 +737,31 @@
           "facts": {
             "state": [
               "1"
-            ]
+            ],
+            "values": {
+              "build-table": {},
+              "build-change-buffer": {
+                "1": {
+                  "map": [
+                    [
+                      "09:00:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 1,
+                            "food_cost": 4,
+                            "valid_from": "09:00:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
-          "caption": "The +I for pizza 1 (valid from 09:00:00) is buffered. It's applied once the costs watermark reaches 09:00:00."
+          "caption": "The +I for pizza 1 (valid from 09:00:00) is buffered. It's applied once the costs watermark has reached 09:00:00, the next time the join needs pizza 1."
         },
         {
           "from": [
@@ -558,9 +780,48 @@
             "state": [
               "1",
               "2"
-            ]
+            ],
+            "values": {
+              "build-table": {},
+              "build-change-buffer": {
+                "1": {
+                  "map": [
+                    [
+                      "09:00:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 1,
+                            "food_cost": 4,
+                            "valid_from": "09:00:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "09:30:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 2,
+                            "food_cost": 5.5,
+                            "valid_from": "09:30:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
-          "caption": "The +I for pizza 2 (valid from 09:30:00) is buffered. It's applied once the costs watermark reaches 09:30:00."
+          "caption": "The +I for pizza 2 (valid from 09:30:00) is buffered. It's applied once the costs watermark has reached 09:30:00, the next time the join needs pizza 2."
         },
         {
           "from": [
@@ -574,9 +835,48 @@
             "state": [
               "1",
               "2"
-            ]
+            ],
+            "values": {
+              "build-table": {},
+              "build-change-buffer": {
+                "1": {
+                  "map": [
+                    [
+                      "09:00:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 1,
+                            "food_cost": 4,
+                            "valid_from": "09:00:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "09:30:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 2,
+                            "food_cost": 5.5,
+                            "valid_from": "09:30:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
-          "caption": "The costs watermark moves to 09:29:59. Changes that are now due are applied: +I pizza 1 $4.00. It hasn't reached 10:00:00, so the join keeps loading."
+          "caption": "The costs watermark moves to 09:29:59. Now due: +I pizza 1 $4.00. Nothing changes yet: the join applies a pizza's due changes the next time it needs that pizza. It hasn't reached 10:00:00, so the join keeps loading."
         },
         {
           "from": [
@@ -597,9 +897,47 @@
               "1",
               "2",
               "1"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "09:00:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "2": {
+                  "map": [
+                    [
+                      "09:30:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 2,
+                            "food_cost": 5.5,
+                            "valid_from": "09:30:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
-          "caption": "The join is still loading costs, so order 1001 is buffered. Joining it now could use a cost table that isn't complete yet."
+          "caption": "Pizza 1 has due changes, so the join applies them first (+I pizza 1 $4.00). The join is still loading costs, so order 1001 is buffered. Joining it now could use a cost table that isn't complete yet."
         },
         {
           "from": [
@@ -621,7 +959,45 @@
               "2",
               "1",
               "2"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "09:00:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "2": {
+                  "map": [
+                    [
+                      "09:30:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 2,
+                            "food_cost": 5.5,
+                            "valid_from": "09:30:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The join is still loading costs, so order 1002 is buffered. Joining it now could use a cost table that isn't complete yet."
         },
@@ -639,7 +1015,45 @@
               "2",
               "1",
               "2"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "09:00:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "2": {
+                  "map": [
+                    [
+                      "09:30:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 2,
+                            "food_cost": 5.5,
+                            "valid_from": "09:30:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The orders watermark, 09:59:54, is held back: during the load phase the join emits nothing, not even watermarks."
         },
@@ -663,9 +1077,65 @@
               "1",
               "1",
               "2"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "09:00:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "1": {
+                  "map": [
+                    [
+                      "09:00:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 1,
+                            "food_cost": 4,
+                            "valid_from": "09:00:00"
+                          },
+                          "input": 1,
+                          "kind": "-U"
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "09:30:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 2,
+                            "food_cost": 5.5,
+                            "valid_from": "09:30:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
-          "caption": "The -U for pizza 1 (valid from 09:00:00) is buffered. It's applied once the costs watermark reaches 09:00:00."
+          "caption": "The -U for pizza 1 carries the old row's valid_from, 09:00:00, which the costs watermark has already passed. It's buffered until the watermark moves on, and applied the next time the join needs pizza 1 after that."
         },
         {
           "from": [
@@ -688,9 +1158,79 @@
               "1",
               "1",
               "2"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "09:00:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "1": {
+                  "map": [
+                    [
+                      "09:00:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 1,
+                            "food_cost": 4,
+                            "valid_from": "09:00:00"
+                          },
+                          "input": 1,
+                          "kind": "-U"
+                        }
+                      ]
+                    ],
+                    [
+                      "10:00:30",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 1,
+                            "food_cost": 4.5,
+                            "valid_from": "10:00:30"
+                          },
+                          "input": 1,
+                          "kind": "+U"
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "09:30:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 2,
+                            "food_cost": 5.5,
+                            "valid_from": "09:30:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
-          "caption": "The +U for pizza 1 (valid from 10:00:30) is buffered. It's applied once the costs watermark reaches 10:00:30."
+          "caption": "The +U for pizza 1 (valid from 10:00:30) is buffered. It's applied once the costs watermark has reached 10:00:30, the next time the join needs pizza 1."
         },
         {
           "from": [
@@ -714,9 +1254,96 @@
               "3",
               "1",
               "2"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4,
+                          "valid_from": "09:00:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "1": {
+                  "map": [
+                    [
+                      "09:00:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 1,
+                            "food_cost": 4,
+                            "valid_from": "09:00:00"
+                          },
+                          "input": 1,
+                          "kind": "-U"
+                        }
+                      ]
+                    ],
+                    [
+                      "10:00:30",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 1,
+                            "food_cost": 4.5,
+                            "valid_from": "10:00:30"
+                          },
+                          "input": 1,
+                          "kind": "+U"
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      "09:30:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 2,
+                            "food_cost": 5.5,
+                            "valid_from": "09:30:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "3": {
+                  "map": [
+                    [
+                      "10:01:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 3,
+                            "food_cost": 6,
+                            "valid_from": "10:01:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
-          "caption": "The +I for pizza 3 (valid from 10:01:00) is buffered. It's applied once the costs watermark reaches 10:01:00."
+          "caption": "The +I for pizza 3 (valid from 10:01:00) is buffered. It's applied once the costs watermark has reached 10:01:00, the next time the join needs pizza 3."
         },
         {
           "from": [
@@ -753,9 +1380,62 @@
               "1",
               "2",
               "3"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4.5,
+                          "valid_from": "10:00:30"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "09:30:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "3": {
+                  "map": [
+                    [
+                      "10:01:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 3,
+                            "food_cost": 6,
+                            "valid_from": "10:01:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
-          "caption": "The costs watermark reaches 10:00:59, past 10:00:00, the time the query was compiled. Due changes are applied (-U pizza 1 $4.00, +I pizza 2 $5.50, +U pizza 1 $4.50), and the join switches from loading to joining. The buffered orders are joined with the current costs, and emitted, with the held-back orders watermark."
+          "caption": "The costs watermark reaches 10:00:59, past 10:00:00, the time the query was compiled. The join switches from loading to joining. Each buffered order is joined, after its pizza's due changes are applied (-U pizza 1 $4.00, +U pizza 1 $4.50, +I pizza 2 $5.50), and the results are emitted, with the held-back orders watermark."
         },
         {
           "from": [
@@ -786,7 +1466,60 @@
               "1",
               "2",
               "3"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4.5,
+                          "valid_from": "10:00:30"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "09:30:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "3": {
+                  "map": [
+                    [
+                      "10:01:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 3,
+                            "food_cost": 6,
+                            "valid_from": "10:01:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Order 1003 is joined at once with the current cost of pizza 1: $4.50. It doesn't wait for any watermark."
         },
@@ -809,7 +1542,60 @@
               "1",
               "2",
               "3"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4.5,
+                          "valid_from": "10:00:30"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "09:30:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "3": {
+                  "map": [
+                    [
+                      "10:01:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 3,
+                            "food_cost": 6,
+                            "valid_from": "10:01:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Pizza 3's cost (valid from 10:01:00) has arrived, but the costs watermark hasn't reached it, so it isn't visible yet. No current row: with an inner join, order 1004 is dropped."
         },
@@ -830,7 +1616,60 @@
               "1",
               "2",
               "3"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4.5,
+                          "valid_from": "10:00:30"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "09:30:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "3": {
+                  "map": [
+                    [
+                      "10:01:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 3,
+                            "food_cost": 6,
+                            "valid_from": "10:01:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "In the join phase, the orders watermark, 10:01:19, is forwarded."
         },
@@ -853,9 +1692,79 @@
               "2",
               "3",
               "4"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4.5,
+                          "valid_from": "10:00:30"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "09:30:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "3": {
+                  "map": [
+                    [
+                      "10:01:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 3,
+                            "food_cost": 6,
+                            "valid_from": "10:01:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "4": {
+                  "map": [
+                    [
+                      "10:02:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 4,
+                            "food_cost": 7,
+                            "valid_from": "10:02:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
-          "caption": "The +I for pizza 4 (valid from 10:02:00) is buffered. It's applied once the costs watermark reaches 10:02:00."
+          "caption": "The +I for pizza 4 (valid from 10:02:00) is buffered. It's applied once the costs watermark has reached 10:02:00, the next time the join needs pizza 4."
         },
         {
           "from": [
@@ -871,9 +1780,79 @@
               "2",
               "3",
               "4"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4.5,
+                          "valid_from": "10:00:30"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "09:30:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "3": {
+                  "map": [
+                    [
+                      "10:01:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 3,
+                            "food_cost": 6,
+                            "valid_from": "10:01:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "4": {
+                  "map": [
+                    [
+                      "10:02:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 4,
+                            "food_cost": 7,
+                            "valid_from": "10:02:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
-          "caption": "The costs watermark moves to 10:01:59. Changes that are now due are applied: +I pizza 3 $6.00. It's used internally, and never forwarded."
+          "caption": "The costs watermark moves to 10:01:59. Now due: +I pizza 3 $6.00. Nothing changes yet: the join applies a pizza's due changes the next time it needs that pizza. It's used internally, and never forwarded."
         },
         {
           "from": [
@@ -905,9 +1884,77 @@
               "2",
               "3",
               "4"
-            ]
+            ],
+            "values": {
+              "build-table": {
+                "1": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 1,
+                          "food_cost": 4.5,
+                          "valid_from": "10:00:30"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "2": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 2,
+                          "food_cost": 5.5,
+                          "valid_from": "09:30:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                },
+                "3": {
+                  "map": [
+                    [
+                      {
+                        "row": {
+                          "pizza_id": 3,
+                          "food_cost": 6,
+                          "valid_from": "10:01:00"
+                        },
+                        "input": 1
+                      },
+                      "1"
+                    ]
+                  ]
+                }
+              },
+              "build-change-buffer": {
+                "4": {
+                  "map": [
+                    [
+                      "10:02:00",
+                      [
+                        {
+                          "row": {
+                            "pizza_id": 4,
+                            "food_cost": 7,
+                            "valid_from": "10:02:00"
+                          },
+                          "input": 1
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
-          "caption": "Order 1005 is joined at once with the current cost of pizza 3: $6.00. It doesn't wait for any watermark."
+          "caption": "Pizza 3 has due changes, so the join applies them first (+I pizza 3 $6.00). Order 1005 is joined at once with the current cost of pizza 3: $6.00. It doesn't wait for any watermark."
         }
       ]
     }

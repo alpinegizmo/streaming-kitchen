@@ -203,7 +203,28 @@
             ],
             "timers": [
               "7@12:20:00.000"
-            ]
+            ],
+            "values": {
+              "eventQueuesStateName": {
+                "7": {
+                  "map": [
+                    [
+                      "12:20:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 14,
+                            "event_time": "12:20:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The ticket is buffered. It can't be matched until the watermark passes 12:20, because an earlier ticket for store 7 could still arrive."
         },
@@ -228,7 +249,45 @@
             "timers": [
               "7@12:20:00.000",
               "9@12:22:00.000"
-            ]
+            ],
+            "values": {
+              "eventQueuesStateName": {
+                "7": {
+                  "map": [
+                    [
+                      "12:20:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 14,
+                            "event_time": "12:20:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:22:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 9,
+                            "prep_minutes": 11,
+                            "event_time": "12:22:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Store 9's ticket is buffered until the watermark passes 12:22."
         },
@@ -254,7 +313,58 @@
               "7@12:20:00.000",
               "7@12:24:00.000",
               "9@12:22:00.000"
-            ]
+            ],
+            "values": {
+              "eventQueuesStateName": {
+                "7": {
+                  "map": [
+                    [
+                      "12:20:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 14,
+                            "event_time": "12:20:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:24:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 9,
+                            "event_time": "12:24:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:22:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 9,
+                            "prep_minutes": 11,
+                            "event_time": "12:22:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Store 7's ticket is buffered until the watermark passes 12:24."
         },
@@ -277,7 +387,28 @@
             ],
             "timers": [
               "7@12:24:00.000"
-            ]
+            ],
+            "values": {
+              "eventQueuesStateName": {
+                "7": {
+                  "map": [
+                    [
+                      "12:24:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 9,
+                            "event_time": "12:24:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark moves to 12:23:59, and the tickets it has passed are fed to the pattern, in event-time order. Store 7 takes 14 (12:20). It's the store's first ticket, so it starts a partial match, as A. Store 9 takes 11 (12:22). It's the store's first ticket, so it starts a partial match, as A."
         },
@@ -302,7 +433,45 @@
             "timers": [
               "7@12:24:00.000",
               "9@12:27:00.000"
-            ]
+            ],
+            "values": {
+              "eventQueuesStateName": {
+                "7": {
+                  "map": [
+                    [
+                      "12:24:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 9,
+                            "event_time": "12:24:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:27:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 9,
+                            "prep_minutes": 12,
+                            "event_time": "12:27:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Store 9's ticket is buffered until the watermark passes 12:27."
         },
@@ -328,7 +497,58 @@
               "7@12:24:00.000",
               "7@12:35:00.000",
               "9@12:27:00.000"
-            ]
+            ],
+            "values": {
+              "eventQueuesStateName": {
+                "7": {
+                  "map": [
+                    [
+                      "12:24:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 9,
+                            "event_time": "12:24:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:35:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 18,
+                            "event_time": "12:35:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:27:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 9,
+                            "prep_minutes": 12,
+                            "event_time": "12:27:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Store 7's ticket is buffered until the watermark passes 12:35."
         },
@@ -355,7 +575,71 @@
               "7@12:29:00.000",
               "7@12:35:00.000",
               "9@12:27:00.000"
-            ]
+            ],
+            "values": {
+              "eventQueuesStateName": {
+                "7": {
+                  "map": [
+                    [
+                      "12:24:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 9,
+                            "event_time": "12:24:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:35:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 18,
+                            "event_time": "12:35:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:29:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 13,
+                            "event_time": "12:29:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:27:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 9,
+                            "prep_minutes": 12,
+                            "event_time": "12:27:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "This ticket, at 12:29, arrives after the one at 12:35: it's out of order. It's buffered, and sorted into place by event time."
         },
@@ -378,7 +662,28 @@
             ],
             "timers": [
               "7@12:35:00.000"
-            ]
+            ],
+            "values": {
+              "eventQueuesStateName": {
+                "7": {
+                  "map": [
+                    [
+                      "12:35:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 18,
+                            "event_time": "12:35:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark moves to 12:34:59, and the tickets it has passed are fed to the pattern, in event-time order. Store 7 takes 9 (12:24) and 13 (12:29). That makes 9 → 13 a partial match, waiting for a third, slower ticket. The 13 was read after the 18, but it's earlier in event time, so it goes first. Store 9 takes 12 (12:27). That makes 11 → 12 a partial match, waiting for a third, slower ticket."
         },
@@ -403,7 +708,45 @@
             "timers": [
               "7@12:35:00.000",
               "9@12:38:00.000"
-            ]
+            ],
+            "values": {
+              "eventQueuesStateName": {
+                "7": {
+                  "map": [
+                    [
+                      "12:35:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 18,
+                            "event_time": "12:35:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:38:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 9,
+                            "prep_minutes": 9,
+                            "event_time": "12:38:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Store 9's ticket is buffered until the watermark passes 12:38."
         },
@@ -429,7 +772,58 @@
               "7@12:35:00.000",
               "7@12:41:00.000",
               "9@12:38:00.000"
-            ]
+            ],
+            "values": {
+              "eventQueuesStateName": {
+                "7": {
+                  "map": [
+                    [
+                      "12:35:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 18,
+                            "event_time": "12:35:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ],
+                    [
+                      "12:41:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 10,
+                            "event_time": "12:41:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                },
+                "9": {
+                  "map": [
+                    [
+                      "12:38:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 9,
+                            "prep_minutes": 9,
+                            "event_time": "12:38:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "Store 7's ticket is buffered until the watermark passes 12:41."
         },
@@ -461,7 +855,28 @@
             ],
             "timers": [
               "7@12:41:00.000"
-            ]
+            ],
+            "values": {
+              "eventQueuesStateName": {
+                "7": {
+                  "map": [
+                    [
+                      "12:41:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 10,
+                            "event_time": "12:41:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "The watermark moves to 12:40:59, and the tickets it has passed are fed to the pattern, in event-time order. Store 7 takes 18 (12:35): 9 → 13 → 18 is a match, so one row is emitted. The partial matches that overlap it are discarded (SKIP PAST LAST ROW). Store 9 takes 9 (12:38). 9 isn't slower than 12, so the partial match 11 → 12 is discarded, and 9 starts a new one."
         },
@@ -485,7 +900,28 @@
             ],
             "timers": [
               "7@12:41:00.000"
-            ]
+            ],
+            "values": {
+              "eventQueuesStateName": {
+                "7": {
+                  "map": [
+                    [
+                      "12:41:00",
+                      [
+                        {
+                          "row": {
+                            "store_id": 7,
+                            "prep_minutes": 10,
+                            "event_time": "12:41:00"
+                          },
+                          "input": 0
+                        }
+                      ]
+                    ]
+                  ]
+                }
+              }
+            }
           },
           "caption": "This ticket, at 12:36:00, is older than the watermark (12:40:59), so it's late, and dropped. It would have made 11 → 12 → 15 a match for store 9, so that match is lost."
         }
