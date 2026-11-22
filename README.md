@@ -16,7 +16,7 @@ are published to GitHub Pages by `.github/workflows/pages.yml`.
 ## Share it as one file
 
 ```sh
-node tools/bundle.mjs              # writes dist/flink-sql-patterns.html
+node tools/bundle.mjs              # writes dist/streaming-kitchen.html
 ```
 
 The bundle inlines the stylesheet and every script, and embeds the fonts, so it's a single HTML

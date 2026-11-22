@@ -2,7 +2,7 @@
 // are inlined, and the web fonts (latin subset) are embedded as data: URLs, so the file works
 // offline and makes no requests.
 //
-//   node tools/bundle.mjs [out.html]        default: dist/flink-sql-patterns.html
+//   node tools/bundle.mjs [out.html]        default: dist/streaming-kitchen.html
 //   node tools/bundle.mjs --no-fonts        keep the Google Fonts link instead of embedding
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const embedFonts = !args.includes('--no-fonts');
-const out = resolve(args.find((a) => !a.startsWith('--')) || join(root, 'dist', 'flink-sql-patterns.html'));
+const out = resolve(args.find((a) => !a.startsWith('--')) || join(root, 'dist', 'streaming-kitchen.html'));
 
 let html = readFileSync(join(root, 'index.html'), 'utf8');
 const read = (path) => readFileSync(join(root, path), 'utf8');
