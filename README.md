@@ -6,7 +6,8 @@ A single-page site with animated examples of the basic Apache Flink® SQL patter
 Kafka® sources and sinks. For each one it shows
 the use case, the SQL, the job graph with the stream type on every edge, the state each operator
 keeps, and what watermarks do.
-See [PLAN.md](PLAN.md) for the full plan.
+See [PLAN.md](PLAN.md) for the full plan, and [SIMULATOR.md](SIMULATOR.md) for how the simulator
+behind the animations works, and how it's checked against Flink.
 
 ## View it
 
