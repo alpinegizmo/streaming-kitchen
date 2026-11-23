@@ -1359,7 +1359,7 @@
               }
             }
           },
-          "caption": "The watermark, 12:06:19, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:00–12:05: 1 order, $31.00; store 9, 12:00–12:05: 1 order, $24.50; store 7, 12:05–12:10: 1 order, $13.00), with a timer for each window it hadn't seen. Then the 12:00–12:05 window is complete: GlobalWindowAggregate emits a final row for store 7, 1 order, $31.00; store 9, 1 order, $24.50. It frees the window's state, and forwards the watermark."
+          "caption": "The watermark, 12:06:19, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:00–12:05: 1 order, $31.00; store 9, 12:00–12:05: 1 order, $24.50; store 7, 12:05–12:10: 1 order, $13.00). It sets timers for 12:05 and 12:10. The 12:05 timer is due at once, since the watermark has reached it. Then the 12:00–12:05 window is complete: GlobalWindowAggregate emits a final row for store 7, 1 order, $31.00; store 9, 1 order, $24.50. It frees the window's state, and forwards the watermark."
         },
         {
           "from": [
@@ -1542,7 +1542,7 @@
               }
             }
           },
-          "caption": "The watermark, 12:10:39, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:05–12:10: now 0 orders, $0.00; store 9, 12:05–12:10: 1 order, $19.00; store 9, 12:10–12:15: 1 order, $22.00), with a timer for each window it hadn't seen. Store 7's partial result for 12:00–12:05 (−1 order, −$31.00) is late: that window fired at an earlier watermark, and its state is gone, so it's dropped. Store 7's result in store_sales still counts the cancelled order. Then the 12:05–12:10 window is complete: GlobalWindowAggregate emits a final row for store 9, 1 order, $19.00. The count for store 7 is 0, so nothing is emitted for it. It frees the window's state, and forwards the watermark."
+          "caption": "The watermark, 12:10:39, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:05–12:10: now 0 orders, $0.00; store 9, 12:05–12:10: 1 order, $19.00; store 9, 12:10–12:15: 1 order, $22.00). It sets timers for 12:10 and 12:15. The 12:10 timer is due at once, since the watermark has reached it. Store 7's partial result for 12:00–12:05 (−1 order, −$31.00) is late: that window fired at an earlier watermark, and its state is gone, so it's dropped. Store 7's result in store_sales still counts the cancelled order. Then the 12:05–12:10 window is complete: GlobalWindowAggregate emits a final row for store 9, 1 order, $19.00. The count for store 7 is 0, so nothing is emitted for it. It frees the window's state, and forwards the watermark."
         }
       ]
     }

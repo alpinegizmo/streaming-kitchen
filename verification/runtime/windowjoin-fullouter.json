@@ -764,7 +764,7 @@
               }
             }
           },
-          "caption": "The watermark, 12:17:04, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:00–12:15: placed 3; store 9, 12:00–12:15: placed 1; store 7, 12:15–12:30: placed 1), with a timer for each window it hadn't seen. Then the 12:00–12:15 window is complete: GlobalWindowAggregate emits a count per store (store 7, 3 placed; store 9, 1 placed), then forwards the watermark."
+          "caption": "The watermark, 12:17:04, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:00–12:15: placed 3; store 9, 12:00–12:15: placed 1; store 7, 12:15–12:30: placed 1). It sets timers for 12:15 and 12:30. The 12:15 timer is due at once, since the watermark has reached it. Then the 12:00–12:15 window is complete: GlobalWindowAggregate emits a count per store (store 7, 3 placed; store 9, 1 placed), then forwards the watermark."
         },
         {
           "from": [
@@ -926,7 +926,7 @@
               }
             }
           },
-          "caption": "The watermark, 12:16:49, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:00–12:15: cooked 1; store 7, 12:15–12:30: cooked 1; store 9, 12:15–12:30: cooked 1), with a timer for each window it hadn't seen. Then the 12:00–12:15 window is complete: GlobalWindowAggregate emits a count per store (store 7, 1 cooked), then forwards the watermark."
+          "caption": "The watermark, 12:16:49, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:00–12:15: cooked 1; store 7, 12:15–12:30: cooked 1; store 9, 12:15–12:30: cooked 1). It sets timers for 12:15 and 12:30. The 12:15 timer is due at once, since the watermark has reached it. Then the 12:00–12:15 window is complete: GlobalWindowAggregate emits a count per store (store 7, 1 cooked), then forwards the watermark."
         },
         {
           "from": [

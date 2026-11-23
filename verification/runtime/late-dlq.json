@@ -598,7 +598,7 @@
               }
             }
           },
-          "caption": "The watermark, 12:01:04, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:00–12:01: 2 orders, $49.00; store 9, 12:00–12:01: 1 order, $24.50; store 7, 12:01–12:02: 1 order, $13.00), with a timer for each window it hadn't seen. Then the 12:00–12:01 window is complete: GlobalWindowAggregate emits a final row for each store (store 7, 2 orders, $49.00; store 9, 1 order, $24.50), frees their state, and forwards the watermark."
+          "caption": "The watermark, 12:01:04, arrives. GlobalWindowAggregate first merges the partial results that arrived into its state (store 7, 12:00–12:01: 2 orders, $49.00; store 9, 12:00–12:01: 1 order, $24.50; store 7, 12:01–12:02: 1 order, $13.00). It sets timers for 12:01 and 12:02. The 12:01 timer is due at once, since the watermark has reached it. Then the 12:00–12:01 window is complete: GlobalWindowAggregate emits a final row for each store (store 7, 2 orders, $49.00; store 9, 1 order, $24.50), frees their state, and forwards the watermark."
         },
         {
           "from": [

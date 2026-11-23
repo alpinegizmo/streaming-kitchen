@@ -356,8 +356,9 @@ const Ops = (() => {
             s.sum = add(s.sum, sum);
             let timer = end;
             while (fired(st, timer)) timer += size;
+            const newTimer = !st.timers[`${k}|${timer}`];
             st.timers[`${k}|${timer}`] = { k, t: timer };
-            merged.push({ k, slice: sliceLabel(cfg, end), acc: { ...s }, created, timer: hm(timer) });
+            merged.push({ k, slice: sliceLabel(cfg, end), acc: { ...s }, created, timer: hm(timer), timerSec: timer, newTimer });
           }
           st.pending = [];
         }
@@ -454,11 +455,19 @@ const Ops = (() => {
     }),
     // What the watermark merges into state before it fires anything, for captions.
     mergeText(ev, cfg) {
-      const unit = sliceUnit(cfg);
       const kl = cfg.keyLabel || cfg.key;
       const parts = [];
       if (ev.merged.length) {
-        parts.push(`GlobalWindowAggregate first merges the partial results that arrived into its state (${ev.merged.map((m) => `${kl} ${m.k}, ${m.slice}: ${m.created ? '' : 'now '}${accText(cfg, m.acc)}`).join('; ')}), with a timer for each ${unit} it hadn't seen.`);
+        parts.push(`GlobalWindowAggregate first merges the partial results that arrived into its state (${ev.merged.map((m) => `${kl} ${m.k}, ${m.slice}: ${m.created ? '' : 'now '}${accText(cfg, m.acc)}`).join('; ')}).`);
+        // Name the timers the merge sets, and say which are due at once: those are set and fired
+        // while this one watermark is handled, so the panel never shows them.
+        const secs = [...new Set(ev.merged.filter((m) => m.newTimer).map((m) => m.timerSec))].sort((a, b) => a - b);
+        const and = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')}${xs.length > 2 ? ',' : ''} and ${xs.at(-1)}`);
+        if (secs.length) {
+          parts.push(`It sets ${secs.length === 1 ? 'a timer' : 'timers'} for ${and(secs.map(hm))}.`);
+          const due = secs.filter((t) => t <= U.toSec(ev.time)).map(hm);
+          if (due.length) parts.push(`${due.length === 1 ? `The ${due[0]} timer is` : `The ${and(due)} timers are`} due at once, since the watermark has reached ${due.length === 1 ? 'it' : 'them'}.`);
+        }
       }
       for (const l of ev.late) {
         parts.push(`${kl[0].toUpperCase()}${kl.slice(1)} ${l.k}'s partial result for ${l.slice} (${accText(cfg, l.acc)}) is late: that window fired at an earlier watermark, and its state is gone, so it's dropped.`);
