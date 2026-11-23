@@ -41,7 +41,7 @@
         <p class="subtitle"><span>Apache&nbsp;Flink® SQL for pizza shops:</span> <span>the recipes, and the science behind them</span></p>
         <p class="lede">Each recipe answers a question about the business, gives the SQL,
           and then shows everything Flink does, step by step: the events and watermarks flowing through
-          the job graph, the state Flink creates, and the timers it uses to manage everything.</p>
+          the job graph, the state Flink is managing, and what the timers are doing.</p>
       </div>
       <!-- A job graph in miniature, drawn like the diagrams below; js/hero.js moves records through it. -->
       <svg class="hero-graph" viewBox="0 0 440 196" aria-hidden="true" focusable="false">
@@ -186,7 +186,7 @@
                 <li><span class="node-chip stateful needs-ttl">stateful, needs a TTL</span> <span>keeps keyed state
                   that grows without limit, unless you set a state TTL.</span></li>
                 <li><span class="node-chip planner">added by the planner</span> <span>isn't in your SQL, but the
-                  planner needs it to produce correct results.</span></li>
+                  Flink SQL planner needs it to produce correct results.</span></li>
               </ul>
               <p class="legend-note">Calc nodes that only drop columns, or set up a time attribute, are
                 left out. <code>hash(store_id)</code> under an edge means the records are repartitioned
@@ -209,7 +209,7 @@
             </dd>
           </div>
         </dl>
-        <p class="primer-help">Each diagram has a <kbd>Help</kbd> button that brings this up beside it, and
+        <p class="primer-help">Each diagram has a <kbd>Help</kbd> button that shows this key beside the diagram, and
           hovering over a stream type, a watermark, a stateful operator, or a state tag explains it.</p>
       </section>
 
@@ -218,7 +218,7 @@
       <section class="matrix" id="summary" aria-labelledby="summary-h">
         <h2 id="summary-h">Summary</h2>
         <p>Every recipe at a glance: the state it keeps, what it uses watermarks for, the watermark
-          it sends downstream, the stream it writes, and the operators the planner adds. Each row
+          it sends downstream, the stream it writes, and the operators the Flink SQL planner adds. Each row
           links back to its animation.</p>
         <div class="matrix-wrap"></div>
       </section>

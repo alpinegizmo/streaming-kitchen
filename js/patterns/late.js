@@ -27,7 +27,7 @@ window.PATTERNS = window.PATTERNS || [];
     id: 'dlq',
     label: 'Statement set',
     question: 'Which orders arrived too late to be counted?',
-    intro: 'Stores 7 and 9 send orders. Windows are 1 minute long, and the watermark trails the newest order by 1 second. Every order goes to both INSERTs, and each one keeps the orders the other leaves out: late orders go to the dead letter queue, on-time orders to the window. Press Play, or step through with the arrow keys.',
+    intro: 'Stores 7 and 9 send orders. Windows are 1 minute long, and the watermark trails the newest order by 1 second. Every order goes to both INSERTs, and each one keeps the orders the other leaves out: late orders go to the dead letter queue, on-time orders to the window.',
     sql: `
 EXECUTE STATEMENT SET
 BEGIN

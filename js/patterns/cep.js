@@ -46,7 +46,7 @@ window.PATTERNS = window.PATTERNS || [];
     id: 'match',
     label: 'MATCH_RECOGNIZE',
     question: 'Which kitchens are falling behind?',
-    intro: 'Each kitchen ticket says how long a pizza took to make. A kitchen is falling behind when three tickets in a row each take longer than the one before. Press Play, or step through with the arrow keys.',
+    intro: 'Each kitchen ticket says how long a pizza took to make. A kitchen is falling behind when three tickets in a row each take longer than the one before.',
     sql: `
 INSERT INTO slow_kitchens
 SELECT *
@@ -191,7 +191,7 @@ so the output has a watermark, and can feed a window or another pattern.</p>`,
     id: 'cep',
     nav: 'Complex event processing',
     title: 'Complex event processing',
-    summary: '<p>Find a sequence of events, such as three in a row that each get worse. <code>MATCH_RECOGNIZE</code> is a regular expression over rows, and it needs the rows in event-time order, so the watermark decides when they can be matched.</p>',
+    summary: '<p>Find a sequence of events, such as three in a row that each get worse. <code>MATCH_RECOGNIZE</code> is a regular expression over rows. It needs the rows in event-time order, so the watermark decides when they can be matched.</p>',
     variants: [cep],
   });
 })();

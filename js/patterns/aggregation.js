@@ -44,7 +44,7 @@ GROUP BY store_id;`;
   function runningTotal({ id, label, sink, sinkOp, generateUpdateBefore, ddl, question, blurb, facts, matrix, explain, details, sinkCfg, narrateSink, mode, kinds }) {
     return {
       id, label, question, blurb,
-      intro: 'Stores 7 and 9 send orders. Every order changes its store\'s running total. Press Play, or step through with the arrow keys.',
+      intro: 'Stores 7 and 9 send orders. Every order changes its store\'s running total.',
       sql: totalSql(sink),
       ddl: `${ordersDdl}\n\n${ddl}\n\n-- Connection and format options are left out.`,
       facts,
@@ -164,7 +164,7 @@ costs state, and it's usually better to make the keys match.</p>`,
     id: 'retract',
     label: 'Retract sink',
     question: 'How much has each store sold so far?',
-    blurb: 'Same query, but the sink is a plain Kafka topic in <code>debezium-json</code> format. It has no key, so every change has to say what it replaces.',
+    blurb: 'Same query, but the sink is a plain Kafka topic in <code>debezium-json</code> format. It has no key, so every change must say what it replaces.',
     sink: 'store_totals_changelog',
     sinkOp: 'changelogKafkaSink',
     generateUpdateBefore: true,
@@ -191,7 +191,7 @@ CREATE TABLE store_totals_changelog (
       : `The sink writes ${result(ev.row)} as a Debezium create (op c), with the new result as its after image.`),
     matrix: { state: 'An accumulator per key, kept until state TTL', watermarks: 'Not used', watermarksOut: 'Passed through, but the results have no time attribute to use it with' },
     facts: {
-      state: 'One accumulator per store: an order count and a running sum, kept until a state TTL expires it.',
+      state: 'One accumulator per store: an order count and a running sum, kept until its state TTL expires.',
       watermarks: 'Not used. A non-windowed aggregate never decides that a group is complete.',
       output: 'Retract. Every change is sent as <code>−U</code> for the old result, then <code>+U</code> for the new one, and both are written to Kafka.',
     },
@@ -228,8 +228,8 @@ GROUP BY status;`;
     id: 'updating',
     label: 'Updating input',
     question: 'How many orders are in each status right now?',
-    blurb: 'Now the input is <code>order_status</code>, the <code>upsert-kafka</code> table with the latest status of each order. When an order changes status, one count has to go down and another up.',
-    intro: 'order_status is keyed by order_id, and each record is the latest status of its order. A null value (a tombstone) means the order was removed. Press Play, or step through with the arrow keys.',
+    blurb: 'Now the input is <code>order_status</code>, the <code>upsert-kafka</code> table with the latest status of each order. When an order changes status, one count goes down and another goes up.',
+    intro: 'order_status is keyed by order_id, and each record is the latest status of its order. A null value (a tombstone) means the order was removed.',
     sql: statusSql,
     ddl: `
 CREATE TABLE order_status (
@@ -351,7 +351,7 @@ carries the old row in its updates, the planner wouldn't need ChangelogNormalize
     id: 'aggregation',
     nav: 'Non-windowed aggregation',
     title: 'Non-windowed aggregation',
-    summary: '<p>A <code>GROUP BY</code> without a window keeps a running result for each key and emits a new version every time it changes, producing an updating stream. The sink must accept updates, and the state is kept its TTL expires.</p>',
+    summary: '<p>A <code>GROUP BY</code> without a window keeps a running result for each key and emits a new version every time it changes, producing an updating stream. The sink must accept updates, and the state is kept until its TTL expires.</p>',
     variants: [upsertSink, retractSink, updatingInput],
   });
 })();

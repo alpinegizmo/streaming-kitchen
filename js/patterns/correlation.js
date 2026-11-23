@@ -13,8 +13,8 @@ window.PATTERNS = window.PATTERNS || [];
   const interval = {
     id: 'interval',
     label: 'Interval join',
-    question: 'Which orders haven\'t been delivered within 45 minutes?',
-    intro: 'Two topics: orders, and deliveries. An order is late if no delivery for it arrives within 45 minutes of the order. Press Play, or step through with the arrow keys.',
+    question: 'Which orders were not delivered within 45 minutes?',
+    intro: 'Two topics: orders, and deliveries. An order is late if no delivery for it arrives within 45 minutes of the order.',
     sql: `
 INSERT INTO late_orders
 SELECT o.order_id, o.store_id, o.event_time AS ordered_at
@@ -53,7 +53,7 @@ CREATE TABLE late_orders (
     matrix: { state: 'Rows from both sides, by key, until no row on the other side can match', watermarks: 'Decides when an unmatched row is final, and frees state', watermarksOut: 'The minimum of both inputs, held back by the 45-minute interval' },
     facts: {
       state: 'Both sides are buffered by order_id: each order until the watermark passes its time + 45 minutes, each delivery until the watermark passes its own time. The interval bounds the state.',
-      watermarks: 'The join takes the minimum of both inputs\' watermarks. That decides when an order can no longer be matched, so it\'s emitted with no delivery, and when buffered rows are freed. The output watermark is held back by 45 minutes.',
+      watermarks: 'The join takes the minimum of both inputs\' watermarks. It decides when an unmatched order is emitted without a delivery, and when buffered rows are freed. The output watermark is held back by 45 minutes.',
       output: 'Append-only, even for the outer join: an order with no delivery is only emitted once it can no longer match.',
     },
     graphLabel: 'Job graph: Kafka sources orders and deliveries, both hash partitioned by order_id into IntervalJoin, then a Calc that keeps unmatched orders, then Kafka sink late_orders. All edges are append-only.',

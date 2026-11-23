@@ -15,7 +15,7 @@ window.PATTERNS = window.PATTERNS || [];
     id: 'range',
     label: 'Range',
     question: 'How much had each store sold in the 5 minutes before each order?',
-    intro: 'Stores 7 and 9 send orders. The range is 5 minutes, and the watermark trails the newest order by 1 second. Press Play, or step through with the arrow keys.',
+    intro: 'Stores 7 and 9 send orders. The range is 5 minutes, and the watermark trails the newest order by 1 second.',
     sql: `
 INSERT INTO orders_with_recent_sales
 SELECT order_id, store_id, total, event_time,
@@ -50,7 +50,7 @@ CREATE TABLE orders_with_recent_sales (
 -- Connection and format options are left out.`,
     matrix: { state: 'The rows in the range per key, and a running aggregate', watermarks: 'Trigger results; lateness is per key', watermarksOut: 'Passed through, after the rows it releases' },
     facts: {
-      state: 'For each store, every order in the last 5 minutes, the orders still waiting for the watermark, and a running count and sum. An order leaves state when it drops out of a newer order\'s range, and a quiet store\'s state is cleared between 5 and 7½ minutes after its newest order, once the watermark gets there.',
+      state: 'For each store, every order in the last 5 minutes, the orders still waiting for the watermark, and a running count and sum. An order leaves state when it drops out of a newer order\'s range. A quiet store\'s state is cleared between 5 and 7½ minutes after its newest order, once the watermark gets there.',
       watermarks: 'They decide when an order\'s result can be computed: once the watermark reaches its event time, no earlier order for that store can still arrive. An order no newer than the last one its store has emitted is late, and dropped.',
       output: 'Append-only. Every order comes out once, with its result, and is never updated.',
     },
@@ -179,7 +179,7 @@ rows.</p>`,
     id: 'over',
     nav: 'OVER aggregation',
     title: 'OVER aggregation',
-    summary: '<p>Compute an aggregate over a range of rows ending at each row, such as a store\'s sales in the 5 minutes before each order. Every row comes out once, with its result, so the output is append-only, but each row has to wait for the watermark.</p>',
+    summary: '<p>Compute an aggregate over a range of rows ending at each row, such as a store\'s sales in the 5 minutes before each order. Every row comes out once, with its result, so the output is append-only, but each row must wait for the watermark.</p>',
     variants: [range],
   });
 })();

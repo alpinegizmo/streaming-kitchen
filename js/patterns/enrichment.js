@@ -15,7 +15,7 @@ window.PATTERNS = window.PATTERNS || [];
     id: 'lookup',
     label: 'Lookup join',
     question: 'How long is the drive to each delivery address?',
-    intro: 'Each delivery order asks a maps service for the drive time from its store. The connector caches the answers. Press Play, or step through with the arrow keys.',
+    intro: 'Each delivery order asks a maps service for the drive time from its store. The connector caches the answers.',
     sql: `
 INSERT INTO delivery_times
 SELECT o.order_id, o.delivery_address, r.drive_minutes
@@ -57,7 +57,7 @@ CREATE TABLE delivery_times (
 -- Connection and format options are left out.`,
     matrix: { state: 'None in Flink: the connector caches lookups', watermarks: 'Not used', watermarksOut: 'Passed through' },
     facts: {
-      state: 'None in Flink. The connector\'s cache, of recent lookups, lives in memory, and isn\'t checkpointed.',
+      state: 'None in Flink. The connector caches recent lookups in memory, and the cache is not checkpointed.',
       watermarks: 'Not used. The lookup happens in processing time: each order sees whatever the service answers when it\'s processed.',
       output: 'Append-only. The join adds columns to each order as it passes.',
     },
@@ -205,7 +205,7 @@ CREATE TABLE order_costs (
     label: 'Temporal join',
     question: 'What did each pizza cost to make at the time it was ordered?',
     blurb: 'Food costs change when ingredient prices do. <code>pizza_costs</code> is an upsert table with the current cost of each pizza, and <code>valid_from</code> says when each cost took effect.',
-    intro: 'Two topics: orders, and pizza_costs. Each order should be joined with the cost that was valid when the order was placed. Press Play, or step through with the arrow keys.',
+    intro: 'Two topics: orders, and pizza_costs. Each order should be joined with the cost that was valid when the order was placed.',
     sql: `
 INSERT INTO order_costs
 SELECT o.order_id, o.pizza_id, o.total, c.food_cost
@@ -308,7 +308,7 @@ the upsert table.</p>`,
     flinkVersion: '2.4-SNAPSHOT',
     question: 'What does each pizza cost to make right now? (Calculated as orders arrive.)',
     blurb: '<strong>Coming in Flink 2.4</strong> (not released yet; checked against the 2.4 snapshot build). A LATERAL SNAPSHOT join first loads the costs table, then joins each order with the current cost as soon as it arrives.',
-    intro: 'The same two topics. Suppose the query was compiled at 10:00:00: the join loads pizza_costs until its watermark reaches that time, holding orders back, then switches to joining them. Press Play, or step through with the arrow keys.',
+    intro: 'The same two topics. Suppose the query was compiled at 10:00:00: the join loads pizza_costs until its watermark reaches that time, holding orders back, then switches to joining them.',
     sql: `
 INSERT INTO order_costs
 SELECT o.order_id, o.pizza_id, o.total, c.food_cost

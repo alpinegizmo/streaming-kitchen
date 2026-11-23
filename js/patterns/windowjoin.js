@@ -25,7 +25,7 @@ window.PATTERNS = window.PATTERNS || [];
     id: 'fullouter',
     label: 'Full outer join',
     question: 'Was each store\'s kitchen keeping up with its orders? (Reported every 15 minutes.)',
-    intro: 'Two topics: orders, and kitchen_tickets, written when a pizza comes out of the oven. Each is counted per store in 15-minute windows, and the counts are joined. Press Play, or step through with the arrow keys.',
+    intro: 'Two topics: orders, and kitchen_tickets, written when a pizza comes out of the oven. Each is counted per store in 15-minute windows, and the counts are joined.',
     sql: `
 INSERT INTO kitchen_load
 SELECT COALESCE(o.store_id, k.store_id) AS store_id,
@@ -251,7 +251,7 @@ These semantics come from <code>WindowJoinOperator</code> in Flink 2.3.</p>`,
     id: 'windowjoin',
     nav: 'Window join',
     title: 'Window join',
-    summary: '<p>Join two streams that are windowed the same way, such as two counts per store every 15 minutes. Each window is joined once both inputs have finished it, so the output is append-only, even for an outer join, and the state is freed when the window fires.</p>',
+    summary: '<p>Join two streams that are windowed the same way, such as two counts per store every 15 minutes. Each window is joined once both inputs have finished it. The output is append-only, even for an outer join, and the state is freed when the window fires.</p>',
     variants: [fullOuter],
   });
 })();

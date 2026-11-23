@@ -17,7 +17,7 @@ window.PATTERNS = window.PATTERNS || [];
     id: 'leaderboard',
     label: 'Aggregate, then join',
     question: 'How much has each store sold, and who manages it right now?',
-    intro: 'Two inputs: the orders topic, and stores, a compacted topic with each store\'s city and manager. Press Play, or step through with the arrow keys.',
+    intro: 'Two inputs: the orders topic, and stores, a compacted topic with each store\'s city and manager.',
     sql: `
 INSERT INTO store_leaderboard
 SELECT s.store_id, s.city, s.manager, t.orders, t.sales
@@ -216,9 +216,9 @@ leaderboard until its row is written again.</p>`,
   const joinFirst = {
     id: 'join-first',
     label: 'Join, then aggregate (anti-pattern)',
-    question: 'The same leaderboard, written the other way round',
+    question: 'The same leaderboard (joined first, then aggregated).',
     blurb: 'This query gives the same final answer, but it joins every order with its store, and then aggregates. Watch the join\'s state to see why this is a bad idea.',
-    intro: 'The same inputs as before, up to store 7\'s new manager. Press Play, or step through with the arrow keys.',
+    intro: 'The same inputs as before, up to store 7\'s new manager.',
     sql: `
 INSERT INTO store_leaderboard
 SELECT s.store_id, s.city, s.manager,

@@ -90,8 +90,8 @@ WHERE row_num = 1;`;
   const procTime = {
     id: 'proctime',
     label: 'Processing time',
-    question: 'Keep each order once, even when the app sends it twice.',
-    intro: 'The ordering app retries when it times out, so some orders arrive more than once, each copy with its own event time. Press Play, or step through with the arrow keys.',
+    question: 'Keep the first attempt of each order (by processing time).',
+    intro: 'The ordering app retries when it times out, so some orders arrive more than once, each copy with its own event time.',
     sql: sql('unique_orders', 'proc_time'),
     ddl: ddl('unique_orders'),
     matrix: { state: 'A flag per key that has been seen, kept until state TTL', watermarks: 'Not used', watermarksOut: 'Passed through' },
@@ -146,8 +146,8 @@ letting duplicates through.</p>
     id: 'eventtime',
     label: 'Event time',
     question: 'Keep the first attempt of each order (by event time).',
-    blurb: 'Same orders, but ordered by <code>event_time</code>: the copy that was placed first wins, even if it arrives second. That takes the watermark.',
-    intro: 'The same copies arrive in the same order. This time, Flink keeps the copy with the earliest event time. Press Play, or step through with the arrow keys.',
+    blurb: 'Same orders, but ordered by <code>event_time</code>: the copy that was placed first wins, even if it arrives second. This requires the watermark.',
+    intro: 'The same copies arrive in the same order. This time, Flink keeps the copy with the earliest event time.',
     sql: sql('earliest_orders', 'event_time'),
     ddl: ddl('earliest_orders'),
     matrix: { state: 'Per key: the earliest row until the watermark passes it, then a flag', watermarks: 'Triggers results', watermarksOut: 'Passed through, after the rows it releases' },
@@ -217,8 +217,8 @@ which an append-only sink can't take.</p>`,
     id: 'byid',
     label: 'Ordered by order_id',
     question: 'Keep the first attempt of each order (in arrival order).',
-    blurb: 'Same orders, but <code>ORDER BY order_id</code>, which isn\'t a time attribute. The first copy to arrive still wins, but the planner can\'t use a Deduplicate, and the job costs more.',
-    intro: 'The same copies arrive in the same order. Every copy of an order has the same order_id, so none can sort ahead of another. Press Play, or step through with the arrow keys.',
+    blurb: 'Same orders, but <code>ORDER BY order_id</code>, which isn\'t a time attribute. The first copy to arrive still wins, but the Flink SQL planner cannot use a Deduplicate operator, and the job keeps more state.',
+    intro: 'The same copies arrive in the same order. Every copy of an order has the same order_id, so none can sort ahead of another.',
     sql: sql('deduped_orders', 'order_id'),
     ddl: `
 CREATE TABLE orders (
@@ -330,8 +330,8 @@ fixes it in 2.3.1. The plan above is from a 2.3 snapshot build, which has the fi
     id: 'updating',
     label: 'Updating input',
     question: 'Keep each store\'s first uncancelled order.',
-    blurb: 'Now the input is <code>order_status</code>, an <code>upsert-kafka</code> table. It already has one row per order, so this keeps each store\'s first order that hasn\'t been cancelled. When that order is cancelled, the next one has to take its place.',
-    intro: 'order_status is keyed by order_id, and each record is the latest status of its order. Press Play, or step through with the arrow keys.',
+    blurb: 'Now the input is <code>order_status</code>, an <code>upsert-kafka</code> table. It already has one row per order, so this keeps each store\'s first uncancelled order. When that order is cancelled, the next one takes its place.',
+    intro: 'order_status is keyed by order_id, and each record is the latest status of its order.',
     sql: `
 INSERT INTO first_orders
 SELECT store_id, order_id, total, event_time
