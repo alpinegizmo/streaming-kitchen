@@ -39,10 +39,9 @@
       <div class="hero-text">
         <h1>The streaming kitchen</h1>
         <p class="subtitle"><span>Apache&nbsp;Flink® SQL for pizza shops:</span> <span>the recipes, and the science behind them</span></p>
-        <p class="lede">Each recipe starts with a question the business needs answered, gives the SQL,
-          and then shows everything Flink does with it: every operator, every row, every piece of state,
-          and every timer, step by step. The job graphs come from Flink's planner, and the animations were
-          checked against Flink itself.</p>
+        <p class="lede">Each recipe answers a question about the business, gives the SQL,
+          and then shows everything Flink does, step by step: the events and watermarks flowing through
+          the job graph, the state Flink creates, and the timers it uses to manage everything.</p>
       </div>
       <!-- A job graph in miniature, drawn like the diagrams below; js/hero.js moves records through it. -->
       <svg class="hero-graph" viewBox="0 0 440 196" aria-hidden="true" focusable="false">
@@ -83,7 +82,7 @@
       <section class="primer" id="start" aria-labelledby="start-h">
         <h2 id="start-h">Before you start</h2>
         <p>These recipes assume you know SQL well, and have some experience with Apache Kafka® and
-          stream processing. These are the topics the page relies on most.</p>
+          stream processing.</p>
 
         <dl class="legend">
           <div>
@@ -143,8 +142,8 @@
 
       <section class="primer" id="reading" aria-labelledby="reading-h">
         <h2 id="reading-h">How to read the diagrams</h2>
-        <p>Every recipe is a Flink job: an Apache Kafka® source on the left, a Kafka sink on the right, and the
-          operators the Flink SQL planner chose in between.</p>
+        <p>Every recipe is a Flink job: an Apache Kafka® source on the left and a Kafka sink on the right.
+          In between are the operators the Flink SQL planner chose.</p>
 
         <dl class="legend diagram-key">
           <div>

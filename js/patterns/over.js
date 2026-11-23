@@ -14,7 +14,7 @@ window.PATTERNS = window.PATTERNS || [];
   const range = {
     id: 'range',
     label: 'Range',
-    question: 'How much had each store sold in the 5 minutes up to each order?',
+    question: 'How much had each store sold in the 5 minutes before each order?',
     intro: 'Stores 7 and 9 send orders. The range is 5 minutes, and the watermark trails the newest order by 1 second. Press Play, or step through with the arrow keys.',
     sql: `
 INSERT INTO orders_with_recent_sales

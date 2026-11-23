@@ -351,7 +351,7 @@ carries the old row in its updates, the planner wouldn't need ChangelogNormalize
     id: 'aggregation',
     nav: 'Non-windowed aggregation',
     title: 'Non-windowed aggregation',
-    summary: '<p>A <code>GROUP BY</code> without a window keeps a running result for each key, and emits a new version every time it changes. The result is an updating stream, so the sink has to accept updates, and the state is kept until a TTL expires it.</p>',
+    summary: '<p>A <code>GROUP BY</code> without a window keeps a running result for each key and emits a new version every time it changes, producing an updating stream. The sink must accept updates, and the state is kept its TTL expires.</p>',
     variants: [upsertSink, retractSink, updatingInput],
   });
 })();

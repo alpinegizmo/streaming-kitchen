@@ -24,7 +24,7 @@ window.PATTERNS = window.PATTERNS || [];
   const fullOuter = {
     id: 'fullouter',
     label: 'Full outer join',
-    question: 'Was each store\'s kitchen keeping up with its orders, every 15 minutes?',
+    question: 'Was each store\'s kitchen keeping up with its orders? (Reported every 15 minutes.)',
     intro: 'Two topics: orders, and kitchen_tickets, written when a pizza comes out of the oven. Each is counted per store in 15-minute windows, and the counts are joined. Press Play, or step through with the arrow keys.',
     sql: `
 INSERT INTO kitchen_load

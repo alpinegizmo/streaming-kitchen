@@ -127,7 +127,7 @@ time just forward them. Here, nothing downstream uses them, and Kafka doesn't st
   const upsertSource = {
     id: 'upsert',
     label: 'Upsert source',
-    question: 'Which orders are still open, and not cancelled?',
+    question: 'Which orders are still open (not cancelled)?',
     blurb: 'Now the source is <code>order_status</code>, an <code>upsert-kafka</code> table that keeps the latest status of each order. Filtering it requires state.',
     intro: 'order_status is keyed by order_id. Each record is the latest status for its order, and a null value (a tombstone) means the order was removed. Press Play, or step through with the arrow keys.',
     sql: `
@@ -155,7 +155,7 @@ CREATE TABLE open_orders (
     facts: {
       state: 'ChangelogNormalize keeps the last row of every order that currently satisfies the filter. State is cleared when an order is cancelled or deleted.',
       watermarks: 'Not used. <code>order_status</code> declares no watermark, and nothing in this job depends on time.',
-      output: 'Upsert, keyed by <code>order_id</code>. The sink needs a primary key, so it\'s <code>upsert-kafka</code>.',
+      output: 'Upsert, keyed by <code>order_id</code>. The sink needs a primary key, so it needs to be <code>upsert-kafka</code>.',
     },
     graphLabel: 'Job graph: upsert-kafka source order_status, hash partitioned by order_id into ChangelogNormalize with the filter, then upsert-kafka sink open_orders. Both edges are upsert streams.',
     graph: {
@@ -246,7 +246,7 @@ the same parallel instance, and the state for that order.</p>
     id: 'filter',
     nav: 'Filtering and projection',
     title: 'Filtering and projection',
-    summary: '<p>Keep the rows you want and compute the columns you need. With an append-only source this needs no state at all. With an upsert source, Flink has to remember the last row for each key, so that it can delete rows that stop matching.</p>',
+    summary: '<p>Keep the rows you want and compute the columns you need. With an append-only source, this needs no state at all. With an upsert source, Flink has to remember the last row for each key, so that it can delete rows that stop matching.</p>',
     variants: [appendOnly, upsertSource],
   });
 })();

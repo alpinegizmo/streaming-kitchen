@@ -145,7 +145,7 @@ letting duplicates through.</p>
   const eventTime = {
     id: 'eventtime',
     label: 'Event time',
-    question: 'Keep the earliest attempt of each order, by event time.',
+    question: 'Keep the first attempt of each order (by event time).',
     blurb: 'Same orders, but ordered by <code>event_time</code>: the copy that was placed first wins, even if it arrives second. That takes the watermark.',
     intro: 'The same copies arrive in the same order. This time, Flink keeps the copy with the earliest event time. Press Play, or step through with the arrow keys.',
     sql: sql('earliest_orders', 'event_time'),
@@ -216,7 +216,7 @@ which an append-only sink can't take.</p>`,
   const byId = {
     id: 'byid',
     label: 'Ordered by order_id',
-    question: 'Keep each order once, ordering the copies by order_id.',
+    question: 'Keep the first attempt of each order (in arrival order).',
     blurb: 'Same orders, but <code>ORDER BY order_id</code>, which isn\'t a time attribute. The first copy to arrive still wins, but the planner can\'t use a Deduplicate, and the job costs more.',
     intro: 'The same copies arrive in the same order. Every copy of an order has the same order_id, so none can sort ahead of another. Press Play, or step through with the arrow keys.',
     sql: sql('deduped_orders', 'order_id'),
@@ -329,7 +329,7 @@ fixes it in 2.3.1. The plan above is from a 2.3 snapshot build, which has the fi
   const updating = {
     id: 'updating',
     label: 'Updating input',
-    question: 'Which was each store\'s first order that wasn\'t cancelled?',
+    question: 'Keep each store\'s first uncancelled order.',
     blurb: 'Now the input is <code>order_status</code>, an <code>upsert-kafka</code> table. It already has one row per order, so this keeps each store\'s first order that hasn\'t been cancelled. When that order is cancelled, the next one has to take its place.',
     intro: 'order_status is keyed by order_id, and each record is the latest status of its order. Press Play, or step through with the arrow keys.',
     sql: `

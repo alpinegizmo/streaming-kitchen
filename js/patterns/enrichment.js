@@ -203,7 +203,7 @@ CREATE TABLE order_costs (
   const temporal = {
     id: 'temporal',
     label: 'Temporal join',
-    question: 'What did each pizza cost to make, when it was ordered?',
+    question: 'What did each pizza cost to make at the time it was ordered?',
     blurb: 'Food costs change when ingredient prices do. <code>pizza_costs</code> is an upsert table with the current cost of each pizza, and <code>valid_from</code> says when each cost took effect.',
     intro: 'Two topics: orders, and pizza_costs. Each order should be joined with the cost that was valid when the order was placed. Press Play, or step through with the arrow keys.',
     sql: `
@@ -306,8 +306,8 @@ the upsert table.</p>`,
     id: 'lateral',
     label: 'LATERAL SNAPSHOT',
     flinkVersion: '2.4-SNAPSHOT',
-    question: 'What does each pizza cost to make right now, as orders come in?',
-    blurb: '<strong>Coming in Flink 2.4, which isn\'t released yet.</strong> Checked against the 2.4 snapshot build. A LATERAL SNAPSHOT join first loads the costs table, then joins each order with the current cost as soon as it arrives.',
+    question: 'What does each pizza cost to make right now? (Calculated as orders arrive.)',
+    blurb: '<strong>Coming in Flink 2.4</strong> (not released yet; checked against the 2.4 snapshot build). A LATERAL SNAPSHOT join first loads the costs table, then joins each order with the current cost as soon as it arrives.',
     intro: 'The same two topics. Suppose the query was compiled at 10:00:00: the join loads pizza_costs until its watermark reaches that time, holding orders back, then switches to joining them. Press Play, or step through with the arrow keys.',
     sql: `
 INSERT INTO order_costs

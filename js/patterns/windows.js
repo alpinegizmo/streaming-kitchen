@@ -227,7 +227,7 @@ send them to a topic of their own, as the next recipe does.</p>`,
   const hop = variant({
     id: 'hop',
     label: 'Hop',
-    question: 'How much did each store sell in the last 15 minutes, updated every 5?',
+    question: 'Every 5 minutes, report how much each store sold in the previous 15 minutes.',
     blurb: 'A hopping window is 15 minutes long and starts every 5 minutes, so windows overlap and each order belongs to three of them. To keep one example readable, only store 7 sends orders here.',
     intro: 'Store 7 sends orders. Windows are 15 minutes long and start every 5 minutes. Flink keeps state per 5-minute slice, and builds each window from three slices. Press Play, or step through with the arrow keys.',
     tvf: ['HOP(', '  TABLE orders,', '  DESCRIPTOR(event_time),', "  INTERVAL '5' MINUTES,", "  INTERVAL '15' MINUTES)"],
@@ -285,7 +285,7 @@ result per store and slice, and GlobalWindowAggregate builds the windows from th
   const cumulate = variant({
     id: 'cumulate',
     label: 'Cumulate',
-    question: 'How much has each store sold so far this hour, updated every 15 minutes?',
+    question: 'How much has each store sold so far this hour? (Reported every 15 minutes.)',
     blurb: 'A cumulating window grows in steps from the start of the hour, and emits a running total at each step, until it reaches its full size. Only store 7 sends orders here.',
     intro: 'Store 7 sends orders. The window starts on the hour, and grows by 15 minutes at a time, up to an hour. Press Play, or step through with the arrow keys.',
     tvf: ['CUMULATE(', '  TABLE orders,', '  DESCRIPTOR(event_time),', "  INTERVAL '15' MINUTES,", "  INTERVAL '1' HOUR)"],
@@ -401,8 +401,8 @@ into local and global phases: it's a single WindowAggregate after the hash excha
   const updating = {
     id: 'updating',
     label: 'Updating input',
-    question: 'How much did each store sell, every 5 minutes, not counting cancelled orders?',
-    blurb: 'Now the input is <code>order_status</code>, an <code>upsert-kafka</code> table, and a cancelled order has to come back out of its window. It can, but only until the window fires.',
+    question: 'How much did each store sell, every 5 minutes, not including cancelled orders?',
+    blurb: 'Now the input is <code>order_status</code>, an <code>upsert-kafka</code> table. A cancelled order should be retracted from its window, but this is only possible while the window is still open.',
     intro: 'order_status is keyed by order_id. Its event_time is when the order was placed, and a status change keeps it. Windows are 5 minutes long, and the watermark trails the newest order by 1 second. Press Play, or step through with the arrow keys.',
     sql: `
 INSERT INTO store_sales
