@@ -152,7 +152,7 @@ CREATE TABLE late_orders (
     ],
     pill: (r) => {
       if (r.window_start) return `s${r.store_id} ${r.window_start} ${U.money(r.sales)}`;
-      if (r.slice_end) return `s${r.store_id} ≤${r.slice_end.slice(0, 5)} ${r.sales < 0 ? `−${U.money(-r.sales)}` : U.money(r.sales)}`;
+      if (r.slice_end) return `s${r.store_id} ≤${r.slice_end.slice(0, 5)} ${U.money(r.sales)}`;
       return `${r.order_id} s${r.store_id} ${r.event_time}`;
     },
     narrate(node, ev) {

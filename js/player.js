@@ -7,21 +7,28 @@ const Player = (() => {
 
   // ---------- Kafka topics as tables ----------
 
-  function topicTable({ title, note, cols, key, rows, current, hotKey, emptyText }) {
+  // Numbers and times are right-aligned. align says which columns hold them: { key, fields }.
+  const aligner = (align) => ({
+    col: (c) => (align.fields.has(c.f) ? 'num' : null),
+    key: (td) => (align.key ? (td ? 'key num' : 'num') : (td ? 'key' : null)),
+  });
+
+  function topicTable({ title, note, cols, key, align, rows, current, emptyText }) {
+    const A = aligner(align);
     const head = U.el('tr', {},
       U.el('th', { scope: 'col', class: 'num' }, 'offset'),
-      key ? U.el('th', { scope: 'col' }, 'key') : null,
-      ...cols.map((c) => U.el('th', { scope: 'col', class: c.num ? 'num' : null }, c.h || c.f)));
+      key ? U.el('th', { scope: 'col', class: A.key(false) }, `${key} (key)`) : null,
+      ...cols.map((c) => U.el('th', { scope: 'col', class: A.col(c) }, c.h || c.f)));
     const body = U.el('tbody');
     rows.forEach((r) => {
       const cls = [r.cls, r.offset === current && 'current'].filter(Boolean).join(' ');
       const tr = U.el('tr', { class: cls || null },
         U.el('td', { class: 'num' }, String(r.offset)),
-        key ? U.el('td', { class: 'key' }, String(r.key)) : null);
+        key ? U.el('td', { class: A.key(true) }, String(r.key)) : null);
       if (r.value == null) {
         tr.append(U.el('td', { colspan: cols.length, class: 'tombstone' }, 'null (tombstone)'));
       } else {
-        cols.forEach((c) => tr.append(U.el('td', { class: c.num ? 'num' : null }, c.fmt ? c.fmt(r.value[c.f]) : String(r.value[c.f]))));
+        cols.forEach((c) => tr.append(U.el('td', { class: A.col(c) }, c.fmt ? c.fmt(r.value[c.f]) : String(r.value[c.f]))));
       }
       body.append(tr);
     });
@@ -33,14 +40,15 @@ const Player = (() => {
       U.el('div', { class: 'table-scroll' }, U.el('table', {}, U.el('thead', {}, head), body)));
   }
 
-  function compactedTable({ title, note, cols, key, table, hotKey }) {
-    const head = U.el('tr', {}, U.el('th', { scope: 'col' }, key),
-      ...cols.filter((c) => c.f !== key).map((c) => U.el('th', { scope: 'col', class: c.num ? 'num' : null }, c.h || c.f)));
+  function compactedTable({ title, note, cols, key, align, table, hotKey }) {
+    const A = aligner(align);
+    const head = U.el('tr', {}, U.el('th', { scope: 'col', class: A.key(false) }, `${key} (key)`),
+      ...cols.filter((c) => c.f !== key).map((c) => U.el('th', { scope: 'col', class: A.col(c) }, c.h || c.f)));
     const body = U.el('tbody');
     const entries = Object.entries(table);
     entries.forEach(([k, v]) => {
-      const tr = U.el('tr', { class: String(k) === String(hotKey) ? 'current' : null }, U.el('td', { class: 'key' }, k));
-      cols.filter((c) => c.f !== key).forEach((c) => tr.append(U.el('td', { class: c.num ? 'num' : null }, c.fmt ? c.fmt(v[c.f]) : String(v[c.f]))));
+      const tr = U.el('tr', { class: String(k) === String(hotKey) ? 'current' : null }, U.el('td', { class: A.key(true) }, k));
+      cols.filter((c) => c.f !== key).forEach((c) => tr.append(U.el('td', { class: A.col(c) }, c.fmt ? c.fmt(v[c.f]) : String(v[c.f]))));
       body.append(tr);
     });
     if (!entries.length) body.append(U.el('tr', { class: 'empty' }, U.el('td', { colspan: cols.length }, 'empty')));
@@ -194,16 +202,34 @@ const Player = (() => {
       drawTopics(k, step, snap);
     }
 
+    // Which columns of each topic, and of each sink's compacted table, hold numbers or times,
+    // judged from every record they ever hold, so a column's alignment never changes as it plays.
+    const firstSource = variant.graph.nodes.find((n) => n.kind === 'source').id;
+    const sourceRecords = (src) => variant.inputs.filter((r) => !r.wm && (r.at || firstSource) === src.id);
+    function topicAlign(records, cols) {
+      const fields = new Set((cols || []).filter((c) => c.num || U.rightAligned(records.map((r) => r.value?.[c.f])
+        .map((x) => (x != null && c.fmt ? c.fmt(x) : x)))).map((c) => c.f));
+      return { key: U.rightAligned(records.map((r) => r.key)), fields };
+    }
+    const aligns = {};
+    for (const n of variant.graph.nodes) {
+      if (n.kind === 'source') aligns[n.id] = topicAlign(sourceRecords(n), n.cfg.columns);
+      if (n.kind !== 'sink') continue;
+      aligns[n.id] = topicAlign(snapAt(N).ops[n.id].log, n.cfg.columns);
+      const tableRows = [trace.initial, ...steps.map((s) => s.snap)].flatMap((s) => Object.entries(s.ops[n.id].table || {}))
+        .map(([key, value]) => ({ key, value }));
+      aligns[`${n.id}:table`] = topicAlign(tableRows, n.cfg.tableColumns || n.cfg.columns);
+    }
+
     function drawTopics(k, step, snap) {
       U.clear(topics);
-      const firstSource = variant.graph.nodes.find((n) => n.kind === 'source').id;
       for (const src of variant.graph.nodes.filter((n) => n.kind === 'source')) {
         const cfg = src.cfg;
-        const records = variant.inputs.filter((r) => !r.wm && (r.at || firstSource) === src.id);
+        const records = sourceRecords(src);
         const consumed = snap.consumed[src.id];
         const justRead = step && step.node === src.id && step.via == null && !step.item.wm;
         topics.append(topicTable({
-          title: cfg.topic, note: 'input topic', cols: cfg.columns, key: cfg.showKey ? cfg.key : null,
+          title: cfg.topic, note: 'input topic', cols: cfg.columns, key: cfg.showKey ? cfg.key : null, align: aligns[src.id],
           rows: records.map((r, i) => ({ offset: i, key: r.key, value: r.value, cls: i < consumed ? 'read' : i === consumed ? 'next' : null })),
           current: justRead ? consumed - 1 : null,
         }));
@@ -213,13 +239,13 @@ const Player = (() => {
         const st = snap.ops[sink.id];
         const atSink = step && step.node === sink.id && step.item.t === 'rec';
         topics.append(topicTable({
-          title: cfg.topic, note: 'output topic', cols: cfg.columns, key: cfg.showKey ? cfg.key : null,
+          title: cfg.topic, note: 'output topic', cols: cfg.columns, key: cfg.showKey ? cfg.key : null, align: aligns[sink.id],
           rows: st.log, current: atSink ? st.log.length - 1 : null, emptyText: 'nothing written yet',
         }));
         if (st.table) {
           topics.append(compactedTable({
             title: cfg.tableTitle || cfg.topic, note: cfg.tableNote,
-            cols: cfg.tableColumns || cfg.columns, key: cfg.key, table: st.table,
+            cols: cfg.tableColumns || cfg.columns, key: cfg.key, align: aligns[`${sink.id}:table`], table: st.table,
             hotKey: atSink ? step.ev.key : null,
           }));
         }

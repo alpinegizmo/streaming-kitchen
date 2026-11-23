@@ -216,7 +216,7 @@ const Ops = (() => {
   // A retraction can make a partial result negative: −1 order, −$31.00.
   const signed = (n, text) => (n < 0 ? `−${text(-n)}` : text(n));
   const accText = (cfg, a) => (cfg.sumField
-    ? `${signed(a.count, (n) => `${n} ${n === 1 ? 'order' : 'orders'}`)}, ${signed(a.sum, U.money)}`
+    ? `${signed(a.count, (n) => `${n} ${n === 1 ? 'order' : 'orders'}`)}, ${U.money(a.sum)}`
     : `${cfg.countName || 'orders'} ${signed(a.count, String)}`);
   const what = (cfg, row) => (cfg.what ? cfg.what(row) : `Order ${row.order_id}`);
 
@@ -276,7 +276,7 @@ const Ops = (() => {
         cols: [kl, sliceUnit(cfg), cfg.countName || 'orders', ...(cfg.sumField ? [cfg.sumName || 'sales'] : [])],
         rows: Object.entries(st.buffer)
           .sort(([, a], [, b]) => a.end - b.end || a.k - b.k)
-          .map(([key, b]) => ({ key, cells: [b.k, sliceLabel(cfg, b.end), b.count, ...(cfg.sumField ? [signed(b.sum, U.money)] : [])] })),
+          .map(([key, b]) => ({ key, cells: [b.k, sliceLabel(cfg, b.end), signed(b.count, String), ...(cfg.sumField ? [U.money(b.sum)] : [])] })),
         footer: `not state. Sent on at ${st.next == null ? 'the first watermark' : `watermark ${hm(st.next)}`}, if a window ended`,
       };
     },
@@ -431,10 +431,10 @@ const Ops = (() => {
         rows: [
           ...Object.entries(st.slices)
             .sort(([, a], [, b]) => a.start - b.start || a.k - b.k)
-            .map(([key, s]) => ({ key, cells: [s.k, `${hm(s.start)}–${hm(s.cover || s.end)}`, s.count, ...(cfg.sumField ? [U.money(s.sum)] : [])] })),
+            .map(([key, s]) => ({ key, cells: [s.k, `${hm(s.start)}–${hm(s.cover || s.end)}`, signed(s.count, String), ...(cfg.sumField ? [U.money(s.sum)] : [])] })),
           ...st.pending.map((p) => {
             const end = U.toSec(p.slice_end);
-            return { key: `P${p[cfg.key]}|${end}`, cells: [p[cfg.key], `${sliceLabel(cfg, end)} arrived`, p[cfg.countName || 'orders'], ...(cfg.sumField ? [U.money(p[cfg.sumName || 'sales'])] : [])] };
+            return { key: `P${p[cfg.key]}|${end}`, cells: [p[cfg.key], `${sliceLabel(cfg, end)} arrived`, signed(p[cfg.countName || 'orders'], String), ...(cfg.sumField ? [U.money(p[cfg.sumName || 'sales'])] : [])] };
           }),
         ],
         footer: `timers: ${timerList(st).map(hm).join(', ') || 'none'}`,

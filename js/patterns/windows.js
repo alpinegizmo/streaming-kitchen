@@ -63,7 +63,7 @@ Sink(table=[store_sales], fields=[window_start, window_end, store_id, orders, sa
   // A partial result from LocalWindowAggregate: store, the end of its slice, and its total.
   const pill = (r) => {
     if (r.window_start) return `s${r.store_id} ${r.window_start} ${U.money(r.sales)}`;
-    if (r.slice_end) return `s${r.store_id} ≤${r.slice_end.slice(0, 5)} ${r.sales < 0 ? `−${U.money(-r.sales)}` : U.money(r.sales)}`;
+    if (r.slice_end) return `s${r.store_id} ≤${r.slice_end.slice(0, 5)} ${U.money(r.sales)}`;
     return r.status === 'cancelled' ? `${r.order_id} cancelled` : `${r.order_id} s${r.store_id} ${r.event_time}`;
   };
   // What GlobalWindowAggregate merges into state, before it fires, as the start of a caption.

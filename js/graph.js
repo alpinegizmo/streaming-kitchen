@@ -175,10 +175,11 @@ const Graph = (() => {
     const cols = views[0].cols;
     const rows = Math.max(1, ...views.map((v) => v.rows.length));
     const colW = cols.map((h, j) => CHAR * Math.max(h.length, ...views.flatMap((v) => v.rows.map((r) => String(r.cells[j]).length))));
+    const right = cols.map((h, j) => U.rightAligned(views.flatMap((v) => v.rows.map((r) => r.cells[j]))));
     const kinds = node ? stateKinds(node) : [];
     const mixed = kinds.length > 1;
     return {
-      rows, colW, kinds, mixed,
+      rows, colW, right, kinds, mixed,
       tagsW: kinds.reduce((a, k, i) => a + tagW(k) + (i ? TAG_GAP : 0), 0),
       colsW: 24 + (mixed ? GUTTER : 0) + colW.reduce((a, b) => a + b, 0) + COL_GAP * (cols.length - 1),
       titles: [...new Set(views.map((v) => v.title))],
@@ -573,7 +574,9 @@ const Graph = (() => {
           ...stateTags(p));
         const head = G.panelHead + (p.fit.titleLines - 1) * TITLE_LINE + p.fit.tagLine * TAG_LINE;
         const colX = p.fit.colW.reduce((xs, w) => [...xs, xs[xs.length - 1] + w + COL_GAP], [p.fit.mixed ? 12 + GUTTER : 12]);
-        view.cols.forEach((h, j) => g.append(U.svg('text', { class: 'state-col', x: colX[j], y: head + 9, text: h })));
+        // Numbers and times are right-aligned in their column.
+        const cell = (j) => (p.fit.right[j] ? { x: colX[j] + p.fit.colW[j], 'text-anchor': 'end' } : { x: colX[j] });
+        view.cols.forEach((h, j) => g.append(U.svg('text', { class: 'state-col', ...cell(j), y: head + 9, text: h })));
         if (!view.rows.length) {
           g.append(U.svg('text', { class: 'state-empty', x: 12, y: head + COL_HEAD + 13, text: 'empty' }));
         }
@@ -585,7 +588,7 @@ const Graph = (() => {
             const k = stateKindOf(n, r.part);
             if (k) g.append(glyph(k, 12, y + 3, `st-glyph st-${k}`));
           }
-          r.cells.forEach((c, j) => g.append(U.svg('text', { class: 'state-row', x: colX[j], y: y + 12, text: String(c) })));
+          r.cells.forEach((c, j) => g.append(U.svg('text', { class: 'state-row', ...cell(j), y: y + 12, text: String(c) })));
         });
         if (view.footer) {
           const n = p.fit.footLines;
