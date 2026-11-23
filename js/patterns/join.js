@@ -253,7 +253,7 @@ ON CONFLICT DO DEDUPLICATE;`,
         {
           id: 'cn', kind: 'op', op: 'changelogNormalize', title: 'ChangelogNormalize', lines: ['key: store_id'],
           stateful: true, stateKind: 'small', planner: true, sqlLines: [5],
-          cfg: { key: 'store_id', generateUpdateBefore: true, stateFields: ['store_id', 'city', 'manager'], stateTitle: 'Last row per store_id' },
+          cfg: { key: 'store_id', generateUpdateBefore: true, stateFields: ['store_id', 'city', 'manager'], stateTitle: 'Most recent row per store_id' },
         },
         {
           id: 'join', kind: 'op', op: 'regularJoin', title: 'Join', lines: ['INNER, on store_id'],

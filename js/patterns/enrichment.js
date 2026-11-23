@@ -320,7 +320,7 @@ JOIN LATERAL SNAPSHOT(
     ddl: ordersDdl,
     matrix: { state: 'The current costs and pending changes; while loading, buffered orders', watermarks: 'Ends the load phase, and decides when each cost change takes effect', watermarksOut: 'The orders watermark only, held back until loading ends. The costs watermark is never forwarded' },
     facts: {
-      state: 'The current cost rows, per pizza, and cost changes that haven\'t been applied yet. Orders are buffered during the load phase, and joined at the first orders watermark after it. Until then, a new order for a pizza that still has buffered orders waits with them. ChangelogNormalize also keeps the last row of every pizza.',
+      state: 'The current cost rows, per pizza, and cost changes that haven\'t been applied yet. Orders are buffered during the load phase, and joined at the first orders watermark after it. Until then, a new order for a pizza that still has buffered orders waits with them. ChangelogNormalize also keeps the most recent row of every pizza.',
       watermarks: 'The costs watermark decides when the load phase ends, and when each cost change becomes visible. Orders don\'t wait for watermarks in the join phase, and the order watermark is forwarded.',
       output: 'Append-only. Each order is joined once, with the cost that\'s current when it\'s processed. Not deterministic.',
     },
@@ -331,7 +331,7 @@ JOIN LATERAL SNAPSHOT(
         {
           id: 'cn', kind: 'op', op: 'changelogNormalize', title: 'ChangelogNormalize', lines: ['key: pizza_id'],
           stateful: true, stateKind: 'small', planner: true, sqlLines: [5],
-          cfg: { key: 'pizza_id', generateUpdateBefore: true, stateTitle: 'Last row per pizza_id', stateFields: ['pizza_id', 'food_cost', 'valid_from'], stateFormat: { food_cost: U.money } },
+          cfg: { key: 'pizza_id', generateUpdateBefore: true, stateTitle: 'Most recent row per pizza_id', stateFields: ['pizza_id', 'food_cost', 'valid_from'], stateFormat: { food_cost: U.money } },
         },
         {
           id: 'join', kind: 'op', op: 'lateralSnapshotJoin', title: 'LateralSnapshotJoin', lines: ['load, then join'],

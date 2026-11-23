@@ -126,7 +126,7 @@ const Ops = (() => {
     },
   };
 
-  // ChangelogNormalize: keeps the last row for each key, and turns an upsert stream
+  // ChangelogNormalize: keeps the most recent row for each key, and turns an upsert stream
   // into a proper changelog. With a pushed-down filter it also emits a delete when a
   // row stops matching. Mirrors DeduplicateFunctionHelper.processLastRowOnChangelog[WithFilter]
   // with generateUpdateBefore = false and no state TTL.
@@ -163,7 +163,7 @@ const Ops = (() => {
     view(st, cfg) {
       const fields = cfg.stateFields || [cfg.key];
       return {
-        title: cfg.stateTitle || `Last row per ${cfg.key}`,
+        title: cfg.stateTitle || `Most recent row per ${cfg.key}`,
         cols: fields,
         rows: Object.entries(st.rows).map(([key, row]) => ({ key, cells: fields.map((f) => (cfg.stateFormat?.[f] ? cfg.stateFormat[f](row[f]) : row[f])) })),
       };

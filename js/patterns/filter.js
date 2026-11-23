@@ -151,9 +151,9 @@ CREATE TABLE open_orders (
 ) WITH ('connector' = 'upsert-kafka', 'topic' = 'open_orders');
 
 -- Connection and format options are left out.`,
-    matrix: { state: 'The last row per key, in ChangelogNormalize', watermarks: 'Not used', watermarksOut: 'Passed through' },
+    matrix: { state: 'The most recent row per key, in ChangelogNormalize', watermarks: 'Not used', watermarksOut: 'Passed through' },
     facts: {
-      state: 'ChangelogNormalize keeps the last row of every order that currently satisfies the filter. State is cleared when an order is cancelled or deleted.',
+      state: 'ChangelogNormalize keeps the most recent row of every order that currently satisfies the filter. State is cleared when an order is cancelled or deleted.',
       watermarks: 'Not used. <code>order_status</code> declares no watermark, and nothing in this job depends on time.',
       output: 'Upsert, keyed by <code>order_id</code>. The sink needs a primary key, so it must be <code>upsert-kafka</code>.',
     },
@@ -169,7 +169,7 @@ CREATE TABLE open_orders (
           stateful: true, stateKind: 'keys', planner: true, sqlLines: [2, 4],
           cfg: {
             key: 'order_id', condition: (r) => r.status !== 'cancelled',
-            stateTitle: 'Last row per order_id',
+            stateTitle: 'Most recent row per order_id',
             stateFields: ['order_id', 'store_id', 'status'],
           },
         },
@@ -225,7 +225,7 @@ Sink(table=[open_orders], fields=[order_id, store_id, status], changelogMode=[NO
 <p>An upsert stream only says what each key's row is <em>now</em>. When order 202 changes from
 placed to cancelled, the source sends the new row, and nothing about the old one. If a stateless
 filter dropped that row, the old row for 202 would stay in <code>open_orders</code> forever.</p>
-<p>So the planner puts the filter into a ChangelogNormalize, which remembers the last row it emitted
+<p>So the planner puts the filter into a ChangelogNormalize, which remembers the most recent row it emitted
 for each key. When a key's new row fails the filter, it can delete the old one. It also fills in
 deletes: a Kafka tombstone only carries the key, so ChangelogNormalize emits the full row from
 state.</p>
@@ -246,7 +246,7 @@ the same parallel instance, and the state for that order.</p>
     id: 'filter',
     nav: 'Filtering and projection',
     title: 'Filtering and projection',
-    summary: '<p>Keep the rows you want and compute the columns you need. With an append-only source, this needs no state at all. With an upsert source, Flink must remember the last row for each key, so that it can delete rows that stop matching.</p>',
+    summary: '<p>Keep the rows you want and compute the columns you need. With an append-only source, this needs no state at all. With an upsert source, Flink must remember the most recent row for each key, so that it can delete rows that stop matching.</p>',
     variants: [appendOnly, upsertSource],
   });
 })();

@@ -362,9 +362,9 @@ CREATE TABLE first_orders (
 ) WITH ('connector' = 'upsert-kafka', 'topic' = 'first_orders');
 
 -- Connection and format options are left out.`,
-    matrix: { state: 'The last row per order, and every row per key', watermarks: 'Not used', watermarksOut: 'Passed through' },
+    matrix: { state: 'The most recent row per order, and every row per key', watermarks: 'Not used', watermarksOut: 'Passed through' },
     facts: {
-      state: 'ChangelogNormalize keeps the last row of every order that isn\'t cancelled. Rank keeps all of those rows again, sorted per store, so it knows which order comes next if the first is cancelled. Both grow with every order.',
+      state: 'ChangelogNormalize keeps the most recent row of every order that isn\'t cancelled. Rank keeps all of those rows again, sorted per store, so it knows which order comes next if the first is cancelled. Both grow with every order.',
       watermarks: 'Not used. Here <code>event_time</code> is only a sort key: Rank emits at once, and nothing is ever late.',
       output: 'Upsert, keyed by <code>store_id</code>. A new first order arrives as a delete (−D) of the old one, then an insert (+I) of the new one.',
     },
@@ -383,7 +383,7 @@ CREATE TABLE first_orders (
           stateful: true, stateKind: 'keys', planner: true, sqlLines: [7, 8],
           cfg: {
             key: 'order_id', condition: (r) => r.status !== 'cancelled', generateUpdateBefore: true,
-            stateTitle: 'Last row per order_id',
+            stateTitle: 'Most recent row per order_id',
             stateFields: ['order_id', 'store_id', 'event_time'],
           },
         },

@@ -435,9 +435,9 @@ CREATE TABLE store_sales (
 ) WITH ('connector' = 'kafka', 'topic' = 'store_sales');
 
 -- Connection and format options are left out.`,
-    matrix: { state: 'The last row per order, and an accumulator per key and window', memory: 'LocalWindowAggregate keeps partial results in memory, not state, until a watermark or checkpoint sends them on', watermarks: 'Trigger results, and set the deadline for retractions', watermarksOut: 'Passed through, after the windows it fires' },
+    matrix: { state: 'The most recent row per order, and an accumulator per key and window', memory: 'LocalWindowAggregate keeps partial results in memory, not state, until a watermark or checkpoint sends them on', watermarks: 'Trigger results, and set the deadline for retractions', watermarksOut: 'Passed through, after the windows it fires' },
     facts: {
-      state: 'ChangelogNormalize keeps the last row of every order that hasn\'t been cancelled, so it can retract it. GlobalWindowAggregate keeps an accumulator per store and window, and frees it when the window fires. LocalWindowAggregate\'s partial results are in memory, not in state.',
+      state: 'ChangelogNormalize keeps the most recent row of every order that hasn\'t been cancelled, so it can retract it. GlobalWindowAggregate keeps an accumulator per store and window, and frees it when the window fires. LocalWindowAggregate\'s partial results are in memory, not in state.',
       watermarks: 'They fire the windows, and so they set the deadline for cancellations. A cancellation counts only if it arrives before the watermark passes the end of the order\'s window.',
       output: 'Append-only, although the input is updating. Each window is still emitted once, when it fires, so a plain Kafka topic can take it.',
     },
@@ -456,7 +456,7 @@ CREATE TABLE store_sales (
           stateful: true, stateKind: 'keys', planner: true, sqlLines: [6, 9],
           cfg: {
             key: 'order_id', condition: (r) => r.status !== 'cancelled', generateUpdateBefore: true,
-            stateTitle: 'Last row per order_id',
+            stateTitle: 'Most recent row per order_id',
             stateFields: ['order_id', 'store_id', 'total', 'event_time'],
             stateFormat: { total: U.money },
           },

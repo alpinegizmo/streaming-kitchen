@@ -246,9 +246,9 @@ CREATE TABLE status_counts (
 ) WITH ('connector' = 'upsert-kafka', 'topic' = 'status_counts');
 
 -- Connection and format options are left out.`,
-    matrix: { state: 'The last row per key, and an accumulator per key', watermarks: 'Not used', watermarksOut: 'Passed through, but the results have no time attribute to use it with' },
+    matrix: { state: 'The most recent row per key, and an accumulator per key', watermarks: 'Not used', watermarksOut: 'Passed through, but the results have no time attribute to use it with' },
     facts: {
-      state: 'ChangelogNormalize keeps the last row of every order, so it can retract it. GroupAggregate keeps a count per status, and drops a status when its count reaches zero.',
+      state: 'ChangelogNormalize keeps the most recent row of every order, so it can retract it. GroupAggregate keeps a count per status, and drops a status when its count reaches zero.',
       watermarks: 'Not used. <code>order_status</code> declares no watermark, and nothing waits for time.',
       output: 'Upsert, keyed by <code>status</code>. A status whose count drops to zero is deleted.',
     },
@@ -262,7 +262,7 @@ CREATE TABLE status_counts (
         {
           id: 'cn', kind: 'op', op: 'changelogNormalize', title: 'ChangelogNormalize', lines: ['key: order_id'],
           stateful: true, stateKind: 'keys', planner: true, sqlLines: [4],
-          cfg: { key: 'order_id', generateUpdateBefore: true, stateTitle: 'Last row per order_id', stateFields: ['order_id', 'status'] },
+          cfg: { key: 'order_id', generateUpdateBefore: true, stateTitle: 'Most recent row per order_id', stateFields: ['order_id', 'status'] },
         },
         {
           id: 'agg', kind: 'op', op: 'groupAggregate', title: 'GroupAggregate', lines: ['GROUP BY status'],
@@ -331,7 +331,7 @@ Sink(table=[status_counts], fields=[status, orders], changelogMode=[NONE])
 <p>When order 201 moves from placed to baking, the count for placed has to go down. But the upsert
 source only says what order 201 is now. To subtract from the right count, the aggregate needs the
 old row as well.</p>
-<p>So the planner puts a ChangelogNormalize in front of the aggregate. It keeps the last row of every
+<p>So the planner puts a ChangelogNormalize in front of the aggregate. It keeps the most recent row of every
 order, and turns each upsert into a proper retract stream: <code>−U</code> with the old row, then
 <code>+U</code> with the new one. For a tombstone, which only carries the key, it emits a
 <code>−D</code> with the full row from state.</p>
