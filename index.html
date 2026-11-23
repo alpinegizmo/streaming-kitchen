@@ -148,7 +148,7 @@
           <div>
             <dt>Stream types</dt>
             <dd>
-              <p>Each edge's chip lists the row kinds it can carry, and its color gives the stream type.</p>
+              <p>Each chip lists the row kinds a stream can carry.</p>
               <ul class="key-items">
                 <li><span class="badge mode-append">+I</span> <span>append-only: only inserts. Each record is a new fact.</span></li>
                 <li><span class="badge mode-upsert">+I +U −D</span> <span>upsert: inserts, updates and deletes, by key. An update replaces the row with the same key.</span></li>
@@ -188,8 +188,9 @@
                   Flink SQL planner needs it to produce correct results.</span></li>
               </ul>
               <p class="legend-note">Calc nodes that only drop columns, or set up a time attribute, are
-                left out. <code>hash(store_id)</code> under an edge means the records are repartitioned
-                by that key, so every record for a key reaches the same parallel instance.</p>
+                left out.</p>
+              <p class="legend-note"><code>hash(<var>key</var>)</code> under an edge means the records are repartitioned
+                by that key, ensuring that every record for a key will reach the same parallel instance.</p>
             </dd>
           </div>
           <div>
