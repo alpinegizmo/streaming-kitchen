@@ -166,7 +166,7 @@ CREATE TABLE open_orders (
         },
         {
           id: 'cn', kind: 'op', op: 'changelogNormalize', title: 'ChangelogNormalize', lines: ["status <> 'cancelled'"],
-          stateful: true, planner: true, sqlLines: [2, 4],
+          stateful: true, stateKind: 'keys', planner: true, sqlLines: [2, 4],
           cfg: {
             key: 'order_id', condition: (r) => r.status !== 'cancelled',
             stateTitle: 'Last row per order_id',

@@ -225,7 +225,7 @@ JOIN pizza_costs FOR SYSTEM_TIME AS OF o.event_time AS c
         ordersNode, costsNode,
         {
           id: 'join', kind: 'op', op: 'temporalJoin', title: 'TemporalJoin', lines: ['AS OF o.event_time'],
-          stateful: true, sqlLines: [2, 4, 5],
+          stateful: true, stateKind: 'small', sqlLines: [2, 4, 5],
           cfg: { left: 'orders', key: 'pizza_id', leftId: 'order_id', leftTime: 'event_time', rightTime: 'valid_from', valueField: 'food_cost', leftName: 'order', rightName: 'cost', keyName: 'pizza', leftTopic: 'orders', rightTopic: 'pizza_costs', joinRow },
         },
         sinkNode,
@@ -330,12 +330,12 @@ JOIN LATERAL SNAPSHOT(
         ordersNode, { ...costsNode, sqlLines: [5] },
         {
           id: 'cn', kind: 'op', op: 'changelogNormalize', title: 'ChangelogNormalize', lines: ['key: pizza_id'],
-          stateful: true, planner: true, sqlLines: [5],
+          stateful: true, stateKind: 'small', planner: true, sqlLines: [5],
           cfg: { key: 'pizza_id', generateUpdateBefore: true, stateTitle: 'Last row per pizza_id', stateFields: ['pizza_id', 'food_cost', 'valid_from'], stateFormat: { food_cost: U.money } },
         },
         {
           id: 'join', kind: 'op', op: 'lateralSnapshotJoin', title: 'LateralSnapshotJoin', lines: ['load, then join'],
-          stateful: true, sqlLines: [2, 4, 5, 6, 7],
+          stateful: true, stateKind: 'small', sqlLines: [2, 4, 5, 6, 7],
           cfg: {
             left: 'orders', key: 'pizza_id', buildTime: 'valid_from', loadCompletedTime: '10:00:00',
             probeId: 'order_id', probeTime: 'event_time', probeName: 'order', valueField: 'food_cost', joinRow,

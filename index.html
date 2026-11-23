@@ -23,6 +23,15 @@
   <script>try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}</script>
 </head>
 <body>
+  <!-- The glyphs for how state is bounded, used by the state panels, the legend, and the summary
+       table (see STATE_KINDS in js/graph.js). They draw in currentColor; the clock's face can be
+       filled with --g-fill. -->
+  <svg class="sprite" width="0" height="0" aria-hidden="true">
+    <symbol id="st-g-wm" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.2" style="fill: var(--g-fill, none); stroke: var(--g-line, currentColor)" stroke-width="1.2"/><path d="M5 2.7V5l1.6 1.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="st-g-small" viewBox="0 0 10 10"><rect x="1.3" y="1.3" width="7.4" height="7.4" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+    <symbol id="st-g-keys" viewBox="0 0 10 10"><path d="M5 1 9.2 5.3H6.5V9H3.5V5.3H.8Z" fill="currentColor"/></symbol>
+    <symbol id="st-g-rows" viewBox="0 0 10 10"><path d="M1.4 5.3 5 1.7l3.6 3.6M1.4 9 5 5.4 8.6 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
   <a class="skip" href="#main">Skip to the recipes</a>
 
   <header class="hero" id="top">
@@ -137,46 +146,72 @@
         <p>Every recipe is a Flink job: an Apache Kafka® source on the left, a Kafka sink on the right, and the
           operators the Flink SQL planner chose in between.</p>
 
-        <dl class="legend">
+        <dl class="legend diagram-key">
           <div>
             <dt>Stream types</dt>
             <dd>
-              Each edge's chip lists the row kinds it can carry, and its color gives the stream type.<br>
-              <span class="badge mode-append">+I</span> append-only: only inserts. Each record is a new fact.<br>
-              <span class="badge mode-upsert">+I +U −D</span> upsert: inserts, updates and deletes, by key. An update replaces the row with the same key.<br>
-              <span class="badge mode-retract">+I −U +U −D</span> retract: every update is sent as a pair: retract the old row, then add the new one.
+              <p>Each edge's chip lists the row kinds it can carry, and its color gives the stream type.</p>
+              <ul class="key-items">
+                <li><span class="badge mode-append">+I</span> <span>append-only: only inserts. Each record is a new fact.</span></li>
+                <li><span class="badge mode-upsert">+I +U −D</span> <span>upsert: inserts, updates and deletes, by key. An update replaces the row with the same key.</span></li>
+                <li><span class="badge mode-retract">+I −U +U −D</span> <span>retract: every update is sent as a pair: retract the old row, then add the new one.</span></li>
+              </ul>
             </dd>
           </div>
           <div>
             <dt>Row kinds</dt>
             <dd>
-              <span class="rk rk-I">+I</span> insert<br>
-              <span class="rk rk-UB">&minus;U</span> retract the old version<br>
-              <span class="rk rk-UA">+U</span> the new version<br>
-              <span class="rk rk-D">&minus;D</span> delete
+              <ul class="key-items inline">
+                <li><span class="rk rk-I">+I</span> <span>insert</span></li>
+                <li><span class="rk rk-UB">&minus;U</span> <span>retract the old version</span></li>
+                <li><span class="rk rk-UA">+U</span> <span>the new version</span></li>
+                <li><span class="rk rk-D">&minus;D</span> <span>delete</span></li>
+              </ul>
             </dd>
-          </div>
-          <div>
             <dt>Watermarks</dt>
-            <dd><span class="wm-chip">WM 12:00:04</span> travels with the data and says no record
-              at or before this time should follow. Operators that wait for time use watermarks to know when to
-              act.</dd>
+            <dd>
+              <ul class="key-items">
+                <li><span class="wm-chip">WM 12:00:04</span> <span>travels with the data and says no record
+                  at or before this time should follow.</span></li>
+              </ul>
+              <p class="legend-note">Operators that wait for time use watermarks to know when to act.</p>
+            </dd>
           </div>
           <div>
             <dt>Operators</dt>
             <dd>
-              <span class="node-chip">stateless</span> handles each record on its own, and keeps nothing.<br>
-              <span class="node-chip stateful">stateful</span> keeps keyed state, shown underneath it.<br>
-              <span class="node-chip planner">added by the planner</span> isn't in your SQL, but the
-              planner needs it to produce correct results.
-              <span class="legend-note">Calc nodes that only drop columns, or set up a time attribute, are
-              left out. <code>hash(store_id)</code> under an edge means the records are repartitioned
-              by that key, so every record for a key reaches the same parallel instance.</span>
+              <ul class="key-items">
+                <li><span class="node-chip">stateless</span> <span>handles each record on its own, and keeps nothing.</span></li>
+                <li><span class="node-chip stateful">stateful, bounded</span> <span>keeps keyed state that stays
+                  bounded: freed by watermark, or a small set of keys.</span></li>
+                <li><span class="node-chip stateful needs-ttl">stateful, needs a TTL</span> <span>keeps keyed state
+                  that grows without limit, unless you set a state TTL.</span></li>
+                <li><span class="node-chip planner">added by the planner</span> <span>isn't in your SQL, but the
+                  planner needs it to produce correct results.</span></li>
+              </ul>
+              <p class="legend-note">Calc nodes that only drop columns, or set up a time attribute, are
+                left out. <code>hash(store_id)</code> under an edge means the records are repartitioned
+                by that key, so every record for a key reaches the same parallel instance.</p>
+            </dd>
+          </div>
+          <div>
+            <dt>State</dt>
+            <dd>
+              <p>Each state panel's tag says what keeps its state from growing, or that nothing does.</p>
+              <ul class="key-items">
+                <li><span class="st-chip st-wm"><svg viewBox="0 0 10 10" aria-hidden="true"><use href="#st-g-wm"/></svg>freed by watermark</span> <span>timers clear this state as the watermark advances.</span></li>
+                <li><span class="st-chip st-small"><svg viewBox="0 0 10 10" aria-hidden="true"><use href="#st-g-small"/></svg>small set of keys</span> <span>one entry per key, and the keys, such as stores, grow very slowly, or not at all.</span></li>
+                <li><span class="st-chip st-keys"><svg viewBox="0 0 10 10" aria-hidden="true"><use href="#st-g-keys"/></svg>grows with keys</span> <span>one entry per key, and new keys, such as order IDs, keep arriving.</span></li>
+                <li><span class="st-chip st-rows"><svg viewBox="0 0 10 10" aria-hidden="true"><use href="#st-g-rows"/></svg>grows with rows</span> <span>an entry for every row, kept unless that row is retracted.</span></li>
+              </ul>
+              <p class="legend-note">A panel with a torn lower edge holds state that grows without
+                limit, unless you set a state TTL. Where a panel holds more than one kind, each row is
+                marked with its own.</p>
             </dd>
           </div>
         </dl>
         <p class="primer-help">Each diagram has a <kbd>Help</kbd> button that brings this up beside it, and
-          hovering over a stream type, a watermark, or a stateful operator explains it.</p>
+          hovering over a stream type, a watermark, a stateful operator, or a state tag explains it.</p>
       </section>
 
       <div id="patterns"></div>

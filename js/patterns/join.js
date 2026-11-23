@@ -76,7 +76,7 @@ CREATE TABLE store_leaderboard (
         },
         {
           id: 'agg', kind: 'op', op: 'groupAggregate', title: 'GroupAggregate', lines: ['GROUP BY store_id'],
-          stateful: true, sqlLines: [4, 6],
+          stateful: true, stateKind: 'small', sqlLines: [4, 6],
           cfg: { key: 'store_id', keyLabel: 'store', generateUpdateBefore: false, aggs: [{ name: 'orders', fn: 'count' }, { name: 'sales', fn: 'sum', field: 'total' }] },
         },
         {
@@ -85,7 +85,7 @@ CREATE TABLE store_leaderboard (
         },
         {
           id: 'join', kind: 'op', op: 'regularJoin', title: 'Join', lines: ['INNER, on store_id'],
-          stateful: true, sqlLines: [8, 9],
+          stateful: true, stateKind: 'small', sqlLines: [8, 9],
           cfg: {
             left: 'agg', key: 'store_id', leftName: 'totals', rightName: 'store',
             joinRow: (t, s) => ({ store_id: t.store_id, city: s.city, manager: s.manager, orders: t.orders, sales: t.sales }),
@@ -252,12 +252,12 @@ ON CONFLICT DO DEDUPLICATE;`,
         },
         {
           id: 'cn', kind: 'op', op: 'changelogNormalize', title: 'ChangelogNormalize', lines: ['key: store_id'],
-          stateful: true, planner: true, sqlLines: [5],
+          stateful: true, stateKind: 'small', planner: true, sqlLines: [5],
           cfg: { key: 'store_id', generateUpdateBefore: true, stateFields: ['store_id', 'city', 'manager'], stateTitle: 'Last row per store_id' },
         },
         {
           id: 'join', kind: 'op', op: 'regularJoin', title: 'Join', lines: ['INNER, on store_id'],
-          stateful: true, sqlLines: [5, 6],
+          stateful: true, stateKind: { left: 'rows', right: 'small' }, sqlLines: [5, 6],
           cfg: {
             left: 'orders', key: 'store_id', keyLabel: 'store', leftUnique: false, leftName: 'order', rightName: 'store',
             stateTitle: 'Every order, one row per store',
@@ -268,12 +268,12 @@ ON CONFLICT DO DEDUPLICATE;`,
         },
         {
           id: 'agg', kind: 'op', op: 'groupAggregate', title: 'GroupAggregate', lines: ['GROUP BY store,', 'city, manager'],
-          stateful: true, sqlLines: [2, 3, 7],
+          stateful: true, stateKind: 'small', sqlLines: [2, 3, 7],
           cfg: { keys: ['store_id', 'city', 'manager'], keyLabel: 'group', keyCell: (r) => `${r.store_id} ${r.manager}`, generateUpdateBefore: true, aggs: [{ name: 'orders', fn: 'count' }, { name: 'sales', fn: 'sum', field: 'total' }] },
         },
         {
           id: 'sum', kind: 'op', op: 'upsertMaterializer', title: 'SinkUpsertMaterializer', lines: ['pk: store_id'],
-          stateful: true, planner: true, sqlLines: [8],
+          stateful: true, stateKind: 'small', planner: true, sqlLines: [8],
           cfg: { key: 'store_id', keyLabel: 'store', upsertKey: (r) => `${r.store_id}|${r.city}|${r.manager}`, cell: groupCell },
         },
         {

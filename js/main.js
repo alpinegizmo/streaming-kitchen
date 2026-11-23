@@ -24,6 +24,10 @@
 
   // The summary table: one row per variant, built from the same specs as the animations.
   const modeText = { append: 'append-only', upsert: 'upsert', retract: 'retract' };
+  const stateTags = (v) => {
+    const kinds = Graph.graphKinds(v.graph);
+    return kinds.length ? U.el('span', { class: 'm-kinds' }, ...kinds.map(Graph.stateChip)) : null;
+  };
   const matrixRows = window.PATTERNS.flatMap((p, pi) => p.variants.map((v, i) => {
     const sinkEdge = v.graph.edges.find((e) => v.graph.nodes.find((n) => n.id === e.to).kind === 'sink');
     const planner = v.graph.nodes.filter((n) => n.planner).map((n) => n.title);
@@ -34,8 +38,10 @@
       U.el('th', { scope: 'row' }, U.el('a', { href },
         U.el('span', { class: 'm-pattern' }, p.nav || p.title),
         p.variants.length > 1 ? U.el('span', { class: 'm-variant' }, v.label) : null)),
-      // Operators that keep rows in memory, and write them to state later, say so under the state.
-      cell('State', v.matrix.state, v.matrix.memory ? U.el('span', { class: 'm-memory' }, v.matrix.memory) : null),
+      // The kinds of state the recipe keeps, as the panels tag them. Operators that keep rows in
+      // memory, and write them to state later, say so under the state.
+      cell('State', v.matrix.state, stateTags(v),
+        v.matrix.memory ? U.el('span', { class: 'm-memory' }, v.matrix.memory) : null),
       cell('Watermarks used for', v.matrix.watermarks),
       // Operators that make a new watermark, instead of forwarding the one they got, stand out.
       U.el('td', { 'data-label': 'Output watermark', class: v.matrix.watermarksOut.startsWith('Passed through') ? '' : 'm-new-wm' }, v.matrix.watermarksOut),

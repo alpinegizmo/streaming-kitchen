@@ -95,7 +95,7 @@ CREATE TABLE slow_kitchens (
         },
         {
           id: 'match', kind: 'op', op: 'match', title: 'Match', lines: ['PATTERN (A B C)'],
-          stateful: true, sqlLines: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+          stateful: true, stateKind: 'small', sqlLines: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
           cfg: {
             key: 'store_id', keyLabel: 'store', timeField: 'event_time', valueField: 'prep_minutes', valueLabel: 'minutes',
             next: (prev, row) => row.prep_minutes > prev.prep_minutes,

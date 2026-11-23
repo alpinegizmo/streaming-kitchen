@@ -68,7 +68,7 @@ WHERE row_num = 1;`;
         },
         {
           id: 'dedup', kind: 'op', op, title: 'Deduplicate', lines: ['keep first row', by],
-          stateful: true, sqlLines: [4, 5, 6, 8],
+          stateful: true, stateKind: 'keys', sqlLines: [4, 5, 6, 8],
           cfg: { key: 'order_id', timeField: 'event_time' },
         },
         { id: 'sink', kind: 'sink', op: 'kafkaSink', title: 'Kafka sink', lines: [sink], sqlLines: [1], cfg: { topic: sink, columns } },
@@ -258,7 +258,7 @@ CREATE TABLE deduped_orders (
         },
         {
           id: 'rank', kind: 'op', op: 'fastTop1', title: 'Rank', lines: ['keep first row', 'by order_id'],
-          stateful: true, sqlLines: [4, 5, 6, 8],
+          stateful: true, stateKind: 'keys', sqlLines: [4, 5, 6, 8],
           cfg: { key: 'order_id', sortField: 'order_id', stateFields: ['order_id', 'total', 'event_time'], stateFormat: { total: U.money } },
         },
         {
@@ -380,7 +380,7 @@ CREATE TABLE first_orders (
         },
         {
           id: 'cn', kind: 'op', op: 'changelogNormalize', title: 'ChangelogNormalize', lines: ["status <> 'cancelled'"],
-          stateful: true, planner: true, sqlLines: [7, 8],
+          stateful: true, stateKind: 'keys', planner: true, sqlLines: [7, 8],
           cfg: {
             key: 'order_id', condition: (r) => r.status !== 'cancelled', generateUpdateBefore: true,
             stateTitle: 'Last row per order_id',

@@ -453,7 +453,7 @@ CREATE TABLE store_sales (
         },
         {
           id: 'cn', kind: 'op', op: 'changelogNormalize', title: 'ChangelogNormalize', lines: ["status <> 'cancelled'"],
-          stateful: true, planner: true, sqlLines: [6, 9],
+          stateful: true, stateKind: 'keys', planner: true, sqlLines: [6, 9],
           cfg: {
             key: 'order_id', condition: (r) => r.status !== 'cancelled', generateUpdateBefore: true,
             stateTitle: 'Last row per order_id',

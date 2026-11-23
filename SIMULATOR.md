@@ -37,6 +37,7 @@ comment names the class. Each provides:
 | `view` | The state panel drawn under it |
 | `say` | Its default caption, which a tab can replace with its own narration |
 | `facts` | Its state laid out the way Flink holds it, used only for verification |
+| `stateKind`, `stateParts` | How its state is bounded, for the panel's tags: freed by watermark, a small set of keys, grows with keys, or grows with rows. A recipe's node adds what depends on the data, such as whether its set of keys is small |
 
 There are about 25 operators:
 

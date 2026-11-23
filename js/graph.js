@@ -53,7 +53,9 @@ const Graph = (() => {
     e.exchange && `${e.exchange}: the records are repartitioned by ${e.exchange.replace(/^\w+\((.*)\)$/, '$1')}, so every record for a key reaches the same parallel instance.`,
   ].filter(Boolean).join('\n');
   const nodeTip = (n) => [
-    n.stateful && 'Stateful: keeps keyed state, shown underneath it.',
+    n.stateful && (needsTtl(n)
+      ? 'Stateful, needs a TTL: keeps keyed state that grows without limit, unless you set a state TTL.'
+      : 'Stateful, bounded: keeps keyed state that stays bounded, because it\'s freed by the watermark, or kept for a small set of keys.'),
     n.planner && 'Added by the planner: it isn\'t in your SQL, but the planner needs it to produce correct results.',
   ].filter(Boolean).join('\n');
 
@@ -99,6 +101,55 @@ const Graph = (() => {
     return { depth, rows };
   }
 
+  // How each piece of state is bounded: the tags on the state panels, and in the summary table.
+  // A node's stateKind (set by its pattern) overrides its operator's, part by part; a plain kind
+  // covers every part that isn't named. See stateKind and stateParts in operators.js.
+  const STATE_KINDS = {
+    wm: { label: 'freed by watermark', tip: 'Freed by watermark: timers clear this state as the watermark advances, so it stays bounded.' },
+    small: { label: 'small set of keys', tip: 'A small set of keys: one entry per key, and the keys, such as stores, grow very slowly, or not at all.' },
+    keys: { label: 'grows with keys', tip: 'Grows with keys: one entry per key, and new keys keep arriving. Without a state TTL, it grows without limit.' },
+    rows: { label: 'grows with rows', tip: 'Grows with rows: an entry for every row, kept unless that row is retracted. Without a state TTL, it grows without limit.' },
+  };
+  const KIND_ORDER = Object.keys(STATE_KINDS);
+  const grows = (k) => k === 'keys' || k === 'rows';
+  // A stateful operator whose state can grow without limit: its state bar is dark, not blue.
+  const needsTtl = (n) => stateKinds(n).some(grows);
+  const isObj = (x) => x != null && typeof x === 'object';
+  function stateKindOf(n, part) {
+    const own = n.stateKind, dflt = Ops[n.op]?.stateKind;
+    return (isObj(own) && own[part]) || (isObj(dflt) && dflt[part])
+      || (typeof own === 'string' && own) || (typeof dflt === 'string' && dflt) || null;
+  }
+  // The kinds a node's state can be, in a fixed order. None for an operator that keeps no Flink state.
+  function stateKinds(n) {
+    const ks = new Set((Ops[n.op]?.stateParts || [undefined]).map((p) => stateKindOf(n, p)).filter(Boolean));
+    return KIND_ORDER.filter((k) => ks.has(k));
+  }
+  // Every kind of state a job graph keeps, for its row in the summary table.
+  function graphKinds(graph) {
+    const ks = new Set(graph.nodes.filter((n) => n.stateful || n.panel).flatMap(stateKinds));
+    return KIND_ORDER.filter((k) => ks.has(k));
+  }
+  // The glyphs are symbols in index.html, so the legend and the summary table can use them too.
+  const glyph = (k, x, y, cls) => U.svg('use', { href: `#st-g-${k}`, class: cls, x, y, width: 10, height: 10 });
+  // A tag as HTML, for the summary table.
+  const stateChip = (k) => U.el('span', { class: `st-chip st-${k}` },
+    U.svg('svg', { viewBox: '0 0 10 10', 'aria-hidden': 'true' }, U.svg('use', { href: `#st-g-${k}` })), STATE_KINDS[k].label);
+
+  const TAG_H = 16;
+  const TAG_GAP = 6;
+  const TAG_LINE = 22;
+  const GUTTER = 16;
+  let measure = null;
+  const tagTextW = (text) => {
+    try {
+      measure ||= document.createElement('canvas').getContext('2d');
+      measure.font = '500 10px "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
+      return measure.measureText(text).width;
+    } catch { return text.length * 5.6; }
+  };
+  const tagW = (k) => Math.ceil(20 + tagTextW(STATE_KINDS[k].label) + 8);
+
   const COL_HEAD = 17;
   const COL_GAP = 14;
   const CHAR = 11.5 * 0.6;
@@ -119,34 +170,40 @@ const Graph = (() => {
 
   // Sizes a state panel from every view it will show over the animation, so it never
   // has to grow while playing. Views are { title, cols: [header], rows: [{ key, cells }], footer }.
-  function panelSpec(views) {
+  // A panel whose state is of more than one kind marks each row with its kind, in a gutter.
+  function panelSpec(views, node) {
     const cols = views[0].cols;
     const rows = Math.max(1, ...views.map((v) => v.rows.length));
     const colW = cols.map((h, j) => CHAR * Math.max(h.length, ...views.flatMap((v) => v.rows.map((r) => String(r.cells[j]).length))));
+    const kinds = node ? stateKinds(node) : [];
+    const mixed = kinds.length > 1;
     return {
-      rows, colW,
-      colsW: 24 + colW.reduce((a, b) => a + b, 0) + COL_GAP * (cols.length - 1),
+      rows, colW, kinds, mixed,
+      tagsW: kinds.reduce((a, k, i) => a + tagW(k) + (i ? TAG_GAP : 0), 0),
+      colsW: 24 + (mixed ? GUTTER : 0) + colW.reduce((a, b) => a + b, 0) + COL_GAP * (cols.length - 1),
       titles: [...new Set(views.map((v) => v.title))],
       footers: [...new Set(views.map((v) => v.footer).filter(Boolean))],
     };
   }
 
-  // Fits a panel into maxW by wrapping its title and footer. The columns never wrap.
+  // Fits a panel into maxW by wrapping its title and footer. The columns never wrap. The state
+  // tags have a line of their own, under the title.
   function fitPanel(spec, maxW = Infinity) {
     const titleW = Math.max(...spec.titles.map((t) => t.length)) * TITLE_CHAR + 24;
     const footW = Math.max(0, ...spec.footers.map((f) => f.length)) * FOOT_CHAR + 24;
-    const width = Math.max(180, spec.colsW, Math.min(titleW, maxW), Math.min(footW, maxW));
-    const titleChars = Math.floor((width - 24) / TITLE_CHAR);
-    const footChars = Math.floor((width - 24) / FOOT_CHAR);
+    const width = Math.max(180, spec.colsW, spec.tagsW + 24, Math.min(titleW, maxW), Math.min(footW, maxW));
+    const tagLine = spec.tagsW ? 1 : 0;
+    const titleChars = Math.floor((width - 24) / TITLE_CHAR + 1e-6);
+    const footChars = Math.floor((width - 24) / FOOT_CHAR + 1e-6);
     return {
-      ...spec, width, titleChars, footChars,
+      ...spec, width, titleChars, footChars, tagLine,
       titleLines: Math.max(...spec.titles.map((t) => wrap(t, titleChars).length)),
       footLines: Math.max(0, ...spec.footers.map((f) => wrap(f, footChars).length)),
     };
   }
 
   function panelHeight(fit) {
-    return G.panelHead + (fit.titleLines - 1) * TITLE_LINE + COL_HEAD + fit.rows * G.rowH
+    return G.panelHead + (fit.titleLines - 1) * TITLE_LINE + fit.tagLine * TAG_LINE + COL_HEAD + fit.rows * G.rowH
       + (fit.footLines ? fit.footLines * G.rowH + 4 : 0) + 8;
   }
 
@@ -429,7 +486,7 @@ const Graph = (() => {
     const nodeEls = {};
     for (const n of graph.nodes) {
       const p = L.pos[n.id];
-      const cls = ['node', `node-${n.kind}`, n.stateful && 'stateful', n.planner && 'planner'].filter(Boolean).join(' ');
+      const cls = ['node', `node-${n.kind}`, n.stateful && 'stateful', n.stateful && needsTtl(n) && 'needs-ttl', n.planner && 'planner'].filter(Boolean).join(' ');
       // Horizontal: labels centred. Vertical: left-aligned, so the card reads like a list item.
       const [tx, anchor] = orient === 'h' ? [p.w / 2, 'middle'] : [16, 'start'];
       const titleY = orient === 'h' ? (n.lines?.length > 1 ? 22 : 28) : 22;
@@ -470,6 +527,35 @@ const Graph = (() => {
     }
     const pillWidth = (item) => (item.t === 'wm' ? U.monoWidth(`WM ${item.time}`, 10.5) + 16 : 24 + U.monoWidth(label(item), 11) + 14);
 
+    // A panel's outline. State that can grow without limit gets a torn lower edge, like a
+    // kitchen ticket that keeps printing.
+    function panelBox(p) {
+      const { w, h } = p;
+      if (!p.fit.kinds.some(grows)) return [U.svg('rect', { class: 'state-box', width: w, height: h, rx: 8 })];
+      const r = 8, tooth = 4, n = Math.max(2, Math.round(w / 9) & ~1), step = w / n;
+      const teeth = Array.from({ length: n }, (_, i) => `L${(w - (i + 1) * step).toFixed(1)},${i % 2 ? h - tooth : h}`).join(' ');
+      return [U.svg('path', {
+        class: 'state-box state-torn',
+        d: `M0,${h - tooth} V${r} A${r},${r} 0 0 1 ${r},0 H${w - r} A${r},${r} 0 0 1 ${w},${r} V${h - tooth} ${teeth} Z`,
+      })];
+    }
+
+    // The panel's state tags, on their own line under the title.
+    function stateTags(p) {
+      const { fit } = p;
+      let x = 12;
+      const y = 19 + (fit.titleLines - 1) * TITLE_LINE + 7;
+      return fit.kinds.map((k) => {
+        const w = tagW(k);
+        const tag = U.svg('g', { class: `st-tag st-${k}`, transform: `translate(${x},${y})`, 'data-tip': STATE_KINDS[k].tip },
+          U.svg('rect', { width: w, height: TAG_H, rx: TAG_H / 2 }),
+          glyph(k, 6, 3),
+          U.svg('text', { x: 20, y: 11.5, text: STATE_KINDS[k].label }));
+        x += w + TAG_GAP;
+        return tag;
+      });
+    }
+
     function render(snap, info = {}) {
       U.clear(stateLayer); U.clear(wmLayer); U.clear(pillLayer);
 
@@ -482,11 +568,11 @@ const Graph = (() => {
         if (!n.stateful && !n.panel) continue;
         const p = L.panels[n.id];
         const view = Ops[n.op].view(snap.ops[n.id], n.cfg || {});
-        const g = U.svg('g', { class: 'state-panel', transform: `translate(${p.x},${p.y})` },
-          U.svg('rect', { class: 'state-box', width: p.w, height: p.h, rx: 8 }),
-          ...wrap(view.title, p.fit.titleChars).map((t, i) => U.svg('text', { class: 'state-title', x: 12, y: 19 + i * TITLE_LINE, text: t })));
-        const head = G.panelHead + (p.fit.titleLines - 1) * TITLE_LINE;
-        const colX = p.fit.colW.reduce((xs, w) => [...xs, xs[xs.length - 1] + w + COL_GAP], [12]);
+        const g = U.svg('g', { class: 'state-panel', transform: `translate(${p.x},${p.y})` }, ...panelBox(p),
+          ...wrap(view.title, p.fit.titleChars).map((t, i) => U.svg('text', { class: 'state-title', x: 12, y: 19 + i * TITLE_LINE, text: t })),
+          ...stateTags(p));
+        const head = G.panelHead + (p.fit.titleLines - 1) * TITLE_LINE + p.fit.tagLine * TAG_LINE;
+        const colX = p.fit.colW.reduce((xs, w) => [...xs, xs[xs.length - 1] + w + COL_GAP], [p.fit.mixed ? 12 + GUTTER : 12]);
         view.cols.forEach((h, j) => g.append(U.svg('text', { class: 'state-col', x: colX[j], y: head + 9, text: h })));
         if (!view.rows.length) {
           g.append(U.svg('text', { class: 'state-empty', x: 12, y: head + COL_HEAD + 13, text: 'empty' }));
@@ -495,6 +581,10 @@ const Graph = (() => {
           const y = head + COL_HEAD + i * G.rowH;
           const hot = info.touched != null && String(info.touched) === String(r.key) && info.active === n.id;
           if (hot) g.append(U.svg('rect', { class: 'state-hot', x: 4, y: y - 1, width: p.w - 8, height: G.rowH, rx: 4 }));
+          if (p.fit.mixed) {
+            const k = stateKindOf(n, r.part);
+            if (k) g.append(glyph(k, 12, y + 3, `st-glyph st-${k}`));
+          }
           r.cells.forEach((c, j) => g.append(U.svg('text', { class: 'state-row', x: colX[j], y: y + 12, text: String(c) })));
         });
         if (view.footer) {
@@ -590,5 +680,5 @@ const Graph = (() => {
     return { svg, render, travel, fade, clearFly: () => U.clear(flyLayer), layout: L };
   }
 
-  return { create, panelSpec };
+  return { create, panelSpec, graphKinds, stateChip };
 })();

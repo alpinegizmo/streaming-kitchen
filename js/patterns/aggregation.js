@@ -58,7 +58,7 @@ GROUP BY store_id;`;
           },
           {
             id: 'agg', kind: 'op', op: 'groupAggregate', title: 'GroupAggregate', lines: ['GROUP BY store_id'],
-            stateful: true, sqlLines: [2, 3, 4, 6],
+            stateful: true, stateKind: 'small', sqlLines: [2, 3, 4, 6],
             cfg: {
               key: 'store_id', keyLabel: 'store', generateUpdateBefore,
               aggs: [{ name: 'orders', fn: 'count' }, { name: 'sales', fn: 'sum', field: 'total' }],
@@ -261,12 +261,12 @@ CREATE TABLE status_counts (
         },
         {
           id: 'cn', kind: 'op', op: 'changelogNormalize', title: 'ChangelogNormalize', lines: ['key: order_id'],
-          stateful: true, planner: true, sqlLines: [4],
+          stateful: true, stateKind: 'keys', planner: true, sqlLines: [4],
           cfg: { key: 'order_id', generateUpdateBefore: true, stateTitle: 'Last row per order_id', stateFields: ['order_id', 'status'] },
         },
         {
           id: 'agg', kind: 'op', op: 'groupAggregate', title: 'GroupAggregate', lines: ['GROUP BY status'],
-          stateful: true, sqlLines: [2, 3, 5],
+          stateful: true, stateKind: 'small', sqlLines: [2, 3, 5],
           cfg: { key: 'status', aggs: [{ name: 'orders', fn: 'count' }], generateUpdateBefore: false },
         },
         {

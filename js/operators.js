@@ -13,6 +13,14 @@
 //                                   (timers left out when the panel doesn't show them; values in
 //                                   the form F describes; ctx.retract: the input has retractions)
 //   say(ev, cfg)                 -> a default caption; patterns can override it
+//   stateKind                    -> optional: how the state is bounded (see Graph.STATE_KINDS):
+//                                   'wm' (freed by watermark), 'small' (a small set of keys),
+//                                   'keys' (grows with keys), 'rows' (grows with rows); or, for
+//                                   a panel with several parts, { part: kind }. A pattern's node
+//                                   sets its own stateKind for what depends on the data, such as
+//                                   whether its set of keys is small.
+//   stateParts                   -> optional: the parts of a mixed panel, in order; view() then
+//                                   gives each row its part, as row.part
 //
 // An item is either a changelog row { t: 'rec', kind: '+I' | '-U' | '+U' | '-D', row }
 // or a watermark { t: 'wm', time: 'HH:MM:SS' }.
@@ -314,6 +322,7 @@ const Ops = (() => {
   //     and emits it; the next step is scheduled until the window reaches its maximum size
   //   - a window whose COUNT(*) is zero when it fires isn't emitted (WindowIsEmptySupplier)
   const globalWindowAggregate = {
+    stateKind: 'wm',
     init: () => ({ pending: [], slices: {}, timers: {}, wm: null, next: null }),
     record(st, item, cfg) {
       const p = item.row;
@@ -478,6 +487,7 @@ const Ops = (() => {
   // record plus the gap. Mirrors UnsliceSyncStateWindowAggProcessor with a merging window set.
   //   cfg: { gap (seconds), key, keyLabel, timeField, sumField }
   const sessionWindowAggregate = {
+    stateKind: 'wm',
     init: () => ({ sessions: [], wm: null }),
     record(st, item, cfg) {
       const row = item.row;
@@ -557,6 +567,7 @@ const Ops = (() => {
   // Timer times are kept in seconds; a clean-up timer's extra millisecond is kept as +0.001.
   //   cfg: { key, keyLabel, timeField, preceding (seconds), sumField, idField, countName, sumName }
   const overAggregate = {
+    stateKind: 'wm',
     init: () => ({ keys: {}, wm: null }),
     record(st, item, cfg) {
       const row = item.row;
@@ -699,6 +710,7 @@ const Ops = (() => {
   //   - when the watermark reaches the timer, the waiting row is emitted, and the key is
   //     marked as emitted
   const rowTimeDedup = {
+    stateKind: { waiting: 'wm' }, stateParts: ['waiting', 'seen'],
     init: () => ({ keys: {}, wm: null }),
     record(st, item, cfg) {
       const row = item.row;
@@ -731,7 +743,7 @@ const Ops = (() => {
       return {
         title: `Per ${cfg.key}`,
         cols: [cfg.key, 'waiting', 'emitted'],
-        rows: Object.entries(st.keys).map(([k, s]) => ({ key: k, cells: [k, s.waiting ? s.waiting[cfg.timeField] : '–', s.emitted ? 'yes' : 'no'] })),
+        rows: Object.entries(st.keys).map(([k, s]) => ({ key: k, part: s.emitted ? 'seen' : 'waiting', cells: [k, s.waiting ? s.waiting[cfg.timeField] : '–', s.emitted ? 'yes' : 'no'] })),
         footer: `timers: ${Object.values(st.keys).filter((s) => s.waiting).map((s) => s.waiting[cfg.timeField]).sort().join(', ') || 'none'}`,
       };
     },
@@ -769,6 +781,7 @@ const Ops = (() => {
   // Rows with equal sort keys keep their arrival order. Watermarks pass through unused.
   //   cfg: { key, keyLabel, sortField, desc, idField, stateFields, stateFormat }
   const retractRank = {
+    stateKind: 'rows',
     init: () => ({ parts: {} }),
     record(st, item, cfg) {
       const row = item.row;
@@ -964,6 +977,7 @@ const Ops = (() => {
   //   cfg: { left, key, leftTime, rightTime, lower, upper (seconds), joinRow(l, r), padRow(l),
   //          leftName, rightName }
   const intervalJoin = {
+    stateKind: 'wm',
     init: () => ({ left: [], right: [], wms: { left: null, right: null }, W: null, outWm: null }),
     record(st, item, cfg, ctx) {
       const row = item.row;
@@ -1048,6 +1062,7 @@ const Ops = (() => {
   //   cfg: { left, key, joinRow(l, r), padLeft(l), padRight(r), leftName, rightName,
   //          leftValue(row), rightValue(row), leftTopic, rightTopic }
   const windowJoin = {
+    stateKind: 'wm',
     init: () => ({ left: {}, right: {}, timers: {}, wms: { left: null, right: null }, W: null }),
     record(st, item, cfg, ctx) {
       const row = item.row;
@@ -1148,6 +1163,7 @@ const Ops = (() => {
   //   cfg: { left, key, joinRow(l, r), leftName, rightName, leftCell(row), rightCell(row),
   //          leftUnique, rightUnique (default true) }
   const regularJoin = {
+    stateParts: ['left', 'right'],
     init: () => ({ left: {}, right: {}, wms: { left: null, right: null }, W: null }),
     record(st, item, cfg, ctx) {
       const side = ctx.from === cfg.left ? 'left' : 'right';
@@ -1184,7 +1200,7 @@ const Ops = (() => {
         title: cfg.stateTitle || `One row per ${cfg.key} on each side`,
         cols: ['side', cfg.keyLabel || cfg.key, 'row'],
         rows: ['left', 'right'].flatMap((side) => Object.entries(st[side]).flatMap(([k, rows]) => rows.map((r, i) => ({
-          key: `${side}${k}|${i}`, cells: [cfg[`${side}Name`], k, cfg[`${side}Cell`](r)],
+          key: `${side}${k}|${i}`, part: side, cells: [cfg[`${side}Name`], k, cfg[`${side}Cell`](r)],
         })))),
       };
     },
@@ -1238,6 +1254,7 @@ const Ops = (() => {
   // the latest one at or before W are removed. Inner join: no version, no output.
   //   cfg: { left, key, leftTime, rightTime, joinRow(l, version), leftId, valueField }
   const temporalJoin = {
+    stateKind: { waiting: 'wm', old: 'wm' }, stateParts: ['waiting', 'old', 'latest'],
     init: () => ({ left: [], versions: {}, timers: {}, wms: { left: null, right: null }, W: null, seq: 0 }),
     record(st, item, cfg, ctx) {
       const row = item.row;
@@ -1293,9 +1310,10 @@ const Ops = (() => {
     },
     view(st, cfg) {
       const rows = [
-        ...st.left.map((l) => ({ key: `L${l.row[cfg.leftId]}`, cells: [cfg.leftName, l.row[cfg.key], l.row[cfg.leftTime], `#${l.row[cfg.leftId]}`] })),
-        ...Object.entries(st.versions).flatMap(([k, vs]) => vs.map((v) => ({
-          key: `V${k}|${v.row[cfg.rightTime]}`, cells: [cfg.rightName, k, v.row[cfg.rightTime], U.money(v.row[cfg.valueField])],
+        ...st.left.map((l) => ({ key: `L${l.row[cfg.leftId]}`, part: 'waiting', cells: [cfg.leftName, l.row[cfg.key], l.row[cfg.leftTime], `#${l.row[cfg.leftId]}`] })),
+        // Every version but a key's newest is freed once the watermark passes the next one.
+        ...Object.entries(st.versions).flatMap(([k, vs]) => vs.map((v, i) => ({
+          key: `V${k}|${v.row[cfg.rightTime]}`, part: i === vs.length - 1 ? 'latest' : 'old', cells: [cfg.rightName, k, v.row[cfg.rightTime], U.money(v.row[cfg.valueField])],
         }))),
       ];
       return {
@@ -1380,6 +1398,7 @@ const Ops = (() => {
   //   cfg: { left, key, buildTime, loadCompletedTime, joinRow(probe, build), probeId, probeTime,
   //          valueField }
   const lateralSnapshotJoin = {
+    stateKind: { change: 'wm', probe: 'wm' }, stateParts: ['table', 'change', 'probe'],
     init: () => ({ phase: 'LOAD', table: {}, changes: [], bufferedAt: {}, probes: [], wmProbe: null, wmBuild: null, forwarded: null, seq: 0 }),
     record(st, item, cfg, ctx) {
       const row = item.row;
@@ -1442,12 +1461,12 @@ const Ops = (() => {
         title: `Build table, pending changes, buffered ${cfg.probeName}s`,
         cols: ['kind', cfg.key, 'value', 'time'],
         rows: [
-          ...Object.entries(st.table).flatMap(([k, rows]) => rows.map((r) => ({ key: `T${k}`, cells: ['current', k, U.money(r[cfg.valueField]), r[cfg.buildTime]] }))),
+          ...Object.entries(st.table).flatMap(([k, rows]) => rows.map((r) => ({ key: `T${k}`, part: 'table', cells: ['current', k, U.money(r[cfg.valueField]), r[cfg.buildTime]] }))),
           ...st.changes.map((c) => ({
-            key: `C${c.seq}`,
+            key: `C${c.seq}`, part: 'change',
             cells: [`${isDue(st, cfg, c) ? 'due' : 'pending'} ${c.kind.replace('-', '−')}`, c.row[cfg.key], U.money(c.row[cfg.valueField]), c.row[cfg.buildTime]],
           })),
-          ...st.probes.map((p) => ({ key: `P${p[cfg.probeId]}`, cells: [cfg.probeName, p[cfg.key], `#${p[cfg.probeId]}`, p[cfg.probeTime]] })),
+          ...st.probes.map((p) => ({ key: `P${p[cfg.probeId]}`, part: 'probe', cells: [cfg.probeName, p[cfg.key], `#${p[cfg.probeId]}`, p[cfg.probeTime]] })),
         ],
         footer: st.phase === 'LOAD' ? `phase: LOAD, until the costs watermark reaches ${cfg.loadCompletedTime}` : 'phase: JOIN',
       };
@@ -1487,6 +1506,7 @@ const Ops = (() => {
   // prunes every partial match that started at or before its last row (all of them).
   //   cfg: { key, timeField, valueField, next(prev, row) -> bool, measures(a, b, c) -> row }
   const match = {
+    stateKind: { buffered: 'wm' }, stateParts: ['buffered', 'partial'],
     init: () => ({ keys: {}, wm: null, seq: 0 }),
     record(st, item, cfg) {
       const row = item.row;
@@ -1539,8 +1559,8 @@ const Ops = (() => {
         title: `Per ${cfg.keyLabel || cfg.key}: buffered rows and partial matches`,
         cols: [cfg.keyLabel || cfg.key, 'kind', cfg.valueLabel || cfg.valueField, 'time'],
         rows: Object.entries(st.keys).flatMap(([k, s]) => [
-          ...s.buffer.map((b) => ({ key: k, cells: [k, 'buffered', v(b.row), b.row[cfg.timeField].slice(0, 5)] })),
-          ...s.partials.map((p) => ({ key: k, cells: [k, 'partial', [...p.map(v), '?', '?'].slice(0, 3).join('→'), p[0][cfg.timeField].slice(0, 5)] })),
+          ...s.buffer.map((b) => ({ key: k, part: 'buffered', cells: [k, 'buffered', v(b.row), b.row[cfg.timeField].slice(0, 5)] })),
+          ...s.partials.map((p) => ({ key: k, part: 'partial', cells: [k, 'partial', [...p.map(v), '?', '?'].slice(0, 3).join('→'), p[0][cfg.timeField].slice(0, 5)] })),
         ]),
         footer: st.wm ? `late: at or before ${st.wm}` : 'no watermark yet',
       };

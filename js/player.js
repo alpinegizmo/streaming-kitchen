@@ -62,7 +62,7 @@ const Player = (() => {
     // Size each state panel for its fullest moment.
     const specs = {};
     for (const n of variant.graph.nodes.filter((x) => x.stateful || x.panel)) {
-      specs[n.id] = Graph.panelSpec([trace.initial, ...steps.map((s) => s.snap)].map((s) => Ops[n.op].view(s.ops[n.id], n.cfg || {})));
+      specs[n.id] = Graph.panelSpec([trace.initial, ...steps.map((s) => s.snap)].map((s) => Ops[n.op].view(s.ops[n.id], n.cfg || {})), n);
     }
 
     // Operators that ever hold a watermark get a tag (and room for it in the vertical layout).
