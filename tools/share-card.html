@@ -16,14 +16,14 @@
   }
   html, body { margin: 0; width: 600px; height: 315px; overflow: hidden; background: var(--paper); }
   .card {
-    box-sizing: border-box; width: 600px; height: 315px; padding: 28px 34px 18px;
+    box-sizing: border-box; width: 600px; height: 315px; padding: 16px 34px 17px;
     display: grid; grid-template-columns: 1fr 196px; grid-template-rows: 1fr auto; column-gap: 26px;
   }
   .text { align-self: center; }
   h1 { margin: 0; color: var(--ink); font: 600 41px/1.04 Poppins, sans-serif; letter-spacing: -0.025em; }
-  .sub { margin: 14px 0 0; color: var(--ink); font: 500 15px/1.32 Poppins, sans-serif; }
-  .sub span { display: inline-block; text-wrap: balance; }
-  .lede { margin: 12px 0 0; color: var(--ink-2); font: 400 12.5px/1.5 'IBM Plex Sans', sans-serif; max-width: 34ch; }
+  .sub { margin: 10px 0 0; color: var(--ink); font: 500 14px/1.3 Poppins, sans-serif; }
+  .sub { text-wrap: balance; }
+  .lede { margin: 10px 0 0; color: var(--ink-2); font: 400 11.5px/1.45 'IBM Plex Sans', sans-serif; text-wrap: pretty; }
   svg { align-self: center; justify-self: end; width: 196px; height: auto; overflow: visible; }
   .url {
     grid-column: 1 / -1; margin-top: 14px; padding-top: 9px; border-top: 1px solid var(--rule);
@@ -57,12 +57,12 @@
   <div class="card">
     <div class="text">
       <h1>The streaming<br>kitchen</h1>
-      <p class="sub"><span>Apache&nbsp;Flink® SQL for pizza shops:</span> <span>the recipes, and the science behind&nbsp;them</span></p>
-      <p class="lede">Every operator, every row, every piece of state, and every timer, step by step.</p>
+      <p class="sub">A collection of Apache&nbsp;Flink® SQL recipes for pizza shops, and the science behind&nbsp;them</p>
+      <p class="lede">Each recipe answers a question about the business, and an animation shows how Flink SQL executes it, step by step: the events and watermarks flowing through the job graph, the state Flink is managing, and what the timers are doing.</p>
     </div>
     <!-- The hero's job graph, drawn top to bottom as the page draws it on phones: append-only in,
          a stateful operator with its state, upsert out, and a watermark. -->
-    <svg viewBox="0 0 196 250" aria-hidden="true">
+    <svg viewBox="0 0 196 244" aria-hidden="true">
       <defs><clipPath id="op"><rect x="1" y="98" width="104" height="48" rx="9"/></clipPath></defs>
       <path class="hg-edge append" d="M53 50V90"/>
       <path class="hg-arrow append" d="M47.5 89 53 98 58.5 89Z"/>
