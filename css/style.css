@@ -233,6 +233,8 @@ h1 .tm { font-size: 0.4em; vertical-align: super; line-height: 0; margin-left: 0
 .primer { padding: 48px 0 24px; border-bottom: 1px solid var(--rule); }
 .primer h2 { font-size: 1.5rem; margin-bottom: 12px; }
 .primer > p { max-width: var(--measure); color: var(--ink-2); }
+.primer-list { max-width: var(--measure); color: var(--ink-2); margin: 12px 0 0; padding-left: 1.25em; }
+.primer-list li + li { margin-top: 8px; }
 .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 20px 32px; margin: 24px 0 0; }
 /* The diagram legend: four cards, in a row on the page, and 2 x 2 when there's less room
    (always, in the Help popover). Never three and one. Row kinds and Watermarks share a card. */

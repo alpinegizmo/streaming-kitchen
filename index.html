@@ -79,6 +79,19 @@
     </nav>
 
     <main id="main">
+      <section class="primer" id="how" aria-labelledby="how-h">
+        <h2 id="how-h">How this works</h2>
+        <p>The animations presented here are driven by a small, deterministic Flink simulator, written in
+          JavaScript. The simulation is checked against Flink in two ways:</p>
+        <ul class="primer-list">
+          <li>Each recipe's SQL is replayed on a local Flink mini-cluster, and every sink's rows, with their
+            row kinds, are compared with the simulator's.</li>
+          <li>Each operator is run in Flink's test harness, and fed exactly what the simulator's operator
+            received. After every step, the verifier checks what the operator emitted, the keys in state,
+            every timer, and the stored values.</li>
+        </ul>
+      </section>
+
       <section class="primer" id="start" aria-labelledby="start-h">
         <h2 id="start-h">Before you start</h2>
         <p>Here's what these recipes assume you know about SQL, Apache Kafka®, and stream processing.</p>
@@ -137,6 +150,14 @@
         <p>If this is all new to you, start with <a href="#filter">filtering and projection</a>, then
           <a href="#dedup">deduplication</a>, the <a href="#windows-tumble">tumbling window</a>, and
           <a href="#aggregation">non-windowed aggregation</a>. The later recipes build on these.</p>
+
+        <p>If you already know your way around Flink SQL, here are some highlights to explore:</p>
+        <ul class="primer-list">
+          <li><a href="#filter-upsert">filtering an upsert topic requires state</a></li>
+          <li><a href="#windows-tumble">windows use 2-phase local/global aggregation, and the local phase doesn't use Flink state</a></li>
+          <li><a href="#windows-hop">hopping windows are optimized with slices</a></li>
+          <li><a href="#enrichment-temporal">temporal</a> vs. <a href="#enrichment-lateral">lateral snapshot</a> joins</li>
+        </ul>
       </section>
 
       <section class="primer" id="reading" aria-labelledby="reading-h">
